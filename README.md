@@ -1,12 +1,13 @@
 <p align="center">
-  <a href="https://morpheus-tech-llc.github.io/morpheus-tech-web/" target="_blank" rel="noopener noreferrer">
+  <a href="https://lab.morpheustech.net/" target="_blank" rel="noopener noreferrer">
     <img src="src/assets/images/game-of-life-screenshot-readme.png" alt="Logo" width="200" height="200">
   </a>
 </p>
 
+<h1 align="center">Morpheus Tech Lab</h1>
+
 <p align="center">
-  <img src="src/assets/images/matmagic.png" alt="MatMagic" width="150px"/><br/>
-  <img src="src/assets/images/matrixmagic.png" alt="Matrix Magic" width="120px"/>
+  <img src="src/assets/images/morpheus-tech.png" alt="Morpheus Tech" width="120px"/>
 </p>
 
 <div align="center">
@@ -15,8 +16,9 @@
 |----------------------|--------------------------|
 | **Creator:** | <a href="https://github.com/wmauz677" target="_blank" rel="noopener noreferrer">Weston Mauz</a> |
 | **Company:** | Morpheus Tech LLC |
-| **Release:** | v1.1 - December 16th, 2025 |
-| **App** | <a href="https://morpheus-tech-llc.github.io/morpheus-tech-web/" target="_blank" rel="noopener noreferrer">Game of Life 3D</a> |
+| **Release:** | v1.4.0 - November 8th, 2026 |
+| **Lab** | <a href="https://lab.morpheustech.net/" target="_blank" rel="noopener noreferrer">lab.morpheustech.net</a> |
+| **Company** | <a href="https://morpheustech.net/" target="_blank" rel="noopener noreferrer">morpheustech.net</a> |
 
 </div>
 
@@ -33,7 +35,14 @@
 
 ## 1. Mission Statement
 
-The goal of this project is to explore modern computer graphics by re-imagining <a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life" target="_blank" rel="noopener noreferrer">Conway's Game of Life</a> in 3-Dimensions.
+This is **Morpheus Tech Lab**: interactive demos of what Morpheus Tech builds, free to use in
+your browser at <a href="https://lab.morpheustech.net/" target="_blank" rel="noopener noreferrer">lab.morpheustech.net</a>.
+It began by re-imagining <a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life" target="_blank" rel="noopener noreferrer">Conway's Game of Life</a>
+in three dimensions, and it now holds several 3D cellular automata you can seed, play, rewind,
+slice and orbit. Everything runs on your own computer; nothing is sent anywhere.
+
+The lab is open source under the MIT License. Morpheus Tech's products, such as matmagic, are
+built on this beginning and go further. They are developed separately.
 
 ## 2. Rules
 
@@ -79,35 +88,50 @@ The 3D model was determined to be best represented mathematically by a three dim
 
 ## 4. Status
 
-### Current State
-The project is currently set to build a 50x50x50 matrix & calculating 100 generations of the game of life 3D. The starting seed is a "living" cube in the center of this matrix with side length 10, where 100% of the cells in that space are alive.
+### Simulation modes
 
-### Intended Final State
-The original goal was to have a 100x100x100 simulation (1 million cells), which proved to be a challenge, as the hardware used to create this project hits >100% CPU utilization when generating > 100 generations at that scale.
+| Mode | What you see |
+|---|---|
+| **Game of Life 3D** | Conway's rules extended to a cube, where each cell has 26 neighbours (rules above). Edge, face and corner cells get their own rules when the grid doesn't wrap |
+| **Rule 30** | Wolfram's elementary automaton, in 1D or 2D |
+| **Sine Wave** | A continuous wave field, a smooth visual reference |
+| **Abelian Sandpile** | One grain of sand dropped at the centre each generation; piles topple and spread into fractal patterns |
+
+Seeds: cube, tetrahedron, octahedron, Perlin noise and Worley noise. The default is a 50×50×50
+grid over 100 generations. The whole run is computed before it plays, so you can scrub and play
+it backwards instantly.
+
+### Limits
+Everything runs on your CPU. A 100×100×100 grid (one million cells) over more than 100
+generations is more than a typical laptop handles comfortably.
 
 ## 5. Next Steps
-Collecting user feedback is the next phase of the project, so please reach out or tag me in your content.
+More demos are coming to the lab. Feedback is welcome, so please reach out or tag us in your content.
 
-### Nice-to-have feature
+### Ideas
 
 | # | Feature | Description |
 |---|----------|-------------|
-| -1 | **Starting Soups** | User can select a random soup / blob |
-| 0 | **Wireframe Display** | User can switch to a wireframe display for improved viewing experience |
-| 1 | **Upload Starting Seed** | User can upload a starting seed -- likely some csv of a matrix, voxel, or some 3D file type converted into a usable format |
-| 2 | **Clock Visualization** | Implement a graphical clock tied directly to the simulation. |
+| 1 | **Upload Starting Seed** | Start from your own seed: a CSV matrix, voxels, or a converted 3D file |
+| 2 | **More automata** | New rule families, each a demo of its own |
 
 ## 6. Run Locally
 
+Requires Node.js 20.19 or newer (for Vite 7).
+
 1. Clone the repository
-2. ```npm install```
-3. ```npm run build```
-4. ```npm run dev```
+2. `npm install`
+3. `npm run dev`, then open http://localhost:5180
+
+`npm run build` writes the production site to `dist/`, and `npm run preview` serves it. There are
+no automated tests yet. Releases are published to GitHub Pages with `npm run deploy` by the
+maintainer; see `CHANGELOG.md` for what each version changed.
 
 
 ## 7. License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+The code is distributed under the MIT License; see `LICENSE`. The Morpheus Tech name, logo and
+brand files are not covered by it; see `NOTICE`.
 
 ## 8. Attributions
 
