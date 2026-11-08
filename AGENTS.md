@@ -1,14 +1,22 @@
 # morpheus-tech-lab — coding contract
 
+For people and agents changing code. The contributor workflow (setup, branches, DCO sign-off,
+changelog) is in [CONTRIBUTING.md](CONTRIBUTING.md); branches, versions and releases are in
+[RELEASING.md](RELEASING.md).
+
 ## Module layout
 
 ```
+.github/workflows/ci.yml The `build` (npm ci, npm run build) and `DCO` (sign-off) checks, required on main
 index.html               All markup: HUD, control bar, configuration modal, info panels
 public/CNAME             lab.morpheustech.net, copied into every build. Never delete
 public/favicon.svg       Brand pin (see brand.lock). Never hand-edit
 brand.lock               The brand tag the pin came from, and a sha256 per pinned file
-NOTICE                   What MIT does not cover: the Morpheus Tech name, logo and brand files
-scripts/brand.mjs        `sync` re-pins the brand from ../morpheus at a tag; `check` verifies the lock
+LICENSE                  Apache License 2.0 (MIT through v1.4.0)
+NOTICE                   Copyright notice, and what the license does not cover: the Morpheus Tech name, logo and brand files
+CONTRIBUTING.md          How to contribute: setup, branches, DCO sign-off, changelog
+RELEASING.md             Branches, versions, changelog format and the release steps
+scripts/brand.mjs        `sync --org <brand repo>` re-pins the brand at a tag (maintainers); `check` verifies the lock
 vite.config.js           base '/', because the site is served from the domain root
 src/
   main.js                Boot: initSimulation(), then animate()
@@ -49,27 +57,31 @@ src/
   Isolation and overcrowding are always derived from survival, never set by hand.
 - `state.reset()` keeps the scene, renderer and camera, so a rebuild reuses one WebGL context.
 - `public/CNAME` and `base: '/'` go together. Without both, the deployed site breaks.
-- Pinned brand files match `brand.lock`; `npm run build` refuses to build otherwise. To change
-  one, change the brand in `~/morpheus/design/brand/`, release a `brand/v*` tag, and re-sync.
+- Pinned brand files match `brand.lock`; `npm run build` refuses to build otherwise. Only
+  maintainers change one: they change the brand at its source, release a `brand/v*` tag, and
+  re-sync with `npm run brand:sync`. Never edit a pinned file here.
 
 ## Risky operations
 
-- **`npm run deploy` publishes to the world immediately.** Only the developer runs it, from `main`.
+- **`npm run deploy` publishes to the world immediately.** Only a maintainer runs it, from `main`,
+  as a step of [RELEASING.md](RELEASING.md). Agents never deploy.
 - **Memory is `size³ × generations` bytes**, all held at once. Raising the size or generation
   limits can freeze or crash a visitor's tab; test at the new maximums before raising them.
 - `controls.js` re-inits on almost every input. A change there easily triggers double rebuilds.
 
 ## What NOT to do
 
-- **Never bring in code from matmagic or Observatory**, or describe how they work: no WebGPU, WGSL,
-  NCA, graph, force or planetarium layout. This is public, MIT-licensed code; anything committed
-  is given away and disclosed. Write new demos from scratch, for the CPU.
-- No secrets, tokens, internal hostnames or private paths. The repo and the site are public.
+- **Contributions must be original work; no code or internals from other projects or
+  products**, including Morpheus Tech's other, proprietary products: don't copy, port or describe
+  them. This is public, Apache-2.0-licensed code; anything committed is given away and disclosed.
+  Write new demos from scratch, for the CPU. Libraries come in as npm dependencies, not copies.
+- No secrets, tokens, internal hostnames, or paths outside this repo. The repo and the site are
+  public.
 - Don't commit `dist/` (ignored); `gh-pages` holds the build.
-- Don't pin the brand's documents (`DESIGN_SYSTEM.md`, `design_tokens.json`, `DOCTRINE.md`) or
-  the full-size logo here: they stay private in the org repo. Read them there.
-- Don't copy scripts from the company sites either. They are proprietary too; `scripts/brand.mjs`
-  was written fresh for this repo.
+- Don't add brand files beyond the two pinned in `brand.lock`: the brand's design documents and
+  the full-size logo stay private.
+- Don't copy scripts from the company's other sites either. They are proprietary too;
+  `scripts/brand.mjs` was written fresh for this repo.
 - Don't add a framework or a backend for a demo. The lab stays a static site.
 
 ## Known debt
@@ -83,4 +95,6 @@ still computes a clock history that nothing displays. `index.html` carries many 
   `ARCHITECTURE.md` (Domain model).
 - New module or data flow: update the module layout here and `ARCHITECTURE.md`.
 - New rule or risk: add it here.
-- User-visible change: add a line under Unreleased in `CHANGELOG.md`.
+- User-visible change: add a line under `## [Unreleased]` in `CHANGELOG.md`.
+- Release prep, when asked: draft the prep changes in [RELEASING.md](RELEASING.md) (step 2) as
+  file edits only. Maintainers commit, merge, tag and deploy.
