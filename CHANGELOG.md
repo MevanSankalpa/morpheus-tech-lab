@@ -7,6 +7,12 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
 
 ## [Unreleased]
 
+## [1.5.1] — 2026-11-08
+
+### Fixed
+- The top-right logo opens the company panel again, as in v1.4.0, and the panel's link now
+  goes to https://morpheustech.net instead of GitHub. v1.5.0 had made the logo itself a link.
+
 ## [1.5.0] — 2026-11-08
 
 ### Changed

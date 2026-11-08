@@ -440,12 +440,12 @@ export function initControls() {
   const companyModal = document.getElementById('company-modal');
   const companyModalClose = document.getElementById('company-modal-close');
   
-  // Handle the in-panel company logo buttons. The top-right logo
-  // (company-logo-button-top) is a plain link to morpheustech.net, not a modal trigger.
+  // Handle all company logo buttons: each opens the company modal, which links to morpheustech.net
   const companyLogoButtons = [
     document.getElementById('company-logo-button'),
     document.getElementById('company-logo-button-size'),
-    document.getElementById('company-logo-button-sand')
+    document.getElementById('company-logo-button-sand'),
+    document.getElementById('company-logo-button-top')
   ];
   
   // Functions to hide/show UI when company modal opens/closes
