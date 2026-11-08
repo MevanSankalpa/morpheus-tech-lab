@@ -23,8 +23,8 @@ simulation runs in the visitor's browser tab, and closing it discards everything
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-The company site, https://morpheustech.net, links here, and the lab's top-right logo links
-back to it. Nothing here calls any Morpheus service.
+The company site, https://morpheustech.net, links here, and the lab's company panel (opened
+from any Morpheus Tech logo) links back to it. Nothing here calls any Morpheus service.
 
 ## Domain model
 
