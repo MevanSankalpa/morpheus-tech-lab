@@ -6,7 +6,7 @@ A static single-page site. There is no server logic, no database and no storage:
 simulation runs in the visitor's browser tab, and closing it discards everything.
 
 ```
- developer: npm run deploy ──► vite build ──► dist/ ──► gh-pages branch
+ maintainer: npm run deploy ─► vite build ──► dist/ ──► gh-pages branch
                                                           │  GitHub Pages
                                                           ▼
                                    lab.morpheustech.net  (public/CNAME; DNS CNAME
@@ -23,8 +23,8 @@ simulation runs in the visitor's browser tab, and closing it discards everything
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-The company site (`~/morpheus-tech-llc`, morpheustech.net) links here. Nothing here calls any
-Morpheus service.
+The company site, https://morpheustech.net, links here, and the lab's top-right logo links
+back to it. Nothing here calls any Morpheus service.
 
 ## Domain model
 
@@ -63,25 +63,31 @@ only the camera or the visible set.
 
 **Precompute the whole history.** It costs memory (`size³ × generations`, all at once) and a
 wait up front. In return, scrubbing and reverse playback are instant and the render loop never
-waits on compute. matmagic inherited this choice.
+waits on compute.
 
-**CPU only, on purpose.** The lab shows what is possible. The GPU engine is matmagic's and stays
-proprietary. A 50³ grid over 100 generations is the default because it is comfortable on a
+**CPU only, on purpose.** The lab shows what is possible in plain JavaScript, readable by anyone,
+and every demo is written fresh for it. A 50³ grid over 100 generations is the default because it is comfortable on a
 laptop; 100³ proved too slow on the CPU.
 
 **Vanilla JS and one state object.** Kept small enough to read in one sitting, as befits public
-demo code. matmagic later split state into hot and cold tiers when it grew. The lab hasn't needed
-that.
+demo code. The lab hasn't needed more structure yet.
 
 **Static hosting on GitHub Pages under a company subdomain.** Free, with no server to run;
 `lab.morpheustech.net` keeps the lab under the company's domain while it stays a separate repo
 from the company site.
 
 **The brand is pinned, not linked, and only in part.** The lab takes `tokens.css` and the favicon
-from a released `brand/v*` tag, with a hash lock, as the company site does. The brand's documents
-and full-size logo stay in the private org repo, since anything here is public. `NOTICE` keeps the
-brand out of the MIT grant. The restyle that would use the tokens is not done yet.
+from a released `brand/v*` tag, with a hash lock; only maintainers can re-sync it. The brand's
+documents and full-size logo stay private, since anything here is public. `NOTICE` keeps the
+brand out of the license grant. The restyle that would use the tokens is not done yet.
 
-**Open source (MIT), as the org's one exception.** The code was public from the start. It stays
-public as the open face of the company's work, and the one-way rule (see `CLAUDE.md`) keeps
-product code out.
+**Open source under Apache-2.0, built with the community.** The code was public from the start,
+under MIT through v1.4.0; from v1.5.0 it is licensed under Apache-2.0, with a `NOTICE` file.
+Outside contributions come in under the same license, each commit signed off under the
+Developer Certificate of Origin ([CONTRIBUTING.md](CONTRIBUTING.md)). Contributions must be
+original work, with no code or internals from other projects or products, which keeps the
+company's proprietary products out (see `AGENTS.md`).
+
+**Pull requests into `development`, releases from `main`.** `main` is protected and changes only
+by a release pull request from `development`; the annotated tag is the version. The rules are in
+[RELEASING.md](RELEASING.md).

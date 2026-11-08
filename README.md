@@ -16,7 +16,7 @@
 |----------------------|--------------------------|
 | **Creator:** | <a href="https://github.com/wmauz677" target="_blank" rel="noopener noreferrer">Weston Mauz</a> |
 | **Company:** | Morpheus Tech LLC |
-| **Release:** | v1.4.0 - November 8th, 2026 |
+| **Release:** | v1.5.0 - November 8th, 2026 |
 | **Lab** | <a href="https://lab.morpheustech.net/" target="_blank" rel="noopener noreferrer">lab.morpheustech.net</a> |
 | **Company** | <a href="https://morpheustech.net/" target="_blank" rel="noopener noreferrer">morpheustech.net</a> |
 
@@ -35,14 +35,16 @@
 
 ## 1. Mission Statement
 
-This is **Morpheus Tech Lab**: interactive demos of what Morpheus Tech builds, free to use in
-your browser at <a href="https://lab.morpheustech.net/" target="_blank" rel="noopener noreferrer">lab.morpheustech.net</a>.
+**Morpheus Tech Lab** is an open-source cellular-automata, math-engine and simulator project,
+built with the community. Its live demos are free to use in your browser at
+<a href="https://lab.morpheustech.net/" target="_blank" rel="noopener noreferrer">lab.morpheustech.net</a>.
 It began by re-imagining <a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life" target="_blank" rel="noopener noreferrer">Conway's Game of Life</a>
 in three dimensions, and it now holds several 3D cellular automata you can seed, play, rewind,
 slice and orbit. Everything runs on your own computer; nothing is sent anywhere.
 
-The lab is open source under the MIT License. Morpheus Tech's products, such as matmagic, are
-built on this beginning and go further. They are developed separately.
+The lab is open source under the Apache License 2.0 and maintained by Morpheus Tech LLC.
+Contributions are welcome: new automata, simulators, fixes and docs. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 2. Rules
 
@@ -106,7 +108,9 @@ Everything runs on your CPU. A 100×100×100 grid (one million cells) over more 
 generations is more than a typical laptop handles comfortably.
 
 ## 5. Next Steps
-More demos are coming to the lab. Feedback is welcome, so please reach out or tag us in your content.
+More demos are coming to the lab. Feedback is welcome, so please reach out or tag us in your
+content. The roadmap lives in this repo's issues; to build one of these, see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Ideas
 
@@ -124,14 +128,15 @@ Requires Node.js 20.19 or newer (for Vite 7).
 3. `npm run dev`, then open http://localhost:5180
 
 `npm run build` writes the production site to `dist/`, and `npm run preview` serves it. There are
-no automated tests yet. Releases are published to GitHub Pages with `npm run deploy` by the
-maintainer; see `CHANGELOG.md` for what each version changed.
+no automated tests yet. Releases are published to GitHub Pages by the maintainers, following
+[RELEASING.md](RELEASING.md); see [CHANGELOG.md](CHANGELOG.md) for what each version changed.
 
 
 ## 7. License
 
-The code is distributed under the MIT License; see `LICENSE`. The Morpheus Tech name, logo and
-brand files are not covered by it; see `NOTICE`.
+The code is licensed under the [Apache License 2.0](LICENSE) from v1.5.0; releases v1.0.0 to
+v1.4.0 remain under the MIT License. The Morpheus Tech name, logo and brand files are not
+covered by it; see [NOTICE](NOTICE).
 
 ## 8. Attributions
 

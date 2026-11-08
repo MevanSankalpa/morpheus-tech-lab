@@ -1,9 +1,33 @@
 # Changelog
 
 All notable changes to Morpheus Tech Lab (`morpheus-tech-lab`, named `morpheus-tech-web` until
-2026-11-08). Versions are the annotated git tags.
+2026-11-08). The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
+versions follow [Semantic Versioning](https://semver.org/); they are the annotated git tags. See
+[RELEASING.md](RELEASING.md).
 
-## Unreleased
+## [Unreleased]
+
+## [1.5.0] — 2026-11-08
+
+### Changed
+- Relicensed from MIT to the **Apache License 2.0**, with an Apache-style `NOTICE`. Releases
+  v1.0.0 to v1.4.0 remain under the MIT License. The Morpheus Tech name, logo and brand files
+  stay outside the license.
+- The top-right logo now links to https://morpheustech.net instead of opening the GitHub panel.
+- The agent and architecture docs (`CLAUDE.md`, `AGENTS.md`, `ARCHITECTURE.md`) are
+  self-contained: they name no paths outside this repo, and plans and the roadmap live in this
+  repo and its issues.
+- `npm run brand:sync` now needs `--org <brand repo>`; it no longer assumes where the brand
+  repo is cloned.
+- The README describes the lab as an open-source cellular-automata, math-engine and simulator
+  project, built with the community.
+
+### Added
+- `RELEASING.md`: branches, versions, changelog format and the release steps.
+- `CONTRIBUTING.md`: setup, branching, the changelog, and sign-off.
+- The Developer Certificate of Origin: every commit must be signed off (`git commit -s`).
+- CI on every pull request: a `build` check (`npm ci`, `npm run build`, including the brand
+  check) and a `DCO` check that every commit is signed off by its author.
 
 ## [1.4.0] — 2026-11-08
 
