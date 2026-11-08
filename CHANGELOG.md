@@ -5,12 +5,15 @@ All notable changes to Morpheus Tech Lab (`morpheus-tech-lab`, named `morpheus-t
 
 ## Unreleased
 
+## [1.4.0] — 2026-11-08
+
 ### Changed
-- The site moves to **lab.morpheustech.net**. It is built for the domain root, and the
-  `github.io` address redirects there.
+- The site moves to **lab.morpheustech.net**, built for the domain root. The repo's `github.io`
+  project address redirects there; the pre-rename `…/morpheus-tech-web/` address no longer
+  resolves.
 - Renamed Morpheus Tech Lab, replacing "MatMagic" in the site and the README. The repo is now
   `morpheus-tech-lab`.
-- `package.json` carries the release version (1.3.0) instead of 0.0.0.
+- `package.json` carries the release version instead of 0.0.0.
 - `dist/` is no longer tracked; the `gh-pages` branch holds the build.
 
 ### Added
