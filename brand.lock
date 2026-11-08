@@ -1,0 +1,8 @@
+{
+  "tag": "brand/v3.2.0",
+  "commit": "4191a18edac30802fe83455375f364652fb552a2",
+  "files": {
+    "public/favicon.svg": "d8ae28e11d7560cd2834ebb4b048f19d1dffc98fb86dfc223c5a6bb3c97a72ed",
+    "src/brand/tokens.css": "bd2e3b90ff3cbb63835def68f62c8bfa879fe27a96eda938cbfe9fd874bfd84c"
+  }
+}

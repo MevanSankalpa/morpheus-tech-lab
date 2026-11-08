@@ -1,0 +1,283 @@
+/* =============================================================================
+   MORPHEUS TECH — DESIGN TOKENS
+   Mirrors design_tokens.json v3.2.0. See DESIGN_SYSTEM.md for intent and rules.
+
+   THIS IS THE ONLY FILE THAT MAY CONTAIN COLOR LITERALS.
+   Every component references custom properties. A palette change is a one-file
+   edit here — never a hunt through components. (DESIGN_SYSTEM.md §2.5, §13)
+
+   Contrast ratios in comments are measured against the intended background.
+   ============================================================================= */
+
+:root {
+  /* ---------- Typography families (DS §4) ---------- */
+  --font-display: 'Poiret One', 'Cinzel', serif;
+  --font-heading: 'Cinzel', Georgia, 'Times New Roman', serif;
+  --font-body: 'Jost Variable', 'Jost', 'Futura', system-ui, -apple-system, sans-serif;
+  --font-reading: 'Spectral', Georgia, 'Times New Roman', serif; /* long-form prose only */
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---------- Type scale ---------- */
+  --text-display-1: clamp(3.5rem, 9vw, 7.5rem);   /* Poiret One — hero logotype ONLY, never < 48px */
+  --text-display-2: clamp(2.5rem, 6vw, 4.5rem);   /* Cinzel — section openers */
+  --text-display-3: clamp(1.75rem, 4vw, 2.75rem); /* Cinzel — band headings */
+  --text-xl: 1.5rem;
+  --text-lg: 1.25rem;
+  --text-md: 1.125rem;
+  --text-base: 1rem;
+  --text-sm: 0.875rem;
+  --text-xs: 0.75rem;
+
+  /* ---------- Tracking (DS §4) ---------- */
+  --tracking-deco: 0.18em;
+  --tracking-caps: 0.1em;
+  --tracking-body: 0;
+
+  /* ---------- Line height ---------- */
+  --leading-display: 1.05;
+  --leading-ui: 1.5;
+  --leading-body: 1.65;
+
+  /* ---------- Weights ---------- */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-display: 700;
+
+  /* ---------- Measure ---------- */
+  --measure: 68ch;
+  --measure-prose: 62ch; /* in the reading face */
+
+  /* ---------- Spacing (base 4px) ---------- */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 72px;
+  --space-4xl: 120px;
+
+  /* ---------- Ornament constants (DS §6) ---------- */
+  --ornament-stroke: 1px;
+  --ornament-stroke-bold: 2px;
+  --fluting-opacity: 0.06;
+  --radius: 0; /* Deco is angular. Chamfer, never curve. */
+
+  /* ---------- Motion (DS §8) ---------- */
+  --ease-mechanical: cubic-bezier(0.2, 0, 0.1, 1);
+  --duration-micro: 120ms;
+  --duration-element: 240ms;
+  --duration-section: 480ms;
+
+  /* ---------- Layout ---------- */
+  --page-max: 1280px;
+  --frame-inset: clamp(12px, 2.5vw, 32px);
+}
+
+/* =============================================================================
+   LACQUER — the dark expression (default)
+   Black-lacquer panel, gilt inlay, verdigris.
+   ============================================================================= */
+
+:root,
+:root[data-theme='lacquer'] {
+  color-scheme: dark;
+
+  /* Ground */
+  --color-ground-900: #050b14;
+  --color-ground-800: #0a1626;
+  --color-panel-700: #0e2334;
+  --color-panel-600: #143047;
+
+  /* Inlay — SURFACE ONLY. inlay-500 is 2.53:1 on ground-900; never text. */
+  --color-inlay-600: #14404c;
+  --color-inlay-500: #1b5a63;
+
+  /* Verdigris — the text-safe teal. 6.90:1 on ground-900, 5.61:1 on panel-700 */
+  --color-verdigris-400: #46a89c;
+
+  /* Gilt ramp */
+  --color-gilt-700: #7a5e1c; /* bevel shadow, non-text */
+  --color-gilt-600: #a6842b; /* bevel mid, non-text */
+  --color-gilt-500: #c9a227; /* 8.16:1 on ground-900 · 6.63:1 on panel-700 */
+  --color-gilt-400: #dfbe5e; /* 8.91:1 on panel-700 */
+  --color-gilt-300: #efd693; /* 13.82:1 on ground-900 · 11.24:1 on panel-700 — focus ring */
+  --color-gilt-200: #f7e9c0;
+
+  /* Text */
+  --color-text-primary: #f4ebd9;   /* 16.66:1 */
+  --color-text-secondary: #d9cdb4; /* 12.53:1 */
+  --color-text-muted: #93a3ae;     /* 7.60:1 on ground-900 · 6.18:1 on panel-700 */
+
+  /* Borders */
+  --color-border-subtle: rgba(201, 162, 39, 0.22);
+  --color-border-strong: rgba(201, 162, 39, 0.55);
+
+  /* Semantic — content only, never chrome or ornament (DS §2.3) */
+  --color-success: #45b48a; /* 7.66:1 */
+  --color-warning: #c2621a; /* 4.75:1 — deliberately orange-red, away from gilt */
+  --color-error: #d9614f;   /* 5.42:1 */
+  --color-info: #4c8fcb;    /* 5.73:1 */
+  --color-neutral: #93a3ae; /* 7.60:1 */
+
+  /* Gradients */
+  --gradient-ground: linear-gradient(180deg, #050b14 0%, #0a1626 100%);
+  --gradient-inlay: linear-gradient(180deg, #14404c 0%, #0e2334 100%);
+  --gradient-gilt: linear-gradient(135deg, #efd693, #c9a227 45%, #7a5e1c);
+
+  /* Shadows — support only. Depth is inlay + edge, not blur. (DS §7.1) */
+  --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
+
+  /* Semantic surface aliases — components use these, not raw ramps */
+  --surface-page: var(--color-ground-900);
+  --surface-band: var(--color-ground-800);
+  --surface-panel: var(--color-panel-700);
+  --surface-raised: var(--color-panel-600);
+  --surface-sunk: var(--color-ground-800);
+  --color-accent: var(--color-gilt-500);
+  --color-accent-bright: var(--color-gilt-300);
+  --color-accent-text: var(--color-gilt-400);
+  --color-teal-text: var(--color-verdigris-400);
+  --color-on-accent: var(--color-ground-900);
+  --color-rule: var(--color-border-subtle);
+  --color-rule-strong: var(--color-border-strong);
+  --color-focus: var(--color-gilt-300);
+}
+
+/* =============================================================================
+   PARCHMENT — the light expression
+   1930s letterpress poster stock, navy ink, gold rules.
+
+   CRITICAL: gilt-500 is 2.04:1 on this ground. It is ORNAMENT ONLY.
+   All gold text and all structural rules use --color-gilt-ink.
+   ============================================================================= */
+
+:root[data-theme='parchment'] {
+  color-scheme: light;
+
+  --color-ground: #f4ebd8;
+  --color-surface: #fbf5ea;
+  --color-surface-sunk: #ebe0c9;
+
+  --color-text-primary: #0c1b28;   /* 14.73:1 */
+  --color-text-secondary: #23384a; /* 10.21:1 */
+  --color-text-muted: #55636d;     /* 5.22:1 */
+
+  --color-gilt-ink: #7a5d14; /* 5.21:1 — ALL gold text and structural rules */
+  --color-gilt-500: #c9a227; /* 2.04:1 — ORNAMENT ONLY (fans, fluting, sheen) */
+  --color-gilt-400: #a6842b;
+  --color-gilt-300: #7a5d14;
+  --color-gilt-600: #5c4610;
+  --color-gilt-700: #5c4610;
+
+  --color-teal-ink: #14545c; /* 7.23:1 */
+
+  /* Inlay — surface only, as on Lacquer. On ivory the fan wedges must be a pale
+     sage tint; inheriting the dark expression's deep teal here would print as a
+     dirty smudge. Decorative, so no contrast threshold applies. */
+  --color-inlay-600: #dfe7e3;
+  --color-inlay-500: #c7d7d1;
+
+  --color-border-subtle: rgba(122, 93, 20, 0.28);
+  --color-border-strong: rgba(122, 93, 20, 0.6);
+
+  --color-success: #1f6b50; /* 5.41:1 */
+  --color-warning: #94490f; /* 5.51:1 */
+  --color-error: #8e2a20;   /* 7.08:1 */
+  --color-info: #1f5486;    /* 6.64:1 */
+  --color-neutral: #55636d; /* 5.22:1 */
+
+  --gradient-ground: linear-gradient(180deg, #fbf5ea 0%, #f4ebd8 100%);
+  --gradient-inlay: linear-gradient(180deg, #ebe0c9 0%, #f4ebd8 100%);
+  --gradient-gilt: linear-gradient(135deg, #c9a227, #7a5d14 55%, #5c4610);
+
+  --shadow-sm: 0 1px 0 rgba(12, 27, 40, 0.12);
+  --shadow-md: 0 8px 24px rgba(12, 27, 40, 0.1);
+  --shadow-lg: 0 16px 48px rgba(12, 27, 40, 0.14);
+
+  /* Semantic surface aliases — same names, so components never branch on theme */
+  --surface-page: var(--color-ground);
+  --surface-band: var(--color-surface-sunk);
+  --surface-panel: var(--color-surface);
+  --surface-raised: #ffffff;
+  --surface-sunk: var(--color-surface-sunk);
+  --color-accent: var(--color-gilt-ink);
+  --color-accent-bright: var(--color-gilt-ink);
+  --color-accent-text: var(--color-gilt-ink);
+  --color-teal-text: var(--color-teal-ink);
+  --color-on-accent: #fbf5ea;
+  --color-rule: var(--color-border-subtle);
+  --color-rule-strong: var(--color-border-strong);
+  --color-focus: #5c4610;
+
+  /* Ornament keeps the true brand gold on Parchment — decorative only, so WCAG
+     contrast does not apply. Never reference this for text or meaningful borders. */
+  --color-ornament-gold: #c9a227;
+}
+
+/* Ornament gold on Lacquer is simply the gilt ramp. */
+:root,
+:root[data-theme='lacquer'] {
+  --color-ornament-gold: var(--color-gilt-500);
+}
+
+/* System preference honored only when the user has not chosen explicitly.
+   The toggle stamps data-theme, which always wins. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+
+    --color-ground: #f4ebd8;
+    --color-surface: #fbf5ea;
+    --color-surface-sunk: #ebe0c9;
+
+    --color-text-primary: #0c1b28;
+    --color-text-secondary: #23384a;
+    --color-text-muted: #55636d;
+
+    --color-gilt-ink: #7a5d14;
+    --color-gilt-500: #c9a227;
+    --color-gilt-400: #a6842b;
+    --color-gilt-300: #7a5d14;
+    --color-gilt-600: #5c4610;
+    --color-gilt-700: #5c4610;
+
+    --color-teal-ink: #14545c;
+
+    --color-inlay-600: #dfe7e3;
+    --color-inlay-500: #c7d7d1;
+
+    --color-border-subtle: rgba(122, 93, 20, 0.28);
+    --color-border-strong: rgba(122, 93, 20, 0.6);
+
+    --color-success: #1f6b50;
+    --color-warning: #94490f;
+    --color-error: #8e2a20;
+    --color-info: #1f5486;
+    --color-neutral: #55636d;
+
+    --gradient-ground: linear-gradient(180deg, #fbf5ea 0%, #f4ebd8 100%);
+    --gradient-inlay: linear-gradient(180deg, #ebe0c9 0%, #f4ebd8 100%);
+    --gradient-gilt: linear-gradient(135deg, #c9a227, #7a5d14 55%, #5c4610);
+
+    --shadow-sm: 0 1px 0 rgba(12, 27, 40, 0.12);
+    --shadow-md: 0 8px 24px rgba(12, 27, 40, 0.1);
+    --shadow-lg: 0 16px 48px rgba(12, 27, 40, 0.14);
+
+    --surface-page: var(--color-ground);
+    --surface-band: var(--color-surface-sunk);
+    --surface-panel: var(--color-surface);
+    --surface-raised: #ffffff;
+    --surface-sunk: var(--color-surface-sunk);
+    --color-accent: var(--color-gilt-ink);
+    --color-accent-bright: var(--color-gilt-ink);
+    --color-accent-text: var(--color-gilt-ink);
+    --color-teal-text: var(--color-teal-ink);
+    --color-on-accent: #fbf5ea;
+    --color-focus: #5c4610;
+    --color-ornament-gold: #c9a227;
+  }
+}

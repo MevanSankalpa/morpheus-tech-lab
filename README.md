@@ -4,9 +4,10 @@
   </a>
 </p>
 
+<h1 align="center">Morpheus Tech Lab</h1>
+
 <p align="center">
-  <img src="src/assets/images/matmagic.png" alt="MatMagic" width="150px"/><br/>
-  <img src="src/assets/images/matrixmagic.png" alt="Matrix Magic" width="120px"/>
+  <img src="src/assets/images/morpheus-tech.png" alt="Morpheus Tech" width="120px"/>
 </p>
 
 <div align="center">
@@ -34,7 +35,7 @@
 
 ## 1. Mission Statement
 
-This is the **Morpheus lab**: interactive demos of what Morpheus Tech builds, free to use in
+This is **Morpheus Tech Lab**: interactive demos of what Morpheus Tech builds, free to use in
 your browser at <a href="https://lab.morpheustech.net/" target="_blank" rel="noopener noreferrer">lab.morpheustech.net</a>.
 It began by re-imagining <a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life" target="_blank" rel="noopener noreferrer">Conway's Game of Life</a>
 in three dimensions, and it now holds several 3D cellular automata you can seed, play, rewind,
@@ -129,7 +130,8 @@ maintainer; see `CHANGELOG.md` for what each version changed.
 
 ## 7. License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+The code is distributed under the MIT License; see `LICENSE`. The Morpheus Tech name, logo and
+brand files are not covered by it; see `NOTICE`.
 
 ## 8. Attributions
 

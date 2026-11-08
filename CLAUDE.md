@@ -1,4 +1,4 @@
-# morpheus-tech-web — the Morpheus lab
+# morpheus-tech-lab — Morpheus Tech Lab
 
 The public, open-source (MIT) demo site of Morpheus Tech LLC. Visitors use interactive 3D
 cellular automata: Game of Life 3D, Rule 30, an Abelian sandpile and a sine wave. They run in
@@ -28,9 +28,11 @@ the org's one open-source exception, approved by the owner on 2026-11-08
 |---|---|
 | `npm install` | Install dependencies (first run) |
 | `npm run dev` | Vite dev server, http://localhost:5180 (registered in `~/aquila/docs/ports.md`) |
-| `npm run build` | Build to `dist/` (not tracked) |
+| `npm run build` | Check the brand pin, then build to `dist/` (not tracked) |
 | `npm run preview` | Serve the built `dist/` locally, also on 5180 |
 | `npm run deploy` | Build, then publish `dist/` to the `gh-pages` branch, which is live at once |
+| `npm run brand:check` | Fail if a pinned brand file no longer matches `brand.lock` |
+| `npm run brand:sync -- brand/vX.Y.Z` | Re-pin the brand from `../morpheus` at a released tag |
 
 There is no backend, database, backup or log path, and there are no environment variables. A
 release, run by the developer: merge `development` into `main`, tag `vX.Y.Z` (annotated), and run

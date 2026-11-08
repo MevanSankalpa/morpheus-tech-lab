@@ -1,18 +1,23 @@
 # Changelog
 
-All notable changes to the Morpheus lab (morpheus-tech-web). Versions are the annotated git tags.
+All notable changes to Morpheus Tech Lab (`morpheus-tech-lab`, named `morpheus-tech-web` until
+2026-11-08). Versions are the annotated git tags.
 
 ## Unreleased
 
 ### Changed
 - The site moves to **lab.morpheustech.net**. It is built for the domain root, and the
   `github.io` address redirects there.
-- The README describes the project as the Morpheus lab.
+- Renamed Morpheus Tech Lab, replacing "MatMagic" in the site and the README. The repo is now
+  `morpheus-tech-lab`.
 - `package.json` carries the release version (1.3.0) instead of 0.0.0.
 - `dist/` is no longer tracked; the `gh-pages` branch holds the build.
 
 ### Added
 - Agent and architecture docs: `CLAUDE.md`, `AGENTS.md`, `ARCHITECTURE.md` and this changelog.
+- The Morpheus Tech favicon, and the brand tokens ready for a restyle, pinned from `brand/v3.2.0`
+  (`brand.lock`, `npm run brand:check`).
+- `NOTICE`: the MIT License covers the code, not the Morpheus Tech name, logo or brand files.
 
 ## [1.3.0] — 2025-12-16
 ### Added

@@ -1,13 +1,18 @@
-# morpheus-tech-web — coding contract
+# morpheus-tech-lab — coding contract
 
 ## Module layout
 
 ```
 index.html               All markup: HUD, control bar, configuration modal, info panels
 public/CNAME             lab.morpheustech.net, copied into every build. Never delete
+public/favicon.svg       Brand pin (see brand.lock). Never hand-edit
+brand.lock               The brand tag the pin came from, and a sha256 per pinned file
+NOTICE                   What MIT does not cover: the Morpheus Tech name, logo and brand files
+scripts/brand.mjs        `sync` re-pins the brand from ../morpheus at a tag; `check` verifies the lock
 vite.config.js           base '/', because the site is served from the domain root
 src/
   main.js                Boot: initSimulation(), then animate()
+  brand/tokens.css       Brand pin: the Morpheus Tech brand tokens. Not imported yet. Never hand-edit
   state.js               The one shared, mutable `state` object: settings, rules, scene handles, history
   simulationModel.js     Builds the Three.js Points geometry from the history; updatePoints() per frame
   matrixFunctions.js     The automata: generateSimulation() and each mode's evolve step
@@ -44,6 +49,8 @@ src/
   Isolation and overcrowding are always derived from survival, never set by hand.
 - `state.reset()` keeps the scene, renderer and camera, so a rebuild reuses one WebGL context.
 - `public/CNAME` and `base: '/'` go together. Without both, the deployed site breaks.
+- Pinned brand files match `brand.lock`; `npm run build` refuses to build otherwise. To change
+  one, change the brand in `~/morpheus/design/brand/`, release a `brand/v*` tag, and re-sync.
 
 ## Risky operations
 
@@ -59,6 +66,10 @@ src/
   is given away and disclosed. Write new demos from scratch, for the CPU.
 - No secrets, tokens, internal hostnames or private paths. The repo and the site are public.
 - Don't commit `dist/` (ignored); `gh-pages` holds the build.
+- Don't pin the brand's documents (`DESIGN_SYSTEM.md`, `design_tokens.json`, `DOCTRINE.md`) or
+  the full-size logo here: they stay private in the org repo. Read them there.
+- Don't copy scripts from the company sites either. They are proprietary too; `scripts/brand.mjs`
+  was written fresh for this repo.
 - Don't add a framework or a backend for a demo. The lab stays a static site.
 
 ## Known debt

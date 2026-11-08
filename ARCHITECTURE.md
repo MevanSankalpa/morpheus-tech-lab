@@ -1,4 +1,4 @@
-# morpheus-tech-web — Architecture
+# morpheus-tech-lab — Architecture
 
 ## System topology
 
@@ -76,6 +76,11 @@ that.
 **Static hosting on GitHub Pages under a company subdomain.** Free, with no server to run;
 `lab.morpheustech.net` keeps the lab under the company's domain while it stays a separate repo
 from the company site.
+
+**The brand is pinned, not linked, and only in part.** The lab takes `tokens.css` and the favicon
+from a released `brand/v*` tag, with a hash lock, as the company site does. The brand's documents
+and full-size logo stay in the private org repo, since anything here is public. `NOTICE` keeps the
+brand out of the MIT grant. The restyle that would use the tokens is not done yet.
 
 **Open source (MIT), as the org's one exception.** The code was public from the start. It stays
 public as the open face of the company's work, and the one-way rule (see `CLAUDE.md`) keeps
