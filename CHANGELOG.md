@@ -7,6 +7,12 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
 
 ## [Unreleased]
 
+## [1.5.2] — 2026-11-08
+
+### Fixed
+- The company panel opens in the centre of the screen, and hides the control bar and the
+  top-right logo while it is open. On phones it keeps its width instead of filling the screen.
+
 ## [1.5.1] — 2026-11-08
 
 ### Fixed

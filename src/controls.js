@@ -455,7 +455,11 @@ export function initControls() {
     const additionalControlsDisplay = document.getElementById('additional-controls-display');
     const simulationModeTitle = document.getElementById('simulation-mode-title');
     const controlsWrapper = document.getElementById('controls-wrapper');
-    
+    const footerIcons = document.getElementById('footer-icons');
+    const companyBrand = document.getElementById('company-brand');
+
+    if (footerIcons) footerIcons.style.display = 'none';
+    if (companyBrand) companyBrand.style.display = 'none';
     if (glassDisplayContainer) glassDisplayContainer.style.display = 'none';
     if (bottomControlsDisplay) bottomControlsDisplay.style.display = 'none';
     if (additionalControlsDisplay) additionalControlsDisplay.style.display = 'none';
@@ -469,7 +473,11 @@ export function initControls() {
     const additionalControlsDisplay = document.getElementById('additional-controls-display');
     const simulationModeTitle = document.getElementById('simulation-mode-title');
     const controlsWrapper = document.getElementById('controls-wrapper');
-    
+    const footerIcons = document.getElementById('footer-icons');
+    const companyBrand = document.getElementById('company-brand');
+
+    if (footerIcons) footerIcons.style.display = '';
+    if (companyBrand) companyBrand.style.display = '';
     if (glassDisplayContainer && state.showHUD) glassDisplayContainer.style.display = 'flex';
     if (bottomControlsDisplay && state.showHUD) bottomControlsDisplay.style.display = 'grid';
     if (additionalControlsDisplay && state.showHUD) additionalControlsDisplay.style.display = 'grid';
