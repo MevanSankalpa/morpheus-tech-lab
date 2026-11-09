@@ -7,6 +7,21 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
 
 ## [Unreleased]
 
+## [1.5.4] — 2026-11-09
+
+### Added
+- `ROADMAP.md`: the public roadmap, covering the engine, new demos, the brand restyle and the
+  community.
+- `CODE_OF_CONDUCT.md`: the Contributor Covenant 2.1.
+- `SECURITY.md`: only the latest release is supported, and vulnerabilities are reported
+  privately through GitHub.
+- Issue templates for bug reports and ideas, with blank issues turned off, and a pull-request
+  template with the contribution checklist.
+
+### Changed
+- The README's next steps point to the roadmap, which now holds the ideas that were listed
+  there.
+
 ## [1.5.3] — 2026-11-08
 
 ### Fixed

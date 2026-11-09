@@ -3,6 +3,20 @@
 Thanks for helping build the lab. New automata, simulators, fixes and docs are all welcome.
 For anything large, open an issue first so we can agree on the shape before you write it.
 
+Everyone taking part in the project, in issues, Discussions, pull requests and anywhere else,
+follows the [code of conduct](CODE_OF_CONDUCT.md).
+
+## Find something to work on
+
+Start from the [roadmap](ROADMAP.md), or pick an issue labelled
+[`good first issue`](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/labels/good%20first%20issue):
+those are ready to pick up. Questions go to
+[Discussions](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/discussions).
+
+## Report a vulnerability
+
+Never in a public issue. Report it privately, as [SECURITY.md](SECURITY.md) says.
+
 ## Set up
 
 Requires Node.js 20.19 or newer.
