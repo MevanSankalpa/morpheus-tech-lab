@@ -8,6 +8,8 @@ changelog) is in [CONTRIBUTING.md](CONTRIBUTING.md); branches, versions and rele
 
 ```
 .github/workflows/ci.yml The `build` (npm ci, npm run build) and `DCO` (sign-off) checks, required on main
+.github/ISSUE_TEMPLATE/  Issue forms: bug_report.yml, idea.yml; config.yml turns off blank issues and links Discussions and SECURITY.md
+.github/pull_request_template.md  The pull-request checklist: targets development, signed off, changelog line, build passes
 index.html               All markup: HUD, control bar, configuration modal, info panels
 public/CNAME             lab.morpheustech.net, copied into every build. Never delete
 public/favicon.svg       Brand pin (see brand.lock). Never hand-edit
@@ -15,7 +17,11 @@ brand.lock               The brand tag the pin came from, and a sha256 per pinne
 LICENSE                  Apache License 2.0 (MIT through v1.4.0)
 NOTICE                   Copyright notice, and what the license does not cover: the Morpheus Tech name, logo and brand files
 CONTRIBUTING.md          How to contribute: setup, branches, DCO sign-off, changelog
+CODE_OF_CONDUCT.md       Contributor Covenant 2.1, unmodified apart from the enforcement contact
+SECURITY.md              Supported versions (latest only) and private vulnerability reporting
+ROADMAP.md               The public roadmap: the engine, new demos, the brand restyle, community
 RELEASING.md             Branches, versions, changelog format and the release steps
+CHANGELOG.md             What each version changed (Keep a Changelog)
 scripts/brand.mjs        `sync --org <brand repo>` re-pins the brand at a tag (maintainers); `check` verifies the lock
 vite.config.js           base '/', because the site is served from the domain root
 src/

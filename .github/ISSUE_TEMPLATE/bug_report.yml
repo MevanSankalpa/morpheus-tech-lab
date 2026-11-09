@@ -1,0 +1,52 @@
+name: Bug report
+description: Something in the lab doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. For a security vulnerability, don't open an issue: follow
+        [SECURITY.md](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/blob/main/SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What went wrong? Screenshots or a screen recording help.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The steps that make the bug happen, starting from opening the lab.
+      placeholder: |
+        1. Open https://lab.morpheustech.net
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: browser-os
+    attributes:
+      label: Browser and OS
+      description: Including versions, if you know them.
+      placeholder: e.g. Firefox 140 on Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: mode-settings
+    attributes:
+      label: Simulation mode and settings
+      description: >-
+        The mode (Game of Life 3D, Rule 30, Sine Wave or Abelian Sandpile), and the settings you
+        used: seed, grid size, generations, grid wrapping, and anything else you changed.
+      placeholder: e.g. Game of Life 3D, Perlin seed, 50×50×50, 100 generations, wrapping off
+    validations:
+      required: true

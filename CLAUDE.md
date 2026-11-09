@@ -53,5 +53,7 @@ full rules are in [RELEASING.md](RELEASING.md).
 
 ## Plans and process
 
-Plans and the roadmap live in this repo (README, Next Steps) and its GitHub issues. Agents edit
+The roadmap is [ROADMAP.md](ROADMAP.md); plans also live in this repo's GitHub issues and
+Discussions. The code of conduct is [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and
+vulnerabilities are reported privately, as [SECURITY.md](SECURITY.md) says. Agents edit
 files only and do no version control unless asked: maintainers commit, merge, tag and deploy.

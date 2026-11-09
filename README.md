@@ -16,7 +16,7 @@
 |----------------------|--------------------------|
 | **Creator:** | <a href="https://github.com/wmauz677" target="_blank" rel="noopener noreferrer">Weston Mauz</a> |
 | **Company:** | Morpheus Tech LLC |
-| **Release:** | v1.5.3 - November 8th, 2026 |
+| **Release:** | v1.5.4 - November 9th, 2026 |
 | **Lab** | <a href="https://lab.morpheustech.net/" target="_blank" rel="noopener noreferrer">lab.morpheustech.net</a> |
 | **Company** | <a href="https://morpheustech.net/" target="_blank" rel="noopener noreferrer">morpheustech.net</a> |
 
@@ -44,7 +44,9 @@ slice and orbit. Everything runs on your own computer; nothing is sent anywhere.
 
 The lab is open source under the Apache License 2.0 and maintained by Morpheus Tech LLC.
 Contributions are welcome: new automata, simulators, fixes and docs. See
-[CONTRIBUTING.md](CONTRIBUTING.md).
+[CONTRIBUTING.md](CONTRIBUTING.md). Everyone taking part follows the
+[code of conduct](CODE_OF_CONDUCT.md), and vulnerabilities are reported privately, as
+[SECURITY.md](SECURITY.md) says.
 
 ## 2. Rules
 
@@ -109,15 +111,8 @@ generations is more than a typical laptop handles comfortably.
 
 ## 5. Next Steps
 More demos are coming to the lab. Feedback is welcome, so please reach out or tag us in your
-content. The roadmap lives in this repo's issues; to build one of these, see
-[CONTRIBUTING.md](CONTRIBUTING.md).
-
-### Ideas
-
-| # | Feature | Description |
-|---|----------|-------------|
-| 1 | **Upload Starting Seed** | Start from your own seed: a CSV matrix, voxels, or a converted 3D file |
-| 2 | **More automata** | New rule families, each a demo of its own |
+content. Where the lab is heading, and what is ready to pick up, is in the
+[roadmap](ROADMAP.md); to build something on it, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 6. Run Locally
 
