@@ -7,6 +7,12 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
 
 ## [Unreleased]
 
+## [1.5.3] — 2026-11-08
+
+### Fixed
+- The company panel links to the lab's GitHub repository again, next to morpheustech.net.
+  v1.5.1 had replaced that link instead of adding the website alongside it.
+
 ## [1.5.2] — 2026-11-08
 
 ### Fixed
