@@ -8,7 +8,7 @@ changelog) is in [CONTRIBUTING.md](CONTRIBUTING.md); branches, versions and rele
 
 ```
 .github/workflows/ci.yml The `build` (npm ci, npm run build) and `DCO` (sign-off) checks, required on main
-.github/ISSUE_TEMPLATE/  Issue forms: bug_report.yml, idea.yml; config.yml turns off blank issues and links Discussions and SECURITY.md
+.github/ISSUE_TEMPLATE/  Issue forms: bug_report.yml, idea.yml; config.yml turns off blank issues and links Discussions (GitHub adds the security-report entry itself)
 .github/pull_request_template.md  The pull-request checklist: targets development, signed off, changelog line, build passes
 index.html               All markup: HUD, control bar, configuration modal, info panels
 public/CNAME             lab.morpheustech.net, copied into every build. Never delete

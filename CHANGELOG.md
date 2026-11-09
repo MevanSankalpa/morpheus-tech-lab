@@ -7,6 +7,12 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
 
 ## [Unreleased]
 
+## [1.5.5] — 2026-11-09
+
+### Changed
+- The new-issue page lists vulnerability reporting once, as GitHub's own "Report a security
+  vulnerability" entry. The separate link to `SECURITY.md` is gone.
+
 ## [1.5.4] — 2026-11-09
 
 ### Added
