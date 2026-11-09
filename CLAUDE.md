@@ -47,7 +47,9 @@ release.
 ## Branches and versions
 
 `main` is the protected release branch, `development` the integration branch every pull request
-targets, and `gh-pages` the deployed build (never edited by hand). The annotated tag `vX.Y.Z` is
+targets, and `gh-pages` the deployed build (never edited by hand). Edit only on `development` or
+a feature branch off it: check the branch before the first edit, switch away from `main` if a
+deploy left it checked out, and finish on `development`. The annotated tag `vX.Y.Z` is
 the version; `package.json`, the lockfile root and the README's Release line mirror it. The
 full rules are in [RELEASING.md](RELEASING.md).
 

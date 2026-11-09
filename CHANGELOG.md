@@ -7,6 +7,13 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
 
 ## [Unreleased]
 
+## [1.5.6] — 2026-11-09
+
+### Changed
+- The deploy step in `RELEASING.md` switches back to `development` afterwards, and
+  `RELEASING.md`, `AGENTS.md` and `CLAUDE.md` say to edit only on `development` or a feature
+  branch, never on `main`.
+
 ## [1.5.5] — 2026-11-09
 
 ### Changed
