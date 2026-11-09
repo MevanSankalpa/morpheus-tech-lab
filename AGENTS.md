@@ -77,6 +77,11 @@ src/
 
 ## What NOT to do
 
+- **Don't edit files while `main` is checked out.** Before the first edit, check
+  `git branch --show-current`. A deploy may have left the checkout on `main`: switch to
+  `development` (`git switch development && git pull --ff-only`) before changing anything, and
+  leave the checkout on `development` when you finish.
+
 - **Contributions must be original work; no code or internals from other projects or
   products**, including Morpheus Tech's other, proprietary products: don't copy, port or describe
   them. This is public, Apache-2.0-licensed code; anything committed is given away and disclosed.

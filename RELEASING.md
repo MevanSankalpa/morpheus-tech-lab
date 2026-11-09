@@ -12,6 +12,9 @@ the release steps are for maintainers. To contribute, see [CONTRIBUTING.md](CONT
 | `gh-pages` | The build output, served at https://lab.morpheustech.net. Written by `npm run deploy`; never edit it |
 | feature branches | Short-lived, branched off `development`, deleted once merged |
 
+Your working copy stays on `development` or a feature branch off it, so edits never land on
+`main` by accident. `main` is checked out only to deploy, and the deploy command switches back.
+
 ## Versions
 
 Versions follow [Semantic Versioning](https://semver.org/), `X.Y.Z`:
@@ -43,10 +46,12 @@ request adds its lines under `## [Unreleased]`, in the right group (`Added`, `Ch
    ```sh
    git fetch origin && git tag -a vX.Y.Z origin/main -m "Release X.Y.Z" && git push origin vX.Y.Z
    ```
-5. **Deploy from `main`.** This publishes to https://lab.morpheustech.net at once:
+5. **Deploy from `main`, then switch back to `development`.** This publishes to
+   https://lab.morpheustech.net at once:
    ```sh
-   git switch main && git pull && npm ci && npm run deploy
+   git switch main && git pull && npm ci && npm run deploy; git switch development
    ```
+   The `;` switches back even if the deploy fails; to retry, run the whole line again.
 6. **Bring `development` up to `main`:**
    ```sh
    git switch development && git merge --ff-only main && git push
