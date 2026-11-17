@@ -275,7 +275,8 @@ src/
   ready → in progress → completed or cancelled ([CONTRIBUTING.md](CONTRIBUTING.md#how-an-issue-moves));
   only maintainers move it. Claim it first with a comment giving a date and a confidence, in the
   form CONTRIBUTING shows; the person running the agent answers for the estimate, and is the one
-  a maintainer assigns. The pull
+  a maintainer assigns. The lab's own agent, `morpheus-lab-agent`, is a maintainer: it gives its
+  own estimate and is assigned itself ([RELEASING.md](RELEASING.md#agents)). The pull
   request is reviewed against the maintainer's `Ready. Done when: …` comment, not the issue
   body: meet it, or say in "What changed" where it differs.
 - **Don't ask for `ready` before the plan is in the issue.** For an issue in `planning`, the work
