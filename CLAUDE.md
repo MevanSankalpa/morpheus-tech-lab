@@ -72,6 +72,6 @@ broken link, comes without one. [CONTRIBUTING.md](CONTRIBUTING.md) has the detai
 vulnerabilities are reported privately, as [SECURITY.md](SECURITY.md) says. Agents edit
 files only and do no version control unless asked: maintainers commit, merge, tag and deploy.
 The lab's own agent, `morpheus-lab-agent`, is a maintainer: it claims, builds and opens pull
-requests from a clone of the lab, and reviews and merges into `development`, but merges its own
-pull request only with a human maintainer's OK, and never releases, tags or deploys. The full
-rule is in [RELEASING.md](RELEASING.md#agents).
+requests from a clone of the lab, and reviews pull requests, but merges one into `development`,
+its own or anyone else's, only with a human maintainer's OK, and never releases, tags or
+deploys. The full rule is in [RELEASING.md](RELEASING.md#agents).

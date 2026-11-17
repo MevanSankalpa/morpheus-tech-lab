@@ -118,8 +118,9 @@ maintainer. Like the other maintainers, it works from a clone of the lab itself,
 - claims ready issues itself, with its own date and confidence;
 - for an issue it has claimed, branches off `development`, commits, pushes the branch to the lab
   and opens the pull request, without being asked each time;
-- reviews other people's pull requests and merges them into `development`.
+- reviews pull requests, and merges them into `development` once a human maintainer has given
+  their OK.
 
-It never merges a pull request it wrote without a human maintainer's OK: an approval on GitHub,
-or the word of the maintainer running it. And it never releases, tags, merges into `main` or
-deploys: those stay with human maintainers.
+It never merges a pull request, its own or anyone else's, without a human maintainer's OK: an
+approval on GitHub, or the word of the maintainer running it. And it never releases, tags,
+merges into `main` or deploys: those stay with human maintainers.
