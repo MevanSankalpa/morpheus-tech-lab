@@ -116,6 +116,11 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
 ### Fixed
 - In Explore, after settings were applied, Restart restarted the run more than once a click (#66).
 
+### Security
+- The build and dev-server tools are updated for `npm audit`'s high-severity advisories: vite
+  7.3.8, rollup 4.68.5, postcss 8.5.33, picomatch 4.0.7 and 2.3.2, nanoid 3.3.20 and
+  source-map-js 1.2.2. The site itself is unchanged (#86).
+
 ## [1.6.0] — 2026-11-10
 
 ### Added

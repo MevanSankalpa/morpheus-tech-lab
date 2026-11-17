@@ -32,7 +32,8 @@ scripts/bench.mjs        Benchmarks for the unbounded engine (#39): chunk sizes,
 scripts/bench/           The bench's parts: lib.mjs (timing, seeds, rules, tables; no Node APIs), bitpacked.mjs (a
                          bit-packed one-chunk step, bench only), candidates.mjs (Speed candidates, each rebuilt from a
                          number; --run writes one's run), worst-case.mjs (writes the Discovery worst-case result file)
-vite.config.js           base '/', because the site is served from the domain root
+vite.config.js           base '/', because the site is served from the domain root; esbuild's legalComments 'inline',
+                         so the bundled libraries' licence notices (three.js's MIT) ship with the site
 test/                    `npm test` (Node's built-in node:test, no dependency): unbounded/ checks the unbounded engine,
                          its run loop on a fake clock and in a worker_threads Worker, the canonical hash and
                          the verifier (fixtures/ holds an example result and a hand-edited copy), the contests and
