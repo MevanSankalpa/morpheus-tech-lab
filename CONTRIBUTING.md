@@ -141,7 +141,8 @@ Confidence: N/10
 - Post a new date and confidence whenever your estimate changes. The latest one counts.
 - If the date passes with neither an update nor a pull request, the claim lapses.
 - An agent's claim uses the same form, and the person running the agent answers for the
-  estimate.
+  estimate. The lab's own agent, `morpheus-lab-agent`, is a maintainer and answers for its own
+  ([RELEASING.md](RELEASING.md#agents)).
 
 A maintainer then moves the issue to in progress and assigns you. You can't assign yourself
 without triage access to the repository, but your claim comment is what lets a maintainer assign

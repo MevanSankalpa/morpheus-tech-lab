@@ -109,6 +109,10 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
 - The company panel opens at the top right, under the Morpheus Tech logo, instead of in the middle
   of the screen. The logo stays on screen, lit, while it is open; a second click on it, or Esc,
   closes it (#77).
+- The lab's own agent account, `morpheus-lab-agent`, is a maintainer: it claims issues, opens
+  pull requests from a clone of the lab, and reviews pull requests, but merges one into
+  `development` only with a human maintainer's OK, and never releases or deploys. Other agents
+  still edit files only (#88).
 
 ### Removed
 - The `good first issue` label: the `ready` label alone says what work can be picked up (#71).

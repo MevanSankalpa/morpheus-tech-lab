@@ -109,3 +109,18 @@ closed: a maintainer changes its base to `development` (**Edit**, next to the ti
 ## Agents
 
 Agents edit files only. Maintainers commit, merge, tag and deploy. A deploy is a public release.
+
+The one exception is the lab's own agent, the `morpheus-lab-agent` account, which is a
+maintainer. Like the other maintainers, it works from a clone of the lab itself, not a fork. It:
+
+- moves issues as [Moving an issue](CONTRIBUTING.md#moving-an-issue) says, and posts the
+  `Ready. Done when:` comment for a plan a human maintainer has accepted;
+- claims ready issues itself, with its own date and confidence;
+- for an issue it has claimed, branches off `development`, commits, pushes the branch to the lab
+  and opens the pull request, without being asked each time;
+- reviews pull requests, and merges them into `development` once a human maintainer has given
+  their OK.
+
+It never merges a pull request, its own or anyone else's, without a human maintainer's OK: an
+approval on GitHub, or the word of the maintainer running it. And it never releases, tags,
+merges into `main` or deploys: those stay with human maintainers.
