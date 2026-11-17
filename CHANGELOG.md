@@ -119,6 +119,8 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
 
 ### Fixed
 - In Explore, after settings were applied, Restart restarted the run more than once a click (#66).
+- The Contests check page (`src/contests/contests-check.html`, a dev page) runs again: it
+  declared one name twice, so its script never ran (#85).
 
 ### Security
 - The build and dev-server tools are updated for `npm audit`'s high-severity advisories: vite

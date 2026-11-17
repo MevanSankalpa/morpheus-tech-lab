@@ -219,8 +219,8 @@
       ok(text('contest-hud-name') === 'Speed' && text('contest-hud-status') === 'Ready', 'The HUD names Speed, ready');
       ok(doc.activeElement?.id === 'contests-run', 'Run has the focus');
       const runBox = el('contests-run').getBoundingClientRect();
-      const verifyBox = el('contests-verify').getBoundingClientRect();
-      ok(runBox.height >= 48 && runBox.width > 2 * verifyBox.width && runBox.top < verifyBox.top, `Run is the page's largest button, above the rest (${Math.round(runBox.width)} × ${Math.round(runBox.height)} px)`);
+      const pageVerifyBox = el('contests-verify').getBoundingClientRect();
+      ok(runBox.height >= 48 && runBox.width > 2 * pageVerifyBox.width && runBox.top < pageVerifyBox.top, `Run is the page's largest button, above the rest (${Math.round(runBox.width)} × ${Math.round(runBox.height)} px)`);
 
       section('A run');
       press('contests-run');
