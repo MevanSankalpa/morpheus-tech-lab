@@ -40,7 +40,7 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          their scores (contests.test.js), and the engine against convolve3D() (dense.test.js);
                          browser.test.js checks telling the browser; contests/ checks a Speed run and Verify a
                          result… on worker_threads (verifyNodeWorker.js stands in for verify.worker.js) and
-                         the panel's text (format.test.js); explore/ checks
+                         the panel's text (format.test.js), Watch's included; explore/ checks
                          Explore's seeds, presets, seed files, saves, settings (setup.test.js), camera framing
                          and the seed editor's model (editorModel.test.js)
 src/
@@ -70,8 +70,9 @@ src/
   unbounded/step.js      step(): one generation, a lockstep over every chunk, or the limit that ends the run
   unbounded/rules.js     validateRules() (refuses B0) and the rule lookup table
   unbounded/reference.js ReferenceWorld: a deliberately simple Set-of-strings engine the tests check world.js against
-  unbounded/run.js       Run: the run loop (timed and open-ended runs, pause, step, stop, settling), statistics,
-                         snapshots, and an ended run's result file (the `result` message)
+  unbounded/run.js       Run: the run loop (timed and open-ended runs, and replays with keyframes and seek;
+                         pause, step, stop, settling), statistics, snapshots, an ended run's result file (the
+                         `result` message), and a replay's hash at its generation (`replayed`)
   unbounded/run.worker.js The Web Worker that serves one Run
   unbounded/canonical.js The canonical state (a run's definition, the generation, the cells as bytes), its SHA-256
                          hash, the result file (readResult() reads one as untrusted data) and the reference table
@@ -91,10 +92,13 @@ src/
                          HUD's Contest section. Sets only textContent
   contests/speed.js      SpeedRun: one Speed run in a Worker, its score and its result file made in the Worker;
                          verifyInWorker() (no DOM; tested in Node with worker_threads)
+  contests/watch.js      Watch (#78): a result played back in 3D in place of the panel, replayed in a Worker
+                         (run.js's replay kind), with ExploreView, the control bar, a scrub bar, Close, and
+                         whether the replay's hash at the result's generation matched
   contests/looks.js      Each kind of contest's colour and logo (a stopwatch, an hourglass, a scribble in a box),
                          and Verify a result's scales, drawn as SVG on the page
   contests/format.js     What the panel says and draws: countdown, the chart's layout (chartLayout()), scores,
-                         endings, statistics (tested in Node)
+                         endings, statistics, and what Watch found (selfVerifiedText()) (tested in Node)
   contests/contests-check.html Not bundled: a dev page (/src/contests/contests-check.html under `npm run dev`) that
                          clicks through the Contests mode in a frame holding the lab, two real Speed runs
                          included, marking each check ✔ or ✖, and lists what to check by hand
@@ -175,8 +179,10 @@ src/
   Contests the banner stays, pressed, and a click on it or Esc calls `leaveContests()`, back to
   the mode it was opened from. Leaving the mode calls
   `stopContests()`, and `animate()` calls `contestsFrame()` and returns before rendering, so a
-  Speed run has the machine to itself. The play, step and reverse handlers check `isContests()`
-  and do nothing: a contest's run starts and stops only from its panel.
+  Speed run has the machine to itself. The play, step and reverse handlers check `isContests()`:
+  a contest's run starts and stops only from its panel, so they do nothing there except while
+  Watch is open (`isWatching()`), whose replay they play, pause and step; `contestsFrame()` then
+  calls `watchFrame()`, which draws. Reverse stays off: a replay only runs forward.
 - **The seed editor borrows the view.** While it is open (`isEditorOpen()`), `animate()` calls
   `editorFrame()` and returns before Explore's frame and the main render; the editor draws its
   own scene into `state.renderer`, only when something changed, and turns `state.controls` off.
@@ -227,7 +233,8 @@ src/
   which the loop in `run.js` yields between generations so commands get through. A timed run
   checks its deadline after a generation is computed and before it is committed (`step()`'s
   `veto`), so a generation that finishes late is discarded like one that crosses a limit.
-  Statistics go out at most every 250 ms on their own; snapshots only when asked for.
+  Statistics go out at most every 250 ms on their own; snapshots only when asked for. A replay
+  keeps only keyframes, under their byte budget (`KEYFRAME_BYTES`), never every generation.
 - **The canonical bytes are a public format.** A result's hash depends only on the run's
   definition, the generation and the cells: never the chunk size, the order cells were added in,
   timings or the machine. Any change to the bytes (`canonical.js`) bumps `FORMAT_VERSION`, and the

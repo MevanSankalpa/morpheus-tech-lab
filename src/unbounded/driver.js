@@ -18,14 +18,18 @@ export class EngineDriver {
    * @param {(stats: import('./run.js').Stats) => void} [options.onStats] - at most four times a
    *   second while running
    * @param {(state: string, stats: import('./run.js').Stats, reason?: string, cycle?: {from: number, period: number}) => void} [options.onState]
-   *   - 'running', 'paused' or 'ended' (with the reason, one of run.js's END_REASONS, and for
-   *   'repeat' the cycle it found)
+   *   - 'running', 'paused', 'seeking' (a replay) or 'ended' (with the reason, one of run.js's
+   *   END_REASONS, and for 'repeat' the cycle it found)
+   * @param {(replayed: {generation: number, hash: string | null, matches: boolean | null, reason: string}) => void} [options.onReplayed]
+   *   - once, when a replay first ends: at its generation, the hash of its cells and whether
+   *   it is the check's; before it, why (run.js)
    * @param {(message: string) => void} [options.onError] - a command refused, or a fault
    * @param {() => Worker} [options.createWorker] - the tests pass an in-process stand-in
    */
-  constructor({ onStats, onState, onError, createWorker = browserWorker } = {}) {
+  constructor({ onStats, onState, onReplayed, onError, createWorker = browserWorker } = {}) {
     this.onStats = onStats ?? (() => {});
     this.onState = onState ?? (() => {});
+    this.onReplayed = onReplayed ?? (() => {});
     this.onError = onError ?? (() => {});
     this.createWorker = createWorker;
     this.worker = null;
@@ -39,8 +43,11 @@ export class EngineDriver {
    * @param {object} config.world - World options: {rules, chunkSize?, slabBytes?, limits?, arena?}
    * @param {Int32Array} config.seed - live cells as x, y, z triples. It is transferred: the
    *   page's copy is emptied.
-   * @param {{kind: 'timed', seconds: number} | {kind: 'open', paused?: boolean, rate?: number}} config.run
-   * @param {number} [config.generations] - end the run after this many generations
+   * @param {{kind: 'timed', seconds: number} | {kind: 'open', paused?: boolean, rate?: number}
+   *   | {kind: 'replay', paused?: boolean, rate?: number, check?: {run: object, hash: string},
+   *   keyframeBytes?: number, keyframeEvery?: number}} config.run
+   * @param {number} [config.generations] - end the run after this many generations; a replay's
+   *   is the result's generation, and required
    * @param {number} [config.from] - the seed is this generation of an earlier run: count from it
    */
   start({ world, seed, run, generations, from }) {
@@ -62,6 +69,21 @@ export class EngineDriver {
   /** @param {number | null} rate - generations per second at most, or null for flat out */
   setRate(rate) { this.send({ type: 'rate', rate }); }
   stop() { this.send({ type: 'stop' }); }
+
+  /**
+   * A replay only: goes to a generation, from the nearest keyframe. A later seek takes over
+   * from this one, which then resolves with `superseded`.
+   * @param {number} generation - past the replay's last, it goes to its last
+   * @returns {Promise<{generation: number, superseded?: boolean}>}
+   */
+  seek(generation) {
+    if (!this.worker) return Promise.reject(new Error('There is no run.'));
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+      this.send({ type: 'seek', id, generation });
+    });
+  }
 
   /**
    * The live cells, now. Costs the engine a pass over its chunks, so ask only when there is a
@@ -149,6 +171,14 @@ export class EngineDriver {
         return this.onState(message.state, message.stats, message.reason, message.cycle);
       case 'result':
         return this.settle(message.id, (p) => p.resolve(message.result));
+      case 'seeked':
+        return this.settle(message.id, (p) => p.resolve(message.superseded
+          ? { generation: message.generation, superseded: true }
+          : { generation: message.generation }));
+      case 'replayed': {
+        const { type, ...replayed } = message;
+        return this.onReplayed(replayed);
+      }
       case 'cycle':
       case 'snapshot':
         return this.settle(message.id, (p) => {

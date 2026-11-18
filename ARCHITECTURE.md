@@ -34,6 +34,8 @@ local storage: whether GPU compute is on.
  │   (a Web Worker: World + step, one generation at a time; snapshots back)     │
  │ Contests mode: contests/contests.js ─► panel.js ─► speed.js (SpeedRun) ──►   │
  │   run.worker, timed, which makes the result file; verify.worker for Verify   │
+ │   └ Watch: watch.js ─► run.worker, a replay (keyframes, seek, its hash);     │
+ │     contestsFrame() ─► watchFrame() ──► explore/view.js                      │
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -181,6 +183,25 @@ message, `resultOf()` there), so the page never holds the cells. **Verify a resu
 file and checks it in its own Worker (`verify.worker.js`, running `verifyResult()`). The panel sets
 only `textContent`, so nothing from a file is read as HTML. Leaving the mode closes the panel and
 terminates its Workers.
+
+**Watch** (`watch.js`, #78) plays a result back in 3D: from the results card, or from a file Verify
+a result has read (`readResult()` again, on the page). It hides the panel and starts a *replay* in a
+Worker (`run.js`'s `replay` kind): an open-ended run from the result's seed that ends at the
+result's generation, with the control bar's pause, step and rate. A replay keeps no history, only
+**keyframes**, the cells every K generations (8 at first), under a budget (128 MB of cells): when
+they pass it, every other one is dropped and K doubles. A `seek` restores the nearest keyframe at
+or before its target, or the seed, and steps on flat out, in the loop's slices, so the scrub
+bar's next seek takes over from one still on its way (`seeked` answers both). When the replay
+first ends at the result's generation, the Worker hashes its cells under the result's run and
+compares them with its hash (`replayed`); a replay a limit of the run's ends early doesn't
+match, and one the machine ends (memory) isn't checked. `format.js`'s `selfVerifiedText()` says
+which, on Watch's bar and on the card. While Watch is open, `contestsFrame()` calls
+`watchFrame()`, which draws with Explore's `ExploreView` and camera following, and takes the
+control bar's view settings as Explore does: the grid and the slice from the replay's extent
+(`explore.js`'s `fitSlice()`, shared), the orientation and cell size every frame, and the view
+toggles call `watchViewChanged()` for a new snapshot. Play and step in
+`controls.js`, and the speed slider in `time.js`, go to Watch in Contests, and Esc closes Watch
+before it leaves the mode.
 
 **Benchmarks**: `scripts/bench.mjs` (#39) measures the engine in Node (chunk sizes, seeds, rules,
 a bit-packed step, the dense `convolve3D()` in `denseStep.js`, serialization), times the Speed

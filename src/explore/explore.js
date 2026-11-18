@@ -511,16 +511,24 @@ function showStats(stats) {
 // The slice slider spans the pattern's extent on the slice's axis, which grows as it does. A
 // slice that the pattern no longer reaches moves to its nearest edge.
 function fitSliceSlider() {
+  if (fitSlice(session.extent)) session.wantSnapshot = true;
+}
+
+/**
+ * Fits the slice slider to a pattern's extent, on the slice's axis: for Explore, and for the
+ * Contests' Watch, which draws with the same view.
+ * @param {{min: number[], max: number[]} | null} extent - the live cells' bounding box
+ * @returns {boolean} whether the slice moved, so the view needs a new snapshot
+ */
+export function fitSlice(extent) {
   const slider = document.getElementById('slice-index');
   const a = Math.max(0, AXES.indexOf(state.sliceAxis));
-  const min = session.extent ? session.extent.min[a] : 0;
-  const max = session.extent ? session.extent.max[a] : 0;
+  const min = extent ? extent.min[a] : 0;
+  const max = extent ? extent.max[a] : 0;
   const index = state.sliceIndex ?? Math.round((min + max) / 2);
   const clamped = Math.min(max, Math.max(min, index));
-  if (clamped !== state.sliceIndex) {
-    state.sliceIndex = clamped;
-    session.wantSnapshot = true;
-  }
+  const moved = clamped !== state.sliceIndex;
+  if (moved) state.sliceIndex = clamped;
   if (slider) {
     slider.min = `${min}`;
     slider.max = `${max}`;
@@ -528,6 +536,7 @@ function fitSliceSlider() {
   }
   // As in the other modes: the slice's position across the pattern, and the last position
   if (state.viewMode === 'slice') setText('view-controls-display-text', `${clamped - min} / ${max - min}`);
+  return moved;
 }
 
 function showViewNote(snapshot) {

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { contestById } from '../../src/unbounded/contests.js';
 import {
   countdownText, niceScale, chartLayout, CHART_MARGIN, speedHero, speedScoreText, speedEndingText, resultFileName, statsRows,
-  rulesText, bytesText, extentText, verdictTitle, closingText,
+  rulesText, bytesText, extentText, verdictTitle, closingText, watchGenerationText, selfVerifiedText,
 } from '../../src/contests/format.js';
 
 const SPEED = contestById('speed-1');
@@ -102,4 +102,22 @@ test('each verdict has a heading', () => {
   assert.equal(verdictTitle('mismatch'), "Doesn't match");
   assert.equal(verdictTitle('refused'), 'Not a result file');
   assert.equal(verdictTitle('not-checked'), 'Not checked');
+});
+
+test('Watch shows where it is, and what its replay found at the result\'s generation', () => {
+  assert.equal(watchGenerationText(212, 1000), '212 / 1,000');
+  assert.deepEqual(selfVerifiedText({ generation: 412, hash: 'sha256:a', matches: true, reason: 'generation-limit' }, 412), {
+    verdict: 'verified', text: "Self-verified: the replay's hash at generation 412 matches the run's.",
+  });
+  assert.deepEqual(selfVerifiedText({ generation: 1000, hash: 'sha256:b', matches: false, reason: 'generation-limit' }, 1000), {
+    verdict: 'mismatch', text: "Not verified: the replay's hash at generation 1,000 doesn't match the run's.",
+  });
+  assert.deepEqual(selfVerifiedText({ generation: 30, hash: null, matches: false, reason: 'arena-edge' }, 412), {
+    verdict: 'mismatch',
+    text: "Not verified. The replay stopped at generation 30, before generation 412: it reached the edge of the run's arena, so this isn't the run's result.",
+  });
+  assert.deepEqual(selfVerifiedText({ generation: 300, hash: null, matches: null, reason: 'out-of-memory' }, 412), {
+    verdict: 'not-checked',
+    text: 'Not checked. The replay stopped at generation 300, before generation 412: the browser refused it more memory.',
+  });
 });

@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // The run loop for the unbounded engine: it owns one World and steps it, either against a
-// deadline (a timed run, for the contests) or until it is stopped (an open-ended run, for
-// Explore). run.worker.js runs it in a Web Worker; driver.js is its other end, on the page.
+// deadline (a timed run, for the contests), until it is stopped (an open-ended run, for
+// Explore), or up to a result's generation (a replay, for the contests' Watch). run.worker.js
+// runs it in a Web Worker; driver.js is its other end, on the page.
+//
+// A replay keeps no history either, only keyframes: the cells every K generations, under a
+// memory budget. When they pass it, every other one is dropped and K doubles. A seek restores
+// the nearest keyframe at or before its target (or the seed) and steps on from there, in slices
+// like the loop's, so a later seek takes over from one still on its way.
 //
 // The loop steps for a short slice of time, then yields, so messages from the page (pause,
 // step, stop, snapshot) are handled between generations. A generation itself can't be
@@ -12,14 +18,21 @@
 //
 // Messages to the run:
 //   {type: 'start', world: {rules, chunkSize?, slabBytes?, limits?, arena?}, seed: Int32Array,
-//    run: {kind: 'timed', seconds} | {kind: 'open', paused?, rate?, settle?}, generations?, from?}
+//    run: {kind: 'timed', seconds} | {kind: 'open', paused?, rate?, settle?}
+//       | {kind: 'replay', paused?, rate?, check?: {run, hash}, keyframeBytes?, keyframeEvery?},
+//    generations?, from?}
 //     from: the seed is generation `from` of an earlier run, and the count goes on from there
 //     (Explore loads a saved generation this way); `generations` counts from 0 all the same
 //     settle: end when every cell has died ('died') or the cells repeat, in place, those of
 //     an earlier generation ('repeat', with the cycle: {from, period}; the generation count
 //     goes back to `from`, whose cells they are)
-//   {type: 'pause'} {type: 'resume'} {type: 'step'}   open-ended runs only
-//   {type: 'rate', rate}                                open-ended runs only; null for flat out
+//     replay: `generations` is the result's generation, where it ends ('generation-limit'),
+//     and is required; it starts from the seed. With `check`, the result's run and hash, the
+//     cells there are hashed under the run and compared with the hash ('replayed')
+//   {type: 'pause'} {type: 'resume'} {type: 'step'}   open-ended runs and replays only
+//   {type: 'rate', rate}                                the same; null for flat out
+//   {type: 'seek', id, generation}                      replays only, even once ended: go to that
+//     generation (up to the replay's last), then carry on as before (an ended replay pauses)
 //   {type: 'stop'}
 //   {type: 'cycle', id, budget}                         after 'repeat': every generation of the cycle
 //   {type: 'snapshot', id, budget?, slice?: {axis, index}, stats?: true}
@@ -29,13 +42,18 @@
 //     (canonical.js's resultOf()), made here so the page never holds a large generation's cells;
 //     the ending is the run's own end reason
 // Messages from the run:
-//   {type: 'state', state: 'running' | 'paused' | 'ended', reason?, cycle?, stats}
+//   {type: 'state', state: 'running' | 'paused' | 'seeking' | 'ended', reason?, cycle?, stats}
 //   {type: 'cycle', id, from, period, frames: Int32Array[] | null}   null past `budget` cells
 //   {type: 'stats', stats}                              at most every STATS_INTERVAL_MS
 //   {type: 'snapshot', id, generation, live, chunkSize, slice?, stats?, cells?: Int32Array, chunks?: Int32Array}
 //     cells as x, y, z triples, or chunks as x, y, z, live quadruples (World.chunkList()); the
 //     array's buffer is transferred
 //   {type: 'result', id, result}                       the result, as an object for resultText()
+//   {type: 'seeked', id, generation, superseded?}       a seek has arrived, or a later one took over
+//   {type: 'replayed', generation, hash, matches, reason}   once, when a replay first ends:
+//     at its generation, the hash of its cells and whether it is the check's (null without a
+//     check); before it, no hash, and matches false if the pattern ended it (a limit of the
+//     run's), null if the machine did (memory)
 //   {type: 'error', id?, message}
 //
 // Statistics go out on their own at most four times a second, and with every change of state.
@@ -46,13 +64,19 @@
 import { World } from './world.js';
 import { step as stepWorld } from './step.js';
 import { END_REASONS } from './endings.js';
-import { resultOf } from './canonical.js';
+import { resultOf, hashWorld } from './canonical.js';
 
 export const STATS_INTERVAL_MS = 250;
 /** How long the loop steps before yielding to messages, unless one generation takes longer. */
 export const SLICE_MS = 16;
 /** How many generations back a settling run looks for a repeat: the longest period it spots. */
 export const REPEAT_WINDOW = 10_000;
+/** A replay's keyframes, at most, in bytes of cells (12 per live cell), unless the start says. */
+export const KEYFRAME_BYTES = 128 * 1024 * 1024;
+/** A replay keeps a keyframe every this many generations at first; it doubles as they thin. */
+export const KEYFRAME_EVERY = 8;
+/** Endings that come from the pattern under the run's own limits, not from the machine. */
+const PATTERN_ENDINGS = ['cell-limit', 'extent-limit', 'coordinate-limit', 'arena-edge'];
 
 /** The reasons a run can end (endings.js), here too for the code that already looks here. */
 export { END_REASONS };
@@ -110,14 +134,15 @@ export class Run {
   handle(message) {
     switch (message?.type) {
       case 'start': return this.start(message);
-      case 'pause': return this.openOnly('pause') && this.state === 'running' && this.setState('paused');
-      case 'resume': return this.openOnly('resume') && this.state === 'paused' && this.setState('running');
+      case 'pause': return this.openOnly('pause') && this.pause();
+      case 'resume': return this.openOnly('resume') && this.resume();
       case 'step': return this.openOnly('step') && this.state === 'paused' && this.stepByHand();
       case 'rate': return this.openOnly('rate') && this.live() && this.changeRate(message.rate);
       case 'stop': return this.live() && this.end('stopped');
       case 'snapshot': return this.snapshot(message.id, message.budget, message.slice, message.stats);
       case 'cycle': return this.cycle(message.id, message.budget);
       case 'result': return this.result(message);
+      case 'seek': return this.seek(message.id, message.generation);
       default: throw new RunError(`Unknown message ${JSON.stringify(message?.type)}.`);
     }
   }
@@ -128,20 +153,34 @@ export class Run {
       throw new RunError('The seed must be an Int32Array of x, y, z triples.');
     }
     const timed = run?.kind === 'timed';
+    const replay = run?.kind === 'replay';
     if (timed && !(run.seconds > 0)) throw new RunError('A timed run needs a number of seconds.');
-    if (!timed && run?.kind !== 'open') throw new RunError("The run's kind must be 'timed' or 'open'.");
+    if (!timed && !replay && run?.kind !== 'open') throw new RunError("The run's kind must be 'timed', 'open' or 'replay'.");
     if (generations !== Infinity && !(Number.isInteger(generations) && generations >= 0)) {
       throw new RunError('The generations must be a whole number.');
     }
     if (!(Number.isSafeInteger(from) && from >= 0)) throw new RunError('The generation to start from must be a whole number.');
+    if (replay) checkReplay(run, generations, from);
 
-    const settle = !timed && Boolean(run.settle);
+    const settle = !timed && !replay && Boolean(run.settle);
     const world = new World({ ...options, fingerprint: settle });
     world.setCells(triples(seed));
     world.generation = from; // only the count: the step never reads it
     this.world = world;
     this.kind = run.kind;
     this.settle = settle;
+    this.seeking = null; // a seek on its way: {id, target, resume}
+    this.replay = replay ? {
+      options: { ...options },
+      seed, // transferred to this thread: the run owns it, to restore generation 0 from
+      check: run.check ?? null,
+      budget: run.keyframeBytes ?? KEYFRAME_BYTES,
+      every: run.keyframeEvery ?? KEYFRAME_EVERY,
+      keyframes: new Map(), // generation -> cells as x, y, z triples
+      bytes: 0,
+      last: generations, // the furthest generation it can reach: less, once a limit ends it early
+      done: false, // whether 'replayed' has gone out
+    } : null;
     this.cycleFound = null;
     if (settle) {
       this.seen = new Map(); // fingerprint -> generation, for the last REPEAT_WINDOW generations
@@ -171,6 +210,13 @@ export class Run {
     if (ticket !== this.ticket) return; // paused, stopped or rescheduled since this was scheduled
     const sliceEnd = this.now() + SLICE_MS;
     for (;;) {
+      if (this.seeking) {
+        // Flat out, whatever the rate, and with no statistics on the way
+        if (this.world.generation >= this.seeking.target) return this.arrive();
+        if (this.advance()) return; // ended on the way: end() has answered the seek
+        if (this.now() >= sliceEnd) return this.yieldThen(() => this.loop(ticket));
+        continue;
+      }
       if (this.deadline !== undefined && this.now() >= this.deadline) return this.end('deadline');
       if (this.world.generation >= this.generations) return this.end('generation-limit');
       if (this.rate) {
@@ -202,6 +248,7 @@ export class Run {
       return true;
     }
     if (this.state === 'running') this.generationMs = this.runningMs + this.now() - this.runningSince;
+    if (this.replay) this.keep();
     const live = this.world.liveCells;
     if (live > this.livePeak) this.livePeak = live;
     if (this.rate) this.dueAt = Math.max(this.dueAt + 1000 / this.rate, this.now());
@@ -270,6 +317,110 @@ export class Run {
     this.post({ type: 'cycle', id, from, period, frames }, frames ? frames.map((f) => f.buffer) : []);
   }
 
+  pause() {
+    if (this.seeking) this.seeking.resume = 'paused';
+    else if (this.state === 'running') this.setState('paused');
+  }
+
+  resume() {
+    if (this.seeking) this.seeking.resume = 'running';
+    else if (this.state === 'paused') this.setState('running');
+  }
+
+  // ---- Replays ----
+
+  /** Keeps the generation just made as a keyframe, if it falls on one, within the budget. */
+  keep() {
+    const r = this.replay;
+    const g = this.world.generation;
+    if (g % r.every !== 0 || r.keyframes.has(g)) return;
+    const cells = this.world.cells();
+    r.keyframes.set(g, cells);
+    r.bytes += cells.byteLength;
+    // Thin them until they fit: every other one goes, and K doubles. One keyframe larger than
+    // the whole budget goes too, once K passes it, and the seed is left to restore from.
+    while (r.bytes > r.budget) {
+      r.every *= 2;
+      for (const [k, kept] of r.keyframes) {
+        if (k % r.every !== 0) {
+          r.keyframes.delete(k);
+          r.bytes -= kept.byteLength;
+        }
+      }
+    }
+  }
+
+  /** The replay's keyframes now: which generations, every how many, and their bytes. For tests. */
+  keyframes() {
+    const r = this.replay;
+    return { generations: [...r.keyframes.keys()].sort((a, b) => a - b), every: r.every, bytes: r.bytes, budget: r.budget };
+  }
+
+  /**
+   * Goes to a generation: from where the replay is, if that is on the way, or else from the
+   * nearest keyframe at or before it. A later seek takes over from this one.
+   */
+  seek(id, generation) {
+    if (!this.world) throw new RunError('There is nothing to seek before the run starts.');
+    if (this.kind !== 'replay') throw new RunError('Only a replay can seek.');
+    if (!(Number.isSafeInteger(generation) && generation >= 0)) throw new RunError('A seek needs a whole number of generations.');
+    const r = this.replay;
+    const target = Math.min(generation, r.last);
+    let resume = this.state === 'running' ? 'running' : 'paused';
+    if (this.seeking) {
+      resume = this.seeking.resume;
+      this.post({ type: 'seeked', id: this.seeking.id, generation: this.world.generation, superseded: true });
+      this.seeking = null;
+    }
+
+    let from = 0;
+    for (const k of r.keyframes.keys()) if (k <= target && k > from) from = k;
+    const here = this.world.generation;
+    if (!(here <= target && here >= from)) this.restore(from);
+
+    this.seeking = { id, target, resume };
+    this.setState('seeking');
+  }
+
+  /** Puts a fresh world at a keyframe's generation (0: the seed). */
+  restore(generation) {
+    const r = this.replay;
+    const world = new World(r.options);
+    world.setCells(triples(generation === 0 ? r.seed : r.keyframes.get(generation)));
+    world.generation = generation;
+    this.world = world;
+  }
+
+  /** The seek has reached its generation: answer it, and carry on as before it. */
+  arrive() {
+    const { id, resume } = this.seeking;
+    this.seeking = null;
+    this.post({ type: 'seeked', id, generation: this.world.generation });
+    if (this.world.generation >= this.generations) this.end('generation-limit');
+    else this.setState(resume);
+  }
+
+  /** Once, when a replay first ends: the hash at its generation, or why it fell short. */
+  replayed(reason) {
+    const r = this.replay;
+    r.done = true;
+    const generation = this.world.generation;
+    if (reason !== 'generation-limit') {
+      r.last = generation;
+      const matches = PATTERN_ENDINGS.includes(reason) ? false : null;
+      this.post({ type: 'replayed', generation, hash: null, matches, reason });
+      return;
+    }
+    if (!r.check) {
+      this.post({ type: 'replayed', generation, hash: null, matches: null, reason });
+      return;
+    }
+    // The cells are read now, before anything can move the world on; only the digest waits
+    hashWorld(this.world, r.check.run)
+      .then((hash) => this.post({ type: 'replayed', generation, hash, matches: hash === r.check.hash, reason }))
+      .catch((err) => this.fail(err));
+  }
+
   stepByHand() {
     if (this.world.generation >= this.generations) return this.end('generation-limit');
     const started = this.now();
@@ -309,12 +460,18 @@ export class Run {
       this.dueAt = now;
     }
     this.sendState(reason);
-    if (state === 'running') this.schedule();
+    if (state === 'running' || state === 'seeking') this.schedule();
   }
 
   end(reason) {
     this.endReason = reason;
     if (this.world.stopReason === null) this.world.stop(reason);
+    if (this.seeking) {
+      // A limit on the way: the seek ends where the replay does
+      this.post({ type: 'seeked', id: this.seeking.id, generation: this.world.generation });
+      this.seeking = null;
+    }
+    if (this.replay && !this.replay.done && reason !== 'stopped') this.replayed(reason);
     this.setState('ended', reason);
   }
 
@@ -399,12 +556,12 @@ export class Run {
   }
 
   live() {
-    return this.state === 'running' || this.state === 'paused';
+    return this.state === 'running' || this.state === 'paused' || this.state === 'seeking';
   }
 
   openOnly(what) {
     if (!this.world) throw new RunError(`There is nothing to ${what} before the run starts.`);
-    if (this.kind !== 'open') throw new RunError(`A timed run can't ${what === 'rate' ? 'change its rate' : what}; it can only be stopped.`);
+    if (this.kind === 'timed') throw new RunError(`A timed run can't ${what === 'rate' ? 'change its rate' : what}; it can only be stopped.`);
     return true;
   }
 
@@ -438,6 +595,23 @@ export class RunError extends Error {
   constructor(message) {
     super(message);
     this.name = 'RunError';
+  }
+}
+
+/** Refuses a replay's start that can't make one. */
+function checkReplay(run, generations, from) {
+  if (generations === Infinity) throw new RunError('A replay needs the generation it replays to.');
+  if (from !== 0) throw new RunError('A replay starts from its seed, at generation 0.');
+  if (run.keyframeBytes !== undefined && !(Number.isSafeInteger(run.keyframeBytes) && run.keyframeBytes >= 0)) {
+    throw new RunError("A replay's keyframe budget must be a whole number of bytes.");
+  }
+  const every = run.keyframeEvery;
+  if (every !== undefined && !(Number.isSafeInteger(every) && every >= 1 && (every & (every - 1)) === 0)) {
+    throw new RunError('A replay keeps a keyframe every 1, 2, 4, 8, … generations.');
+  }
+  const check = run.check;
+  if (check !== undefined && !(check && typeof check.hash === 'string' && check.run && typeof check.run === 'object')) {
+    throw new RunError("A replay's check is the result's run and hash.");
   }
 }
 

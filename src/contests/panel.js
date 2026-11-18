@@ -3,17 +3,19 @@
 // The Contests panel (#77), in the middle of the screen: the list of contests, a contest's page,
 // its run (a clock, a chart of the generations over time and the statistics, nothing drawn in
 // 3D), its results card,
-// and Verify a result. It also keeps the HUD's Contest section up to date.
+// and Verify a result. It also keeps the HUD's Contest section up to date. Watch (watch.js, #78)
+// hides it, plays a result back in 3D, and brings it back on Close.
 //
 // Text from a result file comes from strangers, so the panel only ever sets textContent: nothing
 // from a file is parsed as HTML. What it says is worked out in format.js, and a run is
 // speed.js's SpeedRun.
 
 import { CONTESTS } from '../unbounded/contests.js';
-import { MAX_RESULT_BYTES } from '../unbounded/canonical.js';
+import { MAX_RESULT_BYTES, readResult, ResultError } from '../unbounded/canonical.js';
 import { detectBrowser } from '../browser.js';
 import { writeJsonFile } from '../explore/explore.js';
 import { SpeedRun, verifyInWorker } from './speed.js';
+import { openWatch, closeWatch } from './watch.js';
 import {
   n, rulesText, countdownText, chartLayout, speedHero, speedScoreText, speedEndingText, resultFileName,
   statsRows, verdictTitle, closingText,
@@ -127,6 +129,7 @@ export function openPanel() {
 /** Hides the panel, ending any run or check: for leaving the mode. */
 export function closePanel() {
   panel.open = false;
+  closeWatch({ quietly: true });
   endRun();
   cancelVerify();
   el('contests-panel').hidden = true;
@@ -460,6 +463,13 @@ async function showResults(run, { stats, reason, score }) {
 
   const exportButton = button('Export result', null, { main: true, id: 'contests-export' });
   exportButton.disabled = true;
+  const watchButton = button('Watch', null, { id: 'contests-watch-run' });
+  watchButton.disabled = true;
+  const verified = h('p', {
+    className: 'contests-self-verified',
+    text: `Watch plays the run back in 3D, replayed from its seed, and checks the replay's hash at generation ${n(stats.generation)} against this one.`,
+    attrs: { id: 'contests-self-verified', 'data-verdict': 'pending' },
+  });
   const hero = speedHero(score, contest);
   const meta = h('span', { className: 'contests-hero-meta', text: 'Detecting the browser…', attrs: { id: 'contests-hero-meta' } });
   const hash = h('span', { className: 'contests-hash', text: `Hashing generation ${n(stats.generation)}…`, attrs: { id: 'contests-hash' } });
@@ -477,8 +487,9 @@ async function showResults(run, { stats, reason, score }) {
     h('div', { className: 'contests-hash-box' },
       h('span', { className: 'contests-hash-label', text: "The result's hash" }),
       h('div', { className: 'contests-hash-row' }, hash, copy)),
+    verified,
     h('p', { className: 'contests-note', text: SELF_REPORTED }),
-    h('div', { className: 'contests-actions' }, exportButton, again, back),
+    h('div', { className: 'contests-actions' }, exportButton, watchButton, again, back),
   ]);
   chart.update(run.points);
 
@@ -502,6 +513,8 @@ async function showResults(run, { stats, reason, score }) {
   copy.onclick = () => copyText(made.result.hash);
   exportButton.disabled = false;
   exportButton.onclick = () => exportResult(contest, score, made.text);
+  watchButton.disabled = false;
+  watchButton.onclick = () => watchResult(made.result, `${contest.title}: ${speedScoreText(score)}`, watchButton, verified);
   // Export is what comes next, unless the visitor has moved on to another button meanwhile
   if (!el('contests-panel').contains(document.activeElement) || document.activeElement === again) {
     exportButton.focus({ preventScroll: true });
@@ -524,6 +537,30 @@ async function copyText(text) {
   } catch {
     status("The browser didn't allow copying; select the hash and copy it by hand.");
   }
+}
+
+// ---- Watch ----
+
+/**
+ * Plays a result back in 3D (watch.js), and comes back to the button that opened it. What the
+ * replay finds goes on the card's line too, if it has one.
+ */
+function watchResult(result, title, from, line = null) {
+  const view = panel.view;
+  hud(undefined, 'Watching');
+  openWatch(result, {
+    title,
+    onReplayed: (found) => {
+      if (!line) return;
+      line.textContent = found.text;
+      line.dataset.verdict = found.verdict;
+    },
+    onClose: () => {
+      if (panel.view !== view) return;
+      hud(undefined, view === 'results' ? 'Finished' : 'Checked');
+      from.focus({ preventScroll: true });
+    },
+  });
 }
 
 // ---- Verify a result ----
@@ -557,10 +594,15 @@ async function verifyFile(file) {
   const answer = await check.promise;
   if (panel.verify !== check) return; // the panel has moved on
   panel.verify = null;
-  showVerdict(file.name, answer, back);
+  showVerdict(file.name, answer, back, text);
 }
 
-function showVerdict(name, answer, back) {
+/**
+ * The verdict on a file, with Watch for any file that could be read: a mismatch can be watched
+ * too, to see where it goes.
+ * @param {string} [text] - the file's contents, for Watch
+ */
+function showVerdict(name, answer, back, text) {
   hud(undefined, answer.verdict === 'verified' ? 'Verified' : 'Checked');
   const rows = [['File', name]];
   if (answer.contest !== undefined) rows.push(['Branch', answer.contest ?? 'none']);
@@ -571,13 +613,35 @@ function showVerdict(name, answer, back) {
       ? `${speedScoreText(answer.score)} (the time is self-reported)`
       : JSON.stringify(answer.score)]);
   }
+  // Watch reads the file again, on this thread: readResult() checks it as untrusted data
+  const readable = text !== undefined && ['verified', 'mismatch', 'not-checked'].includes(answer.verdict);
+  const line = readable ? h('p', {
+    className: 'contests-self-verified',
+    text: 'Watch plays the run back in 3D, replayed from its seed, and checks the replay\'s hash at the file\'s generation.',
+    attrs: { id: 'contests-self-verified', 'data-verdict': 'pending' },
+  }) : null;
+  let watchButton = null;
+  if (readable) {
+    watchButton = button('Watch', () => {
+      let result;
+      try {
+        result = readResult(text);
+      } catch (err) {
+        status(err instanceof ResultError ? `It can't be watched: ${err.message}` : `It can't be watched: ${err?.message ?? err}`);
+        return;
+      }
+      watchResult(result, `Watch: ${name}`, watchButton, line);
+    }, { id: 'contests-watch-run' });
+  }
   show('verdict', 'Verify a result', [
     h('div', { className: 'contests-verdict-head' },
       verifyGlyph(30),
       h('p', { className: `contests-verdict contests-verdict--${answer.verdict}`, text: verdictTitle(answer.verdict), attrs: { id: 'contests-verdict' } })),
     h('p', { text: answer.message, attrs: { id: 'contests-verdict-message' } }),
     facts(rows),
+    line,
     h('div', { className: 'contests-actions' },
+      watchButton,
       verifyButton('Verify another'),
       back ? button(`Back to ${back.title}`, () => showContest(back), { id: 'contests-back' }) : null,
       button('Back to the contest', showList, { id: 'contests-list' })),
