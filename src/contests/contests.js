@@ -2,12 +2,17 @@
 //
 // The Contests mode (#77): a sixth mode, chosen in the settings dialog. Like Explore, it never
 // reaches initSimulation(): it shows the panel in the middle of the screen (panel.js), and
-// nothing is drawn in 3D behind it, so a run has the machine to itself. Leaving the mode closes
-// the panel, which ends any run or check and its Worker.
+// nothing is drawn in 3D behind it, so a run has the machine to itself. Only Watch (watch.js,
+// #78) draws, once a run is over, in place of the panel. Leaving the mode closes the panel,
+// which ends any run, check or Watch and its Worker.
 
 import { state } from '../state.js';
 import { initSpace } from '../space.js';
 import { openPanel, closePanel, panelFrame } from './panel.js';
+import { isWatching, watchFrame } from './watch.js';
+
+// The control bar and Esc reach Watch through here (controls.js, time.js)
+export { isWatching, closeWatch, watchTogglePlay, watchStep, watchSpeed, watchViewChanged } from './watch.js';
 
 let active = false;
 
@@ -47,7 +52,11 @@ function banner(pressed) {
   button.title = pressed ? 'Leave the contest (Esc)' : 'Open the contest';
 }
 
-/** animate() calls this instead of drawing: the countdown is all that moves. */
+/**
+ * animate() calls this instead of drawing: the countdown is all that moves, unless Watch is
+ * playing a result back, which draws its own view.
+ */
 export function contestsFrame(now) {
-  panelFrame(now);
+  if (isWatching()) watchFrame(now);
+  else panelFrame(now);
 }

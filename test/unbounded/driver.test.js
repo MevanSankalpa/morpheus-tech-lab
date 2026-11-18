@@ -8,6 +8,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Worker } from 'node:worker_threads';
 import { EngineDriver } from '../../src/unbounded/driver.js';
+import { World } from '../../src/unbounded/world.js';
+import { step } from '../../src/unbounded/step.js';
+import { normaliseRun, resultOf } from '../../src/unbounded/canonical.js';
 import { GROWING, randomSeed } from './helpers.js';
 
 /** A Node Worker dressed as a browser one: onmessage, onerror, postMessage, terminate. */
@@ -127,4 +130,47 @@ test('the driver reports a refused start, and rejects a snapshot when the run is
   const pending = driver.snapshot();
   driver.close();
   await assert.rejects(pending, /closed/);
+});
+
+test('a replay in a Worker seeks, and confirms the result\'s hash at its generation', async () => {
+  // A result at generation 30, from a straight run on this thread
+  const cells = randomSeed({ min: [-3, -3, -3], size: [6, 6, 6], randomSeed: 1 });
+  const run = normaliseRun({ contest: null, rules: GROWING, seed: cells, arena: null, limits: { cells: null, extent: null, generations: null } });
+  const straight = new World({ rules: GROWING });
+  straight.setCells(cells);
+  const at = {};
+  for (let g = 0; g <= 30; g++) {
+    at[g] = straight.liveCells;
+    if (g < 30) step(straight);
+  }
+  const result = await resultOf(straight, { run, ending: 'stopped' });
+
+  let replayedNow;
+  const replayed = new Promise((resolve) => { replayedNow = resolve; });
+  const driver = new EngineDriver({ createWorker: nodeWorker, onReplayed: (r) => replayedNow(r) });
+  try {
+    driver.start({
+      world: { rules: run.rules },
+      seed: Int32Array.from(cells.flat()),
+      run: { kind: 'replay', paused: true, keyframeEvery: 4, check: { run: result.run, hash: result.hash } },
+      generations: result.generation,
+    });
+    for (const target of [17, 3, 30, 12]) {
+      assert.deepEqual(await driver.seek(target), { generation: target });
+      const snapshot = await driver.snapshot();
+      assert.equal(snapshot.generation, target);
+      assert.equal(snapshot.live, at[target]);
+    }
+    const answer = await replayed;
+    assert.deepEqual(answer, { generation: 30, hash: result.hash, matches: true, reason: 'generation-limit' });
+
+    // Two seeks at once: the first arrives or is taken over (run.test.js pins which, on a fake
+    // clock); either way both answer, and the replay ends up at the second
+    const [first, second] = await Promise.all([driver.seek(25), driver.seek(5)]);
+    assert.ok(first.superseded === true || first.generation === 25, JSON.stringify(first));
+    assert.deepEqual(second, { generation: 5 });
+    assert.equal((await driver.snapshot()).generation, 5);
+  } finally {
+    driver.close();
+  }
 });

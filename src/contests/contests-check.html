@@ -50,6 +50,8 @@
     <li>The results card's browser line is right in Chrome, Edge, Firefox and Safari.</li>
     <li>At phone width (devtools), the panel sits above the control bar and scrolls if it must.</li>
     <li>The GPU toggle's popover says contests run on the CPU.</li>
+    <li>Watch: the run plays back in 3D as in Explore, the camera follows the pattern as it grows, and past the render budget the chunks show as boxes. Dragging the scrub bar back and forth feels responsive, and the view settles on the generation let go at.</li>
+    <li>Watch's bar sits above the control bar, clear of it and of the HUD, at full width and at phone width.</li>
   </ul>
   <script type="module">
     const frame = document.getElementById('lab');
@@ -269,6 +271,92 @@
       ok(text('contest-hud-status') === 'Finished', 'The HUD says finished');
       const score = Number(text('contests-score').replace(/,/g, ''));
 
+      section('Watch');
+      const watchGeneration = () => Number(text('contests-watch-generation').split('/')[0].replace(/,/g, ''));
+      const setSpeed = (value) => {
+        el('speed-control').value = String(value);
+        el('speed-control').dispatchEvent(new win.Event('input', { bubbles: true }));
+      };
+      ok(visible('contests-watch-run') && !el('contests-watch-run').disabled, 'The results card offers Watch');
+      ok(text('contests-self-verified').includes('checks the replay'), 'and says Watch checks the replay against the hash');
+      setSpeed(1); // 10 generations a second, to see it move
+      press('contests-watch-run');
+      await sleep(300);
+      ok(!visible('contests-panel') && visible('contests-watch') && doc.body.classList.contains('contests-watching'), 'Watch hides the panel and shows its bar');
+      ok(text('contests-watch-generation').endsWith(`/ ${score.toLocaleString('en')}`) && Number(el('contests-watch-scrub').max) === score, `The scrub bar runs to the scored generation (${text('contests-watch-generation')})`);
+      const bar = el('contests-watch').getBoundingClientRect();
+      const below = ['bottom-controls', 'bottom-controls-display', 'additional-controls-display']
+        .map((id) => el(id)).filter((e) => e && e.getClientRects().length).map((e) => e.getBoundingClientRect().top);
+      ok(bar.bottom <= Math.min(...below), `The bar sits above the control bar and its readouts (${Math.round(bar.bottom)} and ${Math.round(Math.min(...below))} px)`);
+      ok(win.getComputedStyle(el('playPauseButton')).pointerEvents !== 'none' && win.getComputedStyle(el('stepButton')).pointerEvents !== 'none', 'Play and step work again');
+      ok(win.getComputedStyle(el('reverseButton')).pointerEvents === 'none', 'Reverse stays off: a replay runs forward');
+      ok(text('contest-hud-status') === 'Watching', 'The HUD says watching');
+      ok(await until(() => watchGeneration() >= 5, 5000), `It plays (generation ${watchGeneration()})`);
+      ok(text('bottom-state-value') === 'play' && el('playPauseIcon').className === 'pause', 'The control bar says it is playing');
+      press('playPauseButton');
+      ok(await until(() => text('bottom-state-value') === 'pause', 2000), 'Pause pauses it');
+      const paused = watchGeneration();
+      await sleep(600);
+      ok(watchGeneration() === paused, `and it stays at generation ${paused}`);
+      press('stepButton');
+      ok(await until(() => watchGeneration() === paused + 1, 2000), `Step goes one generation on (${watchGeneration()})`);
+      // The lab's own state, from the frame: an import here would load a second copy of the module
+      const { state } = await win.eval("import('/src/state.js')");
+      const viewGroup = () => state.scene.children.find((c) => c.type === 'Group');
+      const cloud = () => viewGroup().children.find((c) => c.type === 'Points');
+      const drawn = () => cloud().geometry.drawRange.count;
+      const all = drawn();
+      press('wireframeGridToggle');
+      await sleep(300);
+      ok(viewGroup().children.some((c) => c.type === 'LineSegments' && c.visible), 'The grid toggle draws the chunk grid round the replay');
+      press('wireframeGridToggle');
+      press('flipOrientationToggle');
+      await sleep(300);
+      ok(viewGroup().scale.y === -1, 'The orientation toggle flips it');
+      press('flipOrientationToggle');
+      const cellSize = el('cellSizeSlider');
+      const sizeBefore = cloud().material.size;
+      cellSize.value = String(Number(cellSize.max));
+      cellSize.dispatchEvent(new win.Event('input', { bubbles: true }));
+      await sleep(300);
+      ok(cloud().material.size === Number(cellSize.max) && cloud().material.size !== sizeBefore, `The cell size slider sizes its cells (${cloud().material.size})`);
+      cellSize.value = String(sizeBefore);
+      cellSize.dispatchEvent(new win.Event('input', { bubbles: true }));
+      press('dualStateButton');
+      ok(await until(() => state.viewMode === 'slice' && drawn() < all, 3000), `2D draws one slice of it (${drawn()} of ${all} cells)`);
+      const sliceSlider = el('slice-index');
+      const middleSlice = drawn();
+      sliceSlider.value = sliceSlider.max;
+      sliceSlider.dispatchEvent(new win.Event('input', { bubbles: true }));
+      ok(await until(() => drawn() !== middleSlice, 3000), `The slice slider moves the slice (${drawn()} cells at ${sliceSlider.max})`);
+      press('dualStateButton');
+      ok(await until(() => state.viewMode === 'full' && drawn() === all, 3000), 'and 3D draws it all again');
+      const middle = Math.floor(score / 2);
+      el('contests-watch-scrub').value = String(middle);
+      el('contests-watch-scrub').dispatchEvent(new win.Event('input', { bubbles: true }));
+      ok(await until(() => watchGeneration() === middle && text('bottom-state-value') === 'pause', 30000), `Scrubbing goes to generation ${middle}, still paused`);
+      el('contests-watch-scrub').value = '3';
+      el('contests-watch-scrub').dispatchEvent(new win.Event('input', { bubbles: true }));
+      ok(await until(() => watchGeneration() === 3, 30000), 'and back to generation 3, from a keyframe');
+      ok(text('contests-watch-verified').startsWith('Not checked yet'), 'Before the end, the replay is not checked yet');
+      setSpeed(10); // flat out to the end
+      press('playPauseButton');
+      ok(await until(() => text('contests-watch-verified').startsWith('Self-verified'), 120000), `At the scored generation, the replay's hash matches ("${text('contests-watch-verified')}")`);
+      ok(watchGeneration() === score && text('bottom-state-value') === 'end', 'It stops at the scored generation');
+      ok(el('contests-watch-verified').dataset.verdict === 'verified' && win.getComputedStyle(el('contests-watch-verified')).color === 'rgb(155, 227, 176)', 'in green');
+      doc.body.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await sleep(300);
+      ok(visible('contests-panel') && !visible('contests-watch') && doc.body.classList.contains('mode-contests'), 'Esc closes Watch, back to the results card, still in Contests');
+      ok(doc.activeElement?.id === 'contests-watch-run', 'Watch has the focus again');
+      ok(text('contests-self-verified') === text('contests-watch-verified'), `The card says the run is self-verified ("${text('contests-self-verified')}")`);
+      ok(win.getComputedStyle(el('playPauseButton')).pointerEvents === 'none', 'Play is off again');
+      press('contests-watch-run');
+      await sleep(300);
+      press('contests-watch-close');
+      await sleep(300);
+      ok(visible('contests-panel') && !visible('contests-watch'), 'Close also brings the panel back');
+      setSpeed(2.6);
+
       section('Export, then Verify a result');
       let exported = null;
       // Take the file as Export writes it: through a download, as in Firefox and Safari
@@ -290,6 +378,16 @@
       ok(await until(() => visible('contests-verdict'), 60000), 'Verify a result answers');
       ok(text('contests-verdict') === 'Verified', `The exported file verifies ("${text('contests-verdict')}": ${text('contests-verdict-message')})`);
       ok(panelText().includes('the time is self-reported'), 'The verdict notes the time is self-reported');
+      ok(visible('contests-watch-run'), 'A verified file can be watched');
+      setSpeed(10);
+      press('contests-watch-run');
+      await sleep(300);
+      ok(visible('contests-watch') && text('contests-watch-title') === `Watch: speed-1-${score}.json`, `Watch plays the file (${text('contests-watch-title')})`);
+      ok(await until(() => text('contests-watch-verified').startsWith('Self-verified'), 120000), 'and self-verifies it at its generation');
+      press('contests-watch-close');
+      await sleep(300);
+      ok(text('contests-self-verified').startsWith('Self-verified') && text('contests-verdict') === 'Verified', 'The verdict keeps what Watch found');
+      setSpeed(2.6);
       const edited = file.replace(`"generations": ${score}`, `"generations": ${score + 1}`);
       chooseFile('edited.json', edited);
       ok(await until(() => visible('contests-verdict') && text('contests-verdict') !== 'Verified', 30000), 'A hand-edited copy is checked');

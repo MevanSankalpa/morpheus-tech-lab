@@ -73,6 +73,12 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   the result's hash, and exports the result file. Verify a result checks a result from any branch
   by replaying it in a background thread. Speed's timing is self-reported, and the page says so.
   Methuselah and Contained chaos, the other two branches, are coming (#77).
+- Watch, in the Contest: a result played back in 3D, from the results card or from a file that
+  Verify a result has checked. The run is replayed from its seed in a background thread and
+  drawn as in Explore; the control bar plays, pauses, steps and sets the speed, and a scrub bar
+  goes to any generation up to the scored one. The grid, orientation, cell size and 3D or 2D slice
+  apply as in Explore. When the replay reaches the scored generation, its hash is compared with
+  the result's, and Watch and the card say whether the run is self-verified (#78).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).

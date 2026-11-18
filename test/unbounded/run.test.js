@@ -7,8 +7,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../../src/unbounded/world.js';
 import { step } from '../../src/unbounded/step.js';
-import { Run, STATS_INTERVAL_MS } from '../../src/unbounded/run.js';
+import { Run, STATS_INTERVAL_MS, KEYFRAME_EVERY } from '../../src/unbounded/run.js';
 import { ReferenceWorld, sortCells } from '../../src/unbounded/reference.js';
+import { normaliseRun, resultOf } from '../../src/unbounded/canonical.js';
 import { GROWING, randomSeed, cellsOf, difference } from './helpers.js';
 
 const SEED = randomSeed({ min: [-3, -3, -3], size: [6, 6, 6], randomSeed: 1 });
@@ -471,4 +472,200 @@ test('a bad start is refused without starting', () => {
   assert.equal(f.ended().reason, 'generation-limit');
   f.start({ run: { kind: 'open' } });
   assert.match(f.of('error').at(-1).message, /already started/);
+});
+
+// ---- Replays (#78) ----
+
+/** The run's definition for SEED under GROWING, as a result file states it. */
+const RUN = normaliseRun({
+  contest: null, rules: GROWING, seed: SEED, arena: null, limits: { cells: null, extent: null, generations: null },
+});
+
+/** A result for SEED's generation `generation`, made from a straight run. */
+async function resultAt(generation) {
+  const world = new World(WORLD);
+  world.setCells(SEED);
+  for (let g = 0; g < generation; g++) step(world);
+  return resultOf(world, { run: RUN, ending: 'stopped' });
+}
+
+/** Waits for the replay's hash (crypto.subtle, a promise): until `count` 'replayed' messages. */
+async function replayed(f, count = 1) {
+  for (let i = 0; i < 1000 && f.of('replayed').length < count; i++) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  return f.of('replayed');
+}
+
+function replay(f, { to, paused = true, check, keyframeBytes, keyframeEvery = 4, world = WORLD } = {}) {
+  const run = { kind: 'replay', paused, keyframeEvery };
+  if (check) run.check = check;
+  if (keyframeBytes !== undefined) run.keyframeBytes = keyframeBytes;
+  f.start({ run, generations: to, world });
+}
+
+function seek(f, id, generation) {
+  f.run.receive({ type: 'seek', id, generation });
+  f.until();
+  return f.of('seeked').find((m) => m.id === id);
+}
+
+test('a replay plays to the result\'s generation, and seeking anywhere gives the cells of a straight run there', () => {
+  const f = fakeRun();
+  replay(f, { to: 60, paused: false });
+  f.until();
+  assert.equal(f.ended().reason, 'generation-limit');
+  sameAs(f.run.world, 60);
+
+  // Back, forward from a keyframe, forward from where it is, and to the end again
+  let id = 1;
+  for (const target of [0, 1, 7, 33, 34, 39, 12, 60, 59]) {
+    const answer = seek(f, id++, target);
+    assert.equal(answer.generation, target);
+    assert.equal(f.run.world.generation, target);
+    sameAs(f.run.world, target);
+  }
+  // Past the end goes to the end, and an ended replay that seeks back is paused there
+  assert.equal(seek(f, id++, 500).generation, 60);
+  assert.equal(f.of('state').at(-1).state, 'ended');
+  seek(f, id++, 20);
+  assert.equal(f.of('state').at(-1).state, 'paused');
+
+  // It plays on from there by step, then running, to the end
+  f.run.receive({ type: 'step' });
+  sameAs(f.run.world, 21);
+  f.run.receive({ type: 'resume' });
+  f.until();
+  assert.equal(f.of('state').at(-1).reason, 'generation-limit');
+  sameAs(f.run.world, 60);
+});
+
+test('a seek runs flat out in slices, and a later seek takes over from one on its way', () => {
+  const f = fakeRun({ msPerStep: 10 });
+  replay(f, { to: 80 });
+  f.run.receive({ type: 'rate', rate: 1 }); // a rate a seek ignores
+  f.run.receive({ type: 'seek', id: 1, generation: 70 });
+  f.until(30); // a slice or two: on its way
+  assert.ok(f.run.world.generation > 0 && f.run.world.generation < 70);
+  assert.equal(f.of('state').at(-1).state, 'seeking');
+  f.run.receive({ type: 'resume' }); // remembered for when it arrives
+  f.run.receive({ type: 'seek', id: 2, generation: 50 });
+  const first = f.of('seeked').find((m) => m.id === 1);
+  assert.equal(first.superseded, true);
+  f.until(f.time + 5000 / 10); // flat out: 50 generations of 10 ms, and no waiting on the rate
+  const second = f.of('seeked').find((m) => m.id === 2);
+  assert.equal(second.generation, 50);
+  assert.ok(second.at <= 600, `arrived at ${second.at} ms`);
+  const after = f.of('state').filter((m) => m.at >= second.at);
+  assert.equal(after[0].state, 'running', 'the resume during the seek holds');
+  // ... so it has played on from 50, at the rate, and is still a straight run
+  f.run.receive({ type: 'pause' });
+  assert.ok(f.run.world.generation >= 50);
+  sameAs(f.run.world, f.run.world.generation);
+});
+
+test('a replay\'s keyframes stay under their budget, thinning as K doubles', () => {
+  const budget = 40_000; // bytes; the pattern reaches thousands of cells, 12 bytes each
+  const sizes = [];
+  const f = fakeRun({
+    stepper: (world, options) => {
+      const reason = step(world, options);
+      if (f.run.replay) sizes.push(f.run.keyframes());
+      return reason;
+    },
+  });
+  replay(f, { to: 200, paused: false, keyframeBytes: budget, keyframeEvery: 2 });
+  f.until();
+  assert.equal(f.ended().reason, 'generation-limit');
+  for (const k of [...sizes, f.run.keyframes()]) assert.ok(k.bytes <= budget, `${k.bytes} bytes of keyframes`);
+
+  const last = f.run.keyframes();
+  assert.ok(last.every > 2, `K doubled, to ${last.every}`);
+  assert.ok(last.generations.length > 0);
+  assert.ok(last.generations.every((g) => g % last.every === 0), 'each keyframe is on a multiple of K');
+  const counted = last.generations.reduce((sum, g) => sum + f.run.replay.keyframes.get(g).byteLength, 0);
+  assert.equal(counted, last.bytes);
+
+  // Seeking still gives the right cells, from what is left
+  for (const [i, target] of [3, 99, 150, 0, 199].entries()) {
+    seek(f, i + 1, target);
+    sameAs(f.run.world, target);
+  }
+
+  // A budget smaller than any keyframe keeps none, and seeks from the seed
+  const g = fakeRun();
+  replay(g, { to: 40, paused: false, keyframeBytes: 10 });
+  g.until();
+  assert.deepEqual(g.run.keyframes().generations, []);
+  seek(g, 1, 30);
+  sameAs(g.run.world, 30);
+  assert.equal(KEYFRAME_EVERY, 8, 'the default K');
+});
+
+test('at the result\'s generation, a replay hashes its cells and compares them with the result\'s hash', async () => {
+  const result = await resultAt(40);
+  const f = fakeRun();
+  replay(f, { to: 40, paused: false, check: { run: result.run, hash: result.hash } });
+  f.until();
+  const [answer] = await replayed(f);
+  assert.deepEqual(
+    { generation: answer.generation, hash: answer.hash, matches: answer.matches, reason: answer.reason },
+    { generation: 40, hash: result.hash, matches: true, reason: 'generation-limit' },
+  );
+
+  // Once only: seeking back and playing to the end again doesn't hash again
+  seek(f, 1, 10);
+  f.run.receive({ type: 'resume' });
+  f.until();
+  assert.equal((await replayed(f, 2)).length, 1);
+
+  // A hash that isn't the cells' doesn't match
+  const edited = fakeRun();
+  replay(edited, { to: 40, paused: false, check: { run: result.run, hash: `sha256:${'0'.repeat(64)}` } });
+  edited.until();
+  assert.equal((await replayed(edited))[0].matches, false);
+
+  // Without a check there is nothing to compare
+  const plain = fakeRun();
+  replay(plain, { to: 5, paused: false });
+  plain.until();
+  const [none] = await replayed(plain);
+  assert.deepEqual([none.hash, none.matches], [null, null]);
+});
+
+test('a replay a limit ends early says so, and seeks only as far as it got', async () => {
+  const f = fakeRun();
+  replay(f, { to: 500, paused: false, world: { ...WORLD, limits: { cells: 1000 } }, check: { run: RUN, hash: 'sha256:x' } });
+  f.until();
+  const end = f.ended();
+  assert.equal(end.reason, 'cell-limit');
+  const [short] = await replayed(f);
+  assert.equal(short.matches, false, 'a limit of the run\'s, before its generation: not the result\'s run');
+  assert.equal(short.generation, end.stats.generation);
+  assert.equal(seek(f, 1, 500).generation, end.stats.generation);
+  seek(f, 2, 3);
+  sameAs(f.run.world, 3);
+});
+
+test('only a replay seeks, and a replay needs its generation and starts from its seed', () => {
+  const open = fakeRun();
+  open.start({ run: { kind: 'open' } });
+  open.run.receive({ type: 'seek', id: 1, generation: 3 });
+  assert.match(open.of('error')[0].message, /Only a replay/);
+
+  const f = fakeRun();
+  f.start({ run: { kind: 'replay' } });
+  assert.match(f.of('error')[0].message, /generation it replays to/);
+  f.run.receive({ type: 'start', world: WORLD, seed: Int32Array.from(SEED.flat()), run: { kind: 'replay' }, generations: 5, from: 2 });
+  assert.match(f.of('error')[1].message, /starts from its seed/);
+  replay(f, { to: 5, keyframeEvery: 3 });
+  assert.match(f.of('error')[2].message, /1, 2, 4, 8/);
+  f.start({ run: { kind: 'replay', check: { hash: 'sha256:x' } }, generations: 5 });
+  assert.match(f.of('error')[3].message, /check is the result's run and hash/);
+  assert.equal(f.of('state').length, 0);
+
+  replay(f, { to: 5 });
+  f.run.receive({ type: 'seek', id: 1, generation: -1 });
+  assert.match(f.of('error')[4].message, /whole number/);
+  assert.equal(f.of('error')[4].id, 1);
 });

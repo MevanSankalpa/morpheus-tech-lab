@@ -188,3 +188,42 @@ export function verdictTitle(verdict) {
     error: 'The check failed',
   }[verdict] ?? verdict;
 }
+
+// ---- Watch (#78) ----
+
+/** Where Watch is, out of the result's generation: "212 / 412". */
+export function watchGenerationText(generation, last) {
+  return `${n(generation)} / ${n(last)}`;
+}
+
+/** How a replay that fell short of its generation ended, in words. */
+const SHORT = {
+  'cell-limit': "it passed the run's cell limit",
+  'extent-limit': "it grew wider than the run's extent limit",
+  'coordinate-limit': 'it reached the edge of the space the engine can hold',
+  'arena-edge': "it reached the edge of the run's arena",
+  'memory-limit': "it reached Watch's memory limit",
+  'out-of-memory': 'the browser refused it more memory',
+  'error': 'an error in the engine stopped it',
+};
+
+/**
+ * What Watch found once its replay first ended, for Watch and the results card.
+ * @param {{generation: number, hash: string | null, matches: boolean | null, reason: string}} replayed
+ * @param {number} generation - the result's
+ * @returns {{verdict: 'verified' | 'mismatch' | 'not-checked', text: string}}
+ */
+export function selfVerifiedText(replayed, generation) {
+  const at = `generation ${n(generation)}`;
+  if (replayed.matches === true) {
+    return { verdict: 'verified', text: `Self-verified: the replay's hash at ${at} matches the run's.` };
+  }
+  if (replayed.hash) {
+    return { verdict: 'mismatch', text: `Not verified: the replay's hash at ${at} doesn't match the run's.` };
+  }
+  const why = SHORT[replayed.reason] ?? `it ended (${replayed.reason})`;
+  const stopped = `The replay stopped at generation ${n(replayed.generation)}, before ${at}: ${why}`;
+  return replayed.matches === false
+    ? { verdict: 'mismatch', text: `Not verified. ${stopped}, so this isn't the run's result.` }
+    : { verdict: 'not-checked', text: `Not checked. ${stopped}.` };
+}

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { initComputeControl, updateComputeControl } from "./gpu/computeControl.js";
 import { isExplore, stopExplore, togglePlay, stepOnce, restart, exploreViewChanged, toggleSave, confirmSave, closeSave } from "./explore/explore.js";
 import { initHud, startFromSetup, settingsNote } from "./explore/hud.js";
-import { isContests, startContests, stopContests } from "./contests/contests.js";
+import { isContests, startContests, stopContests, isWatching, closeWatch, watchTogglePlay, watchStep, watchViewChanged } from "./contests/contests.js";
 import { CONTESTS } from "./unbounded/contests.js";
 import { closingText } from "./contests/format.js";
 
@@ -78,6 +78,10 @@ export function initControls() {
     if (event.key !== 'Escape' || event.defaultPrevented || !isContests()) return;
     if (!document.getElementById('shapeModal')?.classList.contains('hidden')) return; // the dialog's own
     if (!document.getElementById('company-modal')?.classList.contains('hidden')) return; // closes that first
+    if (isWatching()) {
+      closeWatch(); // back to the panel first
+      return;
+    }
     leaveContests();
   });
   // GPU compute toggle and indicator
@@ -172,6 +176,7 @@ export function initControls() {
     updateViewControlsDisplay();
     updatePoints();
     if (isExplore()) exploreViewChanged();
+    if (isWatching()) watchViewChanged(); // a replay draws with Explore's view
   });
   
   // Initialize view controls display
@@ -218,6 +223,7 @@ export function initControls() {
     updatePoints();
     updateTriStateVisibility();
     if (isExplore()) exploreViewChanged();
+    if (isWatching()) watchViewChanged(); // a replay draws with Explore's view
   });
 
   // --- Slice Index Slider ---
@@ -228,6 +234,7 @@ export function initControls() {
     updateViewControlsDisplay();
     if (state.viewMode === 'slice') updatePoints();
     if (isExplore()) exploreViewChanged();
+    if (isWatching()) watchViewChanged(); // a replay draws with Explore's view
   });
 
   if (sliceIndexSlider) {
@@ -295,7 +302,10 @@ export function initControls() {
   const playPauseButton = document.getElementById("playPauseButton");
   const playPauseIcon = document.getElementById("playPauseIcon");
   playPauseButton.onclick = () => {
-    if (isContests()) return; // a contest's run starts and stops from its panel
+    if (isContests()) {
+      watchTogglePlay(); // a contest's run starts and stops from its panel; Watch plays here
+      return;
+    }
     if (isExplore()) {
       togglePlay(); // the run answers, and explore.js updates the button
       return;
@@ -311,7 +321,10 @@ export function initControls() {
   // const reverseButton = document.getElementById("reverseButton");
   const stepButton = document.getElementById("stepButton");
   stepButton.addEventListener("click", () => {
-    if (isContests()) return;
+    if (isContests()) {
+      watchStep();
+      return;
+    }
     if (isExplore()) {
       stepOnce();
       return;

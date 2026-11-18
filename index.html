@@ -556,6 +556,20 @@
     <p id="contests-panel-status" class="contests-panel-status" role="status" aria-live="polite"></p>
   </section>
   <input type="file" id="contests-verify-file" accept=".json,application/json" hidden>
+  <!-- Watch (src/contests/watch.js, #78): a result played back in 3D, in place of the panel. The
+       control bar plays, pauses, steps and sets the speed; this bar, above it, scrubs to any
+       generation up to the result's, says whether the replay matched, and closes -->
+  <section id="contests-watch" class="contests-watch" aria-label="Watch" hidden>
+    <div class="contests-watch-top">
+      <span id="contests-watch-title" class="contests-watch-title">Watch</span>
+      <button type="button" id="contests-watch-close" class="glass-button contests-button" title="Back to the panel (Esc)">Close</button>
+    </div>
+    <div class="contests-watch-scrub">
+      <input type="range" id="contests-watch-scrub" class="glass-slider" min="0" max="0" step="1" value="0" aria-label="Generation">
+      <span id="contests-watch-generation" class="contests-watch-generation">0 / 0</span>
+    </div>
+    <p id="contests-watch-verified" class="contests-self-verified" role="status" aria-live="polite" data-verdict="pending"></p>
+  </section>
   <!-- The seed editor (src/explore/editor.js, #70): its panel, beside the 3D view it takes over.
        Every button has a key; ? lists them -->
   <aside id="seed-editor" class="seed-editor" role="dialog" aria-labelledby="seed-editor-title" hidden>
@@ -3990,7 +4004,75 @@
   .contests-verdict--error { color: #ffb4ad; }
   .contests-verdict--not-checked,
   .contests-verdict--cancelled { color: #f0d890; }
+  /* What Watch's replay found at the result's generation, on the card and on Watch's bar */
+  .contests-self-verified {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: rgba(200, 220, 255, 0.8);
+  }
+  .contests-self-verified[data-verdict="verified"] { color: #9be3b0; }
+  .contests-self-verified[data-verdict="mismatch"] { color: #ffb4ad; }
+  .contests-self-verified[data-verdict="not-checked"] { color: #f0d890; }
+  /* Watch: its bar sits above the control bar and its readouts, and play, step and speed work again */
+  .contests-watch {
+    position: fixed;
+    left: 50%;
+    bottom: 226px;
+    transform: translateX(-50%);
+    width: min(640px, calc(100vw - 32px));
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(10, 16, 30, 0.72);
+    border: 1px solid rgba(160, 190, 255, 0.25);
+    backdrop-filter: blur(8px);
+    color: rgba(220, 232, 255, 0.95);
+    z-index: 60;
+  }
+  .contests-watch[hidden] {
+    display: none;
+  }
+  .contests-watch-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .contests-watch-title {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .contests-watch-scrub {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .contests-watch-scrub input {
+    flex: 1;
+    min-width: 0;
+  }
+  .contests-watch-generation {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+  .contests-watch .contests-self-verified {
+    margin: 6px 0 0;
+  }
+  body.mode-contests.contests-watching #playPauseButton,
+  body.mode-contests.contests-watching #stepButton {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  body.mode-contests.contests-watching #stepButton.disabled {
+    opacity: 0.35;
+  }
   @media (max-width: 640px) {
+    .contests-watch {
+      bottom: 120px;
+    }
     .contests-panel {
       top: auto;
       bottom: 110px;

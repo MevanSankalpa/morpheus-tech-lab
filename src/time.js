@@ -3,7 +3,7 @@ import { state } from './state.js';
 import { updatePoints } from './simulationModel.js';
 import { isExplore, exploreFrame, setSpeed } from './explore/explore.js';
 import { isEditorOpen, editorFrame } from './explore/editor.js';
-import { isContests, contestsFrame } from './contests/contests.js';
+import { isContests, contestsFrame, watchSpeed } from './contests/contests.js';
 
 let lastFrameTime = 0;
 let lastUpdateTime = 0;
@@ -82,6 +82,7 @@ if (speedControl) {
     simSpeed = parseFloat(e.target.value);
     // Explore asks its Worker for that many generations per second instead
     if (isExplore()) setSpeed(e.target.value);
+    else if (isContests()) watchSpeed(e.target.value); // Watch's rate, as Explore's; else nothing runs
     else updateSpeedDisplay();
   });
   updateSpeedDisplay(); // initialize on load
