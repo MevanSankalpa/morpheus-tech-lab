@@ -11,12 +11,15 @@ import { fileURLToPath } from 'node:url';
 import { World } from '../../src/unbounded/world.js';
 import { step } from '../../src/unbounded/step.js';
 import { resultOf, resultText, worldOptions } from '../../src/unbounded/canonical.js';
-import { contestById, runFor, speedScore } from '../../src/unbounded/contests.js';
+import { contestById, runFor, speedScore, methuselahScore } from '../../src/unbounded/contests.js';
+import { Settler } from '../../src/unbounded/settle.js';
+import { STILL } from '../unbounded/helpers.js';
 import {
   HallOfFameError, readHallOfFame, rankEntries, checkEntry, dayText, HALL_OF_FAME_TOP,
 } from '../../src/contests/hallOfFame.js';
 
 const SPEED = contestById('speed-1');
+const METHUSELAH = contestById('methuselah-1');
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const PUBLIC = join(ROOT, 'public');
 const DATA = join(ROOT, 'src/unbounded/hall-of-fame.json');
@@ -131,11 +134,71 @@ test('rankEntries: as Speed ranks, then the earlier date, then the order they ar
   assert.deepEqual(rankEntries(entries, SPEED).map((e) => e.name),
     ['ceiling-fastest-by-1ms', 'ceiling-fast', 'ceiling-late', 'tie-earlier', 'tie-arrived-first', 'tie-arrived-second', 'slow']);
   // Only the contest's own entries
-  assert.deepEqual(rankEntries(entries, { id: 'methuselah-1', kind: 'methuselah' }), []);
+  assert.deepEqual(rankEntries(entries, METHUSELAH), []);
   assert.ok(HALL_OF_FAME_TOP >= 3);
 });
 
 test('dayText: the date as the board shows it', () => {
   assert.equal(dayText('2026-11-20'), '20 Nov 2026');
   assert.equal(dayText('2027-01-01'), '1 Jan 2027');
+});
+
+// ---- Methuselah entries (#41): ranked by score, then fewer seed cells ----
+
+/** STILL's Methuselah result: a still life formed at generation 4, from a seed of 13 cells. */
+async function methuselahResult() {
+  const run = runFor(METHUSELAH, STILL);
+  const options = worldOptions(run, { chunkSize: METHUSELAH.chunkSize });
+  const world = new World({ ...options, fingerprint: true });
+  world.setCells(run.seed);
+  const settler = new Settler(world, { world: options, budget: METHUSELAH.budget });
+  let found = null;
+  while (!found) {
+    assert.equal(step(world), null);
+    found = settler.check(world);
+  }
+  world.generation = found.from;
+  const score = methuselahScore(METHUSELAH, { ending: found.ending, generation: found.from, period: found.period });
+  return resultText(await resultOf(world, { run, ending: found.ending, score, details: { browser: null } }));
+}
+
+const lasting = (over = {}) => entry({
+  contest: 'methuselah-1', score: { generations: 4, period: 1 }, seedCells: 13, browser: null,
+  result: 'hall-of-fame/results/methuselah-1-ada.json', ...over,
+});
+
+test('a Methuselah entry gives its seed cells, and they must be its result file\'s', async () => {
+  assert.deepEqual(readHallOfFame({ entries: [lasting()] }), [lasting()]);
+  const bad = [
+    [{ entries: [(({ seedCells, ...rest }) => rest)(lasting())] }, /has no seedCells/],
+    [{ entries: [lasting({ seedCells: 0 })] }, /seedCells must be the number of cells in its seed/],
+    [{ entries: [lasting({ seedCells: 2.5 })] }, /seedCells must be/],
+    [{ entries: [entry({ seedCells: 1000 })] }, /unknown field, "seedCells"/],
+  ];
+  for (const [data, message] of bad) {
+    assert.throws(() => readHallOfFame(data), (err) => err instanceof HallOfFameError && message.test(err.message), String(message));
+  }
+  const text = await methuselahResult();
+  assert.equal(checkEntry(lasting(), text), null);
+  assert.match(checkEntry(lasting({ seedCells: 12 }), text), /seedCells isn't its result file's seed, 13 cells/);
+  assert.match(checkEntry(lasting({ score: { generations: 4, period: 2 } }), text), /score isn't its result file's/);
+});
+
+test('rankEntries: Methuselah by generations, then fewer seed cells, then the earlier date, then arrival', () => {
+  const at = (name, generations, seedCells, date) => lasting({
+    name, score: { generations, period: 1 }, seedCells, date, result: `hall-of-fame/results/${name}.json`,
+  });
+  const entries = [
+    at('short', 40, 1, '2026-11-20'),
+    at('long-heavy', 9000, 900, '2026-11-20'),
+    at('long-lean', 9000, 12, '2026-11-25'),
+    at('long-lean-later', 9000, 12, '2026-11-26'),
+    at('top', 9999, 1000, '2026-12-01'),
+    at('tie-first', 500, 5, '2026-11-21'),
+    at('tie-second', 500, 5, '2026-11-21'),
+    entry({ name: 'speedy', result: 'hall-of-fame/results/speedy.json' }),
+  ];
+  assert.deepEqual(rankEntries(entries, METHUSELAH).map((e) => e.name),
+    ['top', 'long-lean', 'long-lean-later', 'long-heavy', 'tie-first', 'tie-second', 'short']);
+  assert.deepEqual(rankEntries(entries, SPEED).map((e) => e.name), ['speedy']);
 });

@@ -90,6 +90,13 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   Speed's ceiling compete on time: the results card and the board lead with it, to the
   millisecond, and the result file's name carries it (`speed-1-1000-3871ms.json`).
   `scripts/verify.mjs` takes several files, so it re-verifies the whole board at once (#79).
+- The Methuselah contest is defined as data, `methuselah-1`, ahead of its page: a 64³ arena, a
+  10³ seed box and 10,000 generations, with the entrant's own rules and seed. A run scores the
+  generation its pattern settled, by dying out or repeating in place, if the cycle closes within
+  the budget, so the top score is 9,999; a pattern that reaches the arena's edge, or is still
+  unsettled at 10,000, scores nothing. B0 rules, empty seeds and seeds outside the box are
+  refused. `scripts/verify.mjs` confirms a Methuselah result by replaying its settling, and prints
+  its score; the Hall of Fame ranks Methuselah entries by score, then fewer seed cells (#93).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).
@@ -130,6 +137,10 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   pull requests from a clone of the lab, and reviews pull requests, but merges one into
   `development` only with a human maintainer's OK, and never releases or deploys. Other agents
   still edit files only (#88).
+- Explore, and any run that settles, now ends on a repeat only once the cells are confirmed
+  equal, cell for cell, not on a matching fingerprint alone, so a false match can't end a run
+  early. A saved generation that died or repeated is verified by replaying the run's settling
+  from its seed (#93).
 
 ### Removed
 - The `good first issue` label: the `ready` label alone says what work can be picked up (#71).

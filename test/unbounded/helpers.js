@@ -61,3 +61,33 @@ export function difference(actual, expected) {
   }
   return null;
 }
+
+// ---- Settling (#41) ----
+
+// Small patterns found by a search, each inside the seed box (cells 0 to 3)
+/** Dies out at generation 10. */
+export const DIES = {
+  rules: { birth: [5, 7, 8], survival: [1, 4] },
+  seed: [[0, 0, 0], [2, 0, 0], [2, 2, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [2, 1, 1], [2, 0, 2], [0, 1, 2], [2, 1, 2], [2, 2, 2]],
+  from: 10,
+};
+/** Becomes a still life at generation 4. */
+export const STILL = {
+  rules: { birth: [5, 7, 8], survival: [0, 1, 7] },
+  seed: [[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [1, 2, 0], [2, 2, 0], [2, 0, 1], [0, 2, 1], [1, 2, 1], [2, 0, 2], [2, 2, 2]],
+  from: 4,
+  period: 1,
+};
+/** Settles into a period-5 cycle from generation 4. */
+export const OSCILLATOR = {
+  rules: { birth: [4], survival: [9] },
+  seed: [[2, 0, 0], [1, 2, 0], [2, 0, 1], [0, 1, 1], [0, 2, 1], [0, 0, 2], [0, 2, 2]],
+  from: 4,
+  period: 5,
+};
+/** Becomes, by generation 24, a ship of 8 cells moving a cell a generation along +x: never in place. */
+export const SHIP = {
+  rules: { birth: [4], survival: [6] },
+  seed: [[1, 0, 0], [0, 1, 0], [2, 1, 0], [0, 0, 1], [2, 0, 1], [0, 1, 1], [2, 1, 1], [0, 2, 1], [1, 2, 1], [0, 0, 2],
+    [2, 0, 2], [0, 1, 2], [1, 1, 2], [2, 1, 2], [0, 2, 2], [1, 2, 2], [2, 2, 2]],
+};

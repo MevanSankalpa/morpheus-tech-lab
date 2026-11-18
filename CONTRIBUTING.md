@@ -347,9 +347,10 @@ Submit by email. They come from strangers, so handle them like this:
   the date the sender claims. Add entries to the end of the list in the order they arrived: equal
   scores go to the earlier one.
 - **Add the entry by pull request:** the entry in `src/unbounded/hall-of-fame.json` (its contest,
-  name, picture or null, score, browser, date and result file, as the existing entries and
-  [ARCHITECTURE.md](ARCHITECTURE.md) show), the result file under `public/hall-of-fame/results/`
-  and the picture under `public/hall-of-fame/`, named in lower case. Copy the score and the browser
+  name, picture or null, score, browser, date and result file, and for Methuselah the seed's
+  cell count, `seedCells`, as the existing entries and [ARCHITECTURE.md](ARCHITECTURE.md) show),
+  the result file under `public/hall-of-fame/results/` and the picture under
+  `public/hall-of-fame/`, named in lower case. Copy the score, the browser and the seed's cells
   from the result file: `npm test` checks the entry against it.
 - **Never commit or publish the entrant's email address**, or anything about them beyond their
   chosen name, picture, score, browser and date. The address is used only to reply about the entry.

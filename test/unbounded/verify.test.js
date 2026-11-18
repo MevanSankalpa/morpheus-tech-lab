@@ -9,7 +9,8 @@ import { World } from '../../src/unbounded/world.js';
 import { step } from '../../src/unbounded/step.js';
 import { normaliseRun, resultOf, resultText, hashWorld, worldOptions, MAX_RESULT_BYTES } from '../../src/unbounded/canonical.js';
 import { verifyResult } from '../../src/unbounded/verify.js';
-import { GROWING, randomSeed } from './helpers.js';
+import { Settler } from '../../src/unbounded/settle.js';
+import { GROWING, randomSeed, DIES, STILL } from './helpers.js';
 
 const SEED = randomSeed({ min: [-3, -3, -3], size: [6, 6, 6], randomSeed: 1 });
 const fixture = (name) => readFileSync(new URL(`fixtures/${name}`, import.meta.url), 'utf8');
@@ -204,4 +205,31 @@ test("a replay past the verifier's own generation or memory cap is not checked, 
   // Not even the seed fits
   const tiny = await verifyResult(text, { chunkSize: 8, slabBytes: slot, maxMemory: 4 * slot });
   assert.equal(tiny.verdict, 'not-checked', tiny.message);
+});
+
+test('a settled run without a contest, as Explore saves one, verifies by replaying its settling', async () => {
+  for (const pattern of [DIES, STILL]) {
+    const run = runOf({ rules: pattern.rules, seed: pattern.seed });
+    const options = worldOptions(run, { chunkSize: 8, slabBytes: 1 << 20 });
+    const world = new World({ ...options, fingerprint: true });
+    world.setCells(run.seed);
+    const settler = new Settler(world, { world: options });
+    let found = null;
+    while (!found) found = (step(world), settler.check(world));
+    world.generation = found.from;
+    const text = resultText(await resultOf(world, { run, ending: found.ending }));
+    const counter = counted();
+    const answer = await verifyResult(text, { step: counter });
+    assert.equal(answer.verdict, 'verified', answer.message);
+    assert.equal(answer.ending, 'confirmed');
+    assert.equal(answer.result.generation, pattern.from);
+    // Only until the run settles: DIES's 10 steps; STILL's 5, and 4 more to rebuild generation 4
+    // from the seed and confirm the repeat
+    assert.equal(counter.calls, pattern === DIES ? 10 : 9);
+    // Saying it settled at the generation after doesn't verify, even with that generation's hash
+    const later = await resultFile(run, { generations: pattern.from + 1, ending: found.ending });
+    const wrong = await verifyResult(later);
+    assert.equal(wrong.verdict, 'mismatch', wrong.message);
+    assert.match(wrong.message, new RegExp(`settled at generation ${pattern.from + 1}.*but the run (dies|first settles) at generation ${pattern.from}`));
+  }
 });

@@ -6,7 +6,9 @@
 //   node scripts/verify.mjs <result.json>... [--table <table>] [--max-generations N] [--max-memory-mb N]
 //
 // It replays each file's run from its seed to the stated generation and compares the hash, or,
-// with --table (from scripts/reference-hashes.mjs), looks the hash up without a replay. Result
+// with --table (from scripts/reference-hashes.mjs), looks the hash up without a replay. A run that
+// settled (died or repeated, as Methuselah's do) is replayed with the settle detector, to check
+// that it first settles at the stated generation; a table can't show that, so it isn't used. Result
 // files come from strangers: a file is refused unread if it is over 128 MB (room for a generation
 // saved from Explore, with its cells), and nothing in it is ever run. src/unbounded/verify.js
 // does the checking. A contest's result is also checked against its contest
@@ -62,6 +64,16 @@ function parseArgs(args) {
   return { files, table, options };
 }
 
+/** A file's score, as its contest states it. */
+function scoreText(kind, { score, ending }) {
+  if (kind === 'methuselah' && Number.isSafeInteger(score.generations)) {
+    const at = score.generations.toLocaleString('en');
+    return ending === 'died' ? `died at generation ${at}` : `settled at generation ${at} (period ${score.period})`;
+  }
+  const fields = Object.entries(score).map(([key, value]) => `${key} ${value ?? 'none'}`).join(', ');
+  return `${fields}${kind === 'speed' ? ' (the time is self-reported)' : ''}`;
+}
+
 /**
  * Checks one file, and prints its verdict.
  * @returns {Promise<string>} the verdict
@@ -90,10 +102,7 @@ async function verifyFile(file, options) {
     const { run } = result;
     const rules = `B${run.rules.birth.join(',')}/S${run.rules.survival.join(',')}`;
     console.log(`  contest ${run.contest ?? 'none'}, rules ${rules}, seed of ${run.seed.length} cells, generation ${result.generation}, ended with ${result.ending}`);
-    if (result.score) {
-      const score = Object.entries(result.score).map(([key, value]) => `${key} ${value ?? 'none'}`).join(', ');
-      console.log(`  score: ${score}${contestById(run.contest)?.kind === 'speed' ? ' (the time is self-reported)' : ''}`);
-    }
+    if (result.score) console.log(`  score: ${scoreText(contestById(run.contest)?.kind, result)}`);
   }
   return verdict;
 }

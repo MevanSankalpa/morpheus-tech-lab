@@ -5,10 +5,15 @@
 // Explore), or up to a result's generation (a replay, for the contests' Watch). run.worker.js
 // runs it in a Web Worker; driver.js is its other end, on the page.
 //
-// A replay keeps no history either, only keyframes: the cells every K generations, under a
-// memory budget. When they pass it, every other one is dropped and K doubles. A seek restores
-// the nearest keyframe at or before its target (or the seed) and steps on from there, in slices
-// like the loop's, so a later seek takes over from one still on its way.
+// A replay keeps no history either, only keyframes (keyframes.js): the cells every K
+// generations, under a memory budget. A seek restores the nearest keyframe at or before its
+// target (or the seed) and steps on from there, in slices like the loop's, so a later seek takes
+// over from one still on its way.
+//
+// A settling run ends when its pattern dies or repeats, as settle.js decides: a repeat is
+// proposed by the cells' fingerprint and confirmed, cell for cell, before the run ends. It keeps
+// keyframes of its own to confirm with. With a budget (`generations`), it looks back over the
+// whole budget, and settles only by a cycle that closes within it.
 //
 // The loop steps for a short slice of time, then yields, so messages from the page (pause,
 // step, stop, snapshot) are handled between generations. A generation itself can't be
@@ -18,14 +23,16 @@
 //
 // Messages to the run:
 //   {type: 'start', world: {rules, chunkSize?, slabBytes?, limits?, arena?}, seed: Int32Array,
-//    run: {kind: 'timed', seconds} | {kind: 'open', paused?, rate?, settle?}
+//    run: {kind: 'timed', seconds} | {kind: 'open', paused?, rate?, settle?, keyframeBytes?, keyframeEvery?}
 //       | {kind: 'replay', paused?, rate?, check?: {run, hash}, keyframeBytes?, keyframeEvery?},
 //    generations?, from?}
 //     from: the seed is generation `from` of an earlier run, and the count goes on from there
 //     (Explore loads a saved generation this way); `generations` counts from 0 all the same
 //     settle: end when every cell has died ('died') or the cells repeat, in place, those of
 //     an earlier generation ('repeat', with the cycle: {from, period}; the generation count
-//     goes back to `from`, whose cells they are)
+//     goes back to `from`, whose cells they are). settle.js decides, confirming each repeat;
+//     with `generations`, only a cycle that closes by then counts, and a death at the last
+//     generation ends the run as 'generation-limit'. The keyframes are the settle detector's
 //     replay: `generations` is the result's generation, where it ends ('generation-limit'),
 //     and is required; it starts from the seed. With `check`, the result's run and hash, the
 //     cells there are hashed under the run and compared with the hash ('replayed')
@@ -65,16 +72,14 @@ import { World } from './world.js';
 import { step as stepWorld } from './step.js';
 import { END_REASONS } from './endings.js';
 import { resultOf, hashWorld } from './canonical.js';
+import { Keyframes, KEYFRAME_BYTES, KEYFRAME_EVERY, triples } from './keyframes.js';
+import { Settler, REPEAT_WINDOW } from './settle.js';
 
 export const STATS_INTERVAL_MS = 250;
 /** How long the loop steps before yielding to messages, unless one generation takes longer. */
 export const SLICE_MS = 16;
-/** How many generations back a settling run looks for a repeat: the longest period it spots. */
-export const REPEAT_WINDOW = 10_000;
-/** A replay's keyframes, at most, in bytes of cells (12 per live cell), unless the start says. */
-export const KEYFRAME_BYTES = 128 * 1024 * 1024;
-/** A replay keeps a keyframe every this many generations at first; it doubles as they thin. */
-export const KEYFRAME_EVERY = 8;
+/** settle.js's and keyframes.js's, here too for the code that already looks here. */
+export { REPEAT_WINDOW, KEYFRAME_BYTES, KEYFRAME_EVERY };
 /** Endings that come from the pattern under the run's own limits, not from the machine. */
 const PATTERN_ENDINGS = ['cell-limit', 'extent-limit', 'coordinate-limit', 'arena-edge'];
 
@@ -161,8 +166,9 @@ export class Run {
     }
     if (!(Number.isSafeInteger(from) && from >= 0)) throw new RunError('The generation to start from must be a whole number.');
     if (replay) checkReplay(run, generations, from);
-
     const settle = !timed && !replay && Boolean(run.settle);
+    if (replay || settle) checkKeyframes(run);
+
     const world = new World({ ...options, fingerprint: settle });
     world.setCells(triples(seed));
     world.generation = from; // only the count: the step never reads it
@@ -172,21 +178,16 @@ export class Run {
     this.seeking = null; // a seek on its way: {id, target, resume}
     this.replay = replay ? {
       options: { ...options },
-      seed, // transferred to this thread: the run owns it, to restore generation 0 from
       check: run.check ?? null,
-      budget: run.keyframeBytes ?? KEYFRAME_BYTES,
-      every: run.keyframeEvery ?? KEYFRAME_EVERY,
-      keyframes: new Map(), // generation -> cells as x, y, z triples
-      bytes: 0,
+      // The seed was transferred to this thread: the run owns it, to restore generation 0 from
+      keyframes: new Keyframes({ start: { generation: 0, cells: seed }, budget: run.keyframeBytes, every: run.keyframeEvery }),
       last: generations, // the furthest generation it can reach: less, once a limit ends it early
       done: false, // whether 'replayed' has gone out
     } : null;
     this.cycleFound = null;
-    if (settle) {
-      this.seen = new Map(); // fingerprint -> generation, for the last REPEAT_WINDOW generations
-      this.order = [];
-      this.remember();
-    }
+    this.settler = settle ? new Settler(world, {
+      world: options, budget: generations, keyframeBytes: run.keyframeBytes, keyframeEvery: run.keyframeEvery,
+    }) : null;
     this.generations = generations;
     this.livePeak = world.liveCells;
     this.runningMs = 0;
@@ -252,7 +253,7 @@ export class Run {
     const live = this.world.liveCells;
     if (live > this.livePeak) this.livePeak = live;
     if (this.rate) this.dueAt = Math.max(this.dueAt + 1000 / this.rate, this.now());
-    if (this.settle && this.settled(live)) return true;
+    if (this.settle && this.settled()) return true;
     if (this.world.generation >= this.generations) {
       this.end('generation-limit');
       return true;
@@ -260,30 +261,22 @@ export class Run {
     return false;
   }
 
-  /** A settling run ends once every cell has died or the cells repeat. @returns {boolean} */
-  settled(live) {
-    if (live === 0) {
-      this.end('died');
-      return true;
-    }
-    const key = this.world.fingerprint();
-    const from = this.seen.get(key);
-    if (from !== undefined) {
-      this.cycleFound = { from, period: this.world.generation - from };
+  /**
+   * A settling run ends once every cell has died or the cells repeat, confirmed (settle.js).
+   * @returns {boolean}
+   */
+  settled() {
+    const found = this.settler.check(this.world);
+    if (!found) return false;
+    if (found.ending === 'repeat') {
+      this.cycleFound = { from: found.from, period: found.period };
       // The cells now are generation `from`'s, so the count goes back there: a settled run
       // reports the generation its cycle began, where its cells stay or keep returning
-      this.world.generation = from;
-      this.end('repeat');
-      return true;
+      this.world.generation = found.from;
     }
-    this.remember(key);
-    return false;
-  }
-
-  remember(key = this.world.fingerprint()) {
-    this.seen.set(key, this.world.generation);
-    this.order.push(key);
-    if (this.order.length > REPEAT_WINDOW) this.seen.delete(this.order.shift());
+    // A death, a repeat, or the machine's memory, which a confirmation ran out of
+    this.end(found.ending);
+    return true;
   }
 
   /**
@@ -331,29 +324,12 @@ export class Run {
 
   /** Keeps the generation just made as a keyframe, if it falls on one, within the budget. */
   keep() {
-    const r = this.replay;
-    const g = this.world.generation;
-    if (g % r.every !== 0 || r.keyframes.has(g)) return;
-    const cells = this.world.cells();
-    r.keyframes.set(g, cells);
-    r.bytes += cells.byteLength;
-    // Thin them until they fit: every other one goes, and K doubles. One keyframe larger than
-    // the whole budget goes too, once K passes it, and the seed is left to restore from.
-    while (r.bytes > r.budget) {
-      r.every *= 2;
-      for (const [k, kept] of r.keyframes) {
-        if (k % r.every !== 0) {
-          r.keyframes.delete(k);
-          r.bytes -= kept.byteLength;
-        }
-      }
-    }
+    this.replay.keyframes.keep(this.world);
   }
 
   /** The replay's keyframes now: which generations, every how many, and their bytes. For tests. */
   keyframes() {
-    const r = this.replay;
-    return { generations: [...r.keyframes.keys()].sort((a, b) => a - b), every: r.every, bytes: r.bytes, budget: r.budget };
+    return this.replay.keyframes.list();
   }
 
   /**
@@ -373,8 +349,7 @@ export class Run {
       this.seeking = null;
     }
 
-    let from = 0;
-    for (const k of r.keyframes.keys()) if (k <= target && k > from) from = k;
+    const from = r.keyframes.nearest(target);
     const here = this.world.generation;
     if (!(here <= target && here >= from)) this.restore(from);
 
@@ -385,10 +360,7 @@ export class Run {
   /** Puts a fresh world at a keyframe's generation (0: the seed). */
   restore(generation) {
     const r = this.replay;
-    const world = new World(r.options);
-    world.setCells(triples(generation === 0 ? r.seed : r.keyframes.get(generation)));
-    world.generation = generation;
-    this.world = world;
+    this.world = r.keyframes.restore(r.options, generation);
   }
 
   /** The seek has reached its generation: answer it, and carry on as before it. */
@@ -602,21 +574,21 @@ export class RunError extends Error {
 function checkReplay(run, generations, from) {
   if (generations === Infinity) throw new RunError('A replay needs the generation it replays to.');
   if (from !== 0) throw new RunError('A replay starts from its seed, at generation 0.');
-  if (run.keyframeBytes !== undefined && !(Number.isSafeInteger(run.keyframeBytes) && run.keyframeBytes >= 0)) {
-    throw new RunError("A replay's keyframe budget must be a whole number of bytes.");
-  }
-  const every = run.keyframeEvery;
-  if (every !== undefined && !(Number.isSafeInteger(every) && every >= 1 && (every & (every - 1)) === 0)) {
-    throw new RunError('A replay keeps a keyframe every 1, 2, 4, 8, … generations.');
-  }
   const check = run.check;
   if (check !== undefined && !(check && typeof check.hash === 'string' && check.run && typeof check.run === 'object')) {
     throw new RunError("A replay's check is the result's run and hash.");
   }
 }
 
-function* triples(flat) {
-  for (let i = 0; i < flat.length; i += 3) yield [flat[i], flat[i + 1], flat[i + 2]];
+/** Refuses keyframe options, for a replay or a settling run, that can't make keyframes. */
+function checkKeyframes(run) {
+  if (run.keyframeBytes !== undefined && !(Number.isSafeInteger(run.keyframeBytes) && run.keyframeBytes >= 0)) {
+    throw new RunError('The keyframe budget must be a whole number of bytes.');
+  }
+  const every = run.keyframeEvery;
+  if (every !== undefined && !(Number.isSafeInteger(every) && every >= 1 && (every & (every - 1)) === 0)) {
+    throw new RunError('Keyframes are kept every 1, 2, 4, 8, … generations.');
+  }
 }
 
 // Yields through a MessageChannel rather than setTimeout(0), which browsers stretch to 4 ms
