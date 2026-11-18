@@ -79,6 +79,17 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   goes to any generation up to the scored one. The grid, orientation, cell size and 3D or 2D slice
   apply as in Explore. When the replay reaches the scored generation, its hash is compared with
   the result's, and Watch and the card say whether the run is self-verified (#78).
+- Submitting a contest result, and the Hall of Fame. Submit by email, on the results card,
+  downloads the result file and opens an email to lab@morpheustech.net with the subject and text
+  filled in; the card says the file, and any picture, must be attached by hand, and shows the
+  address, subject and text with Copy, for webmail. The text asks for the name to show and lets
+  the entrant keep or delete the Hall of Fame line, and states the picture's conditions, that the
+  repo is public, how the email address is used, and that Speed's timing is self-reported. Each
+  contest's page shows its Hall of Fame, verified entries ranked as the contest ranks them, each
+  with its picture (or the lab's logo), name, score, browser, date and Watch. Runs that reach
+  Speed's ceiling compete on time: the results card and the board lead with it, to the
+  millisecond, and the result file's name carries it (`speed-1-1000-3871ms.json`).
+  `scripts/verify.mjs` takes several files, so it re-verifies the whole board at once (#79).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).

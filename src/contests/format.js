@@ -98,23 +98,51 @@ export function chartLayout(points, { seconds, width, height }) {
 }
 
 /**
+ * A time to the ceiling, to the millisecond, as the score holds it: `3.871 s`. Runs that reach
+ * the ceiling compete on it, so it is never rounded further: two places would show 3,871 ms
+ * and 3,874 ms as the same time, ranked apart.
+ */
+export function secondsText(ms) {
+  return `${(ms / 1000).toFixed(3)} s`;
+}
+
+/**
  * A Speed score in words.
  * @param {{generations: number, ms: number | null}} score
  */
 export function speedScoreText(score) {
   const generations = `${n(score.generations)} generation${score.generations === 1 ? '' : 's'}`;
-  return score.ms === null ? generations : `${generations} in ${(score.ms / 1000).toFixed(2)} s`;
+  return score.ms === null ? generations : `${generations} in ${secondsText(score.ms)}`;
+}
+
+/** A score in words, by its contest's kind: Speed's as speedScoreText() writes it. */
+export function scoreText(contest, score) {
+  return contest.kind === 'speed' ? speedScoreText(score) : JSON.stringify(score);
 }
 
 /**
- * A Speed score as the results card leads with it: the number, and what it counts.
+ * A Speed score as the results card leads with it: the number that ranks it, and what it counts.
+ * Below the ceiling that is the generations; at the ceiling every run has the same generations,
+ * so it is the time taken to reach it.
  * @returns {{value: string, unit: string}}
  */
 export function speedHero(score, contest) {
   const unit = score.generations === 1 ? 'generation' : 'generations';
   return score.ms === null
     ? { value: n(score.generations), unit: `${unit} in ${contest.seconds} seconds` }
-    : { value: n(score.generations), unit: `${unit} in ${(score.ms / 1000).toFixed(2)} s, the ceiling` };
+    : { value: (score.ms / 1000).toFixed(3), unit: `seconds to reach the ceiling of ${n(score.generations)} ${unit}` };
+}
+
+/**
+ * A score as the Hall of Fame shows it: what ranks it first, then the rest. At Speed's ceiling,
+ * the time leads, since every entry there has the same generations.
+ * @returns {{main: string, detail: string}}
+ */
+export function boardScore(contest, score) {
+  if (contest.kind !== 'speed') return { main: JSON.stringify(score), detail: '' };
+  return score.ms === null
+    ? { main: speedScoreText(score), detail: `in ${contest.seconds} seconds` }
+    : { main: secondsText(score.ms), detail: `${n(score.generations)} generations, the ceiling` };
 }
 
 /** How a Speed run ended, for the results card. */
@@ -145,9 +173,14 @@ export function closingText(contests, { short = false } = {}) {
   return short ? `Closes ${text}` : `Entries close ${text}`;
 }
 
-/** A result's file name: the contest and its score, `speed-1-412.json`. */
+/**
+ * A result's file name: the contest and its score, `speed-1-412.json`, with the time at the
+ * ceiling, `speed-1-1000-3871ms.json`, so two runs that both reach it don't share a name.
+ */
 export function resultFileName(contest, score) {
-  return `${contest.id}-${score.generations}.json`;
+  return score.ms === null || score.ms === undefined
+    ? `${contest.id}-${score.generations}.json`
+    : `${contest.id}-${score.generations}-${score.ms}ms.json`;
 }
 
 /** Bytes as MB, or KB below a megabyte. */

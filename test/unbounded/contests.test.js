@@ -224,8 +224,20 @@ test('scripts: reference-hashes.mjs --contest makes the table verify.mjs looks S
     assert.match(checked.stdout, /contest speed-1/);
     assert.match(checked.stdout, /score: generations 6, ms none \(the time is self-reported\)/);
 
+    // Several files at once, as for the Hall of Fame: each checked, and the worst decides
+    const secondPath = join(dir, 'speed-1-6-again.json');
+    writeFileSync(secondPath, await goodFile());
+    const both = node(['scripts/verify.mjs', resultPath, secondPath, '--table', tablePath]);
+    assert.equal(both.status, 0, both.stdout + both.stderr);
+    assert.equal(both.stdout.match(/^verified: /gm).length, 2);
+    assert.match(both.stdout, /^2 files: 2 verified$/m);
+
     writeFileSync(resultPath, edit(await goodFile(), (d) => { d.score.generations = 7; }));
     assert.equal(node(['scripts/verify.mjs', resultPath, '--table', tablePath]).status, 1);
+    const mixed = node(['scripts/verify.mjs', secondPath, join(dir, 'missing.json'), resultPath, '--table', tablePath]);
+    assert.equal(mixed.status, 1, 'a mismatch outranks a refusal');
+    assert.match(mixed.stdout, /^3 files: 1 mismatch, 1 refused, 1 verified$/m);
+    assert.match(mixed.stdout, /^refused: can't read .*missing\.json\.$/m);
 
     const unknown = node(['scripts/reference-hashes.mjs', '--contest', 'nope-1', '--to', '1', '--out', tablePath]);
     assert.equal(unknown.status, 2);

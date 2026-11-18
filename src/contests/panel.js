@@ -3,8 +3,9 @@
 // The Contests panel (#77), in the middle of the screen: the list of contests, a contest's page,
 // its run (a clock, a chart of the generations over time and the statistics, nothing drawn in
 // 3D), its results card,
-// and Verify a result. It also keeps the HUD's Contest section up to date. Watch (watch.js, #78)
-// hides it, plays a result back in 3D, and brings it back on Close.
+// Submit by email, and Verify a result; and each contest's Hall of Fame (#79). It also keeps the
+// HUD's Contest section up to date. Watch (watch.js, #78) hides it, plays a result back in 3D,
+// and brings it back on Close.
 //
 // Text from a result file comes from strangers, so the panel only ever sets textContent: nothing
 // from a file is parsed as HTML. What it says is worked out in format.js, and a run is
@@ -12,14 +13,18 @@
 
 import { CONTESTS } from '../unbounded/contests.js';
 import { MAX_RESULT_BYTES, readResult, ResultError } from '../unbounded/canonical.js';
+import hallOfFameData from '../unbounded/hall-of-fame.json';
+import labLogo from '../assets/images/morpheus-tech.png';
 import { detectBrowser } from '../browser.js';
-import { writeJsonFile } from '../explore/explore.js';
+import { writeJsonFile, download } from '../explore/explore.js';
 import { SpeedRun, verifyInWorker } from './speed.js';
 import { openWatch, closeWatch } from './watch.js';
 import {
   n, rulesText, countdownText, chartLayout, speedHero, speedScoreText, speedEndingText, resultFileName,
-  statsRows, verdictTitle, closingText,
+  statsRows, verdictTitle, closingText, scoreText, boardScore,
 } from './format.js';
+import { SUBMIT_ADDRESS, emailSubject, emailBody, mailtoLink } from './submit.js';
+import { HALL_OF_FAME_TOP, readHallOfFame, rankEntries, dayText } from './hallOfFame.js';
 import { LOOKS, logo, verifyGlyph } from './looks.js';
 
 const ISSUES = 'https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/';
@@ -256,8 +261,9 @@ function showContest(contest) {
         factTile('Rules', rulesText(fixes.rules), `A cell is born with ${range(birth)} live neighbours, and survives with ${range(survival)}`),
         factTile('Time', `${contest.seconds} seconds`, 'Timed by your own browser'),
         factTile('Ceiling', `${n(contest.ceiling)} generations`, 'A run that reaches it sooner also scores its time'))),
+    hallOfFame(contest),
     section('How it runs',
-      h('p', { text: `On the CPU, in a background thread (a Web Worker), with chunks of ${contest.chunkSize}³ cells, so every entrant runs the same engine. Nothing is drawn while it runs, so the run has your machine to itself. Your score is the generations completed in the ${contest.seconds} seconds.` })),
+      h('p', { text: `On the CPU, in a background thread (a Web Worker), with chunks of ${contest.chunkSize}³ cells, so every entrant runs the same engine. Nothing is drawn while it runs, so the run has your machine to itself. Your score is the generations completed in the ${contest.seconds} seconds. Runs that reach the ceiling of ${n(contest.ceiling)} all have the same generations, so they rank by the time they took, to the millisecond.` })),
     section('Fair play',
       h('p', { className: 'contests-note', text: SELF_REPORTED })),
     h('div', { className: 'contests-actions' },
@@ -265,6 +271,93 @@ function showContest(contest) {
       button('Back', showList, { id: 'contests-back' })),
   ]);
   run.focus({ preventScroll: true });
+}
+
+// ---- The Hall of Fame ----
+
+/** Where the site serves a file from public/: the Hall of Fame's paths are written without it. */
+const served = (path) => `${import.meta.env.BASE_URL}${path}`;
+
+/**
+ * A contest's Hall of Fame: its top entries, best first, from hall-of-fame.json, or that there
+ * are none yet. Names come from entrants, so they are set as text, like everything else.
+ */
+function hallOfFame(contest) {
+  let entries;
+  try {
+    entries = rankEntries(readHallOfFame(hallOfFameData), contest);
+  } catch (err) {
+    return section('Hall of Fame', h('p', { className: 'contests-note', text: `The Hall of Fame couldn't be read: ${err.message}` }));
+  }
+  if (!entries.length) {
+    return section('Hall of Fame', h('p', {
+      className: 'contests-hof-empty',
+      text: `No entries yet. Run ${contest.title}, then Submit by email from your results card: once verified, entries are listed here.`,
+      attrs: { id: 'contests-hof-empty' },
+    }));
+  }
+  const top = entries.slice(0, HALL_OF_FAME_TOP);
+  return section('Hall of Fame',
+    h('ol', { className: 'contests-hof', attrs: { id: 'contests-hof' } }, ...top.map((entry, i) => hallOfFameRow(entry, i + 1, contest))),
+    entries.length > top.length ? h('p', { className: 'contests-note', text: `The top ${top.length} of ${n(entries.length)} entries.` }) : null);
+}
+
+/** One entry: its place, picture (or the lab's logo), name, browser and date, score, and Watch. */
+function hallOfFameRow(entry, place, contest) {
+  const picture = h('img', {
+    className: 'contests-hof-picture',
+    attrs: { src: entry.picture ? served(entry.picture) : labLogo, alt: '', width: '40', height: '40', loading: 'lazy', decoding: 'async' },
+  });
+  // A picture that doesn't load gives way to the logo
+  picture.onerror = () => {
+    picture.onerror = null;
+    picture.src = labLogo;
+  };
+  if (!entry.picture) picture.classList.add('contests-hof-picture--logo');
+  const score = scoreText(contest, entry.score);
+  const watch = button('Watch', null, { id: `contests-hof-watch-${place}` });
+  watch.onclick = () => watchEntry(entry, `Hall of Fame: ${entry.name}, ${score}`, watch);
+  watch.setAttribute('aria-label', `Watch ${entry.name}'s run`);
+  const browser = entry.browser ? `${entry.browser.name} ${entry.browser.version}` : 'Browser not given';
+  return h('li', { className: 'contests-hof-entry' },
+    h('span', { className: 'contests-hof-place', text: String(place) }),
+    picture,
+    h('span', { className: 'contests-hof-who' },
+      h('span', { className: 'contests-hof-name', text: entry.name }),
+      h('span', { className: 'contests-hof-meta', text: `${browser} · ${dayText(entry.date)}` })),
+    hallOfFameScore(contest, entry.score),
+    watch);
+}
+
+/** An entry's score: what ranks it, then the rest; at Speed's ceiling, the time leads. */
+function hallOfFameScore(contest, score) {
+  const { main, detail } = boardScore(contest, score);
+  return h('span', { className: 'contests-hof-score' },
+    h('span', { className: 'contests-hof-score-main', text: main }),
+    detail ? h('span', { className: 'contests-hof-score-detail', text: detail }) : null);
+}
+
+/**
+ * Loads an entry's result file from the site, reads it as untrusted data like any other, and
+ * plays it in Watch.
+ */
+async function watchEntry(entry, title, from) {
+  const view = panel.view;
+  status("Loading the entry's result file…");
+  let result;
+  try {
+    const response = await fetch(served(entry.result));
+    if (!response.ok) throw new Error(`the site answered ${response.status}.`);
+    const text = await response.text();
+    if (text.length > MAX_RESULT_BYTES) throw new Error(`it is larger than ${MAX_RESULT_BYTES / 1024 / 1024} MB.`);
+    result = readResult(text);
+  } catch (err) {
+    if (panel.view === view) status(`It can't be watched: ${err?.message ?? err}`);
+    return;
+  }
+  if (panel.view !== view || !panel.open) return; // the panel has moved on
+  status('');
+  watchResult(result, title, from);
 }
 
 // ---- The chart: generations completed over the run's time ----
@@ -475,6 +568,9 @@ async function showResults(run, { stats, reason, score }) {
   const hash = h('span', { className: 'contests-hash', text: `Hashing generation ${n(stats.generation)}…`, attrs: { id: 'contests-hash' } });
   const copy = button('Copy', null, { id: 'contests-copy-hash' });
   copy.disabled = true;
+  const submitBox = h('section', { className: 'contests-section contests-submit', attrs: { id: 'contests-submit', 'aria-labelledby': 'contests-submit-title' } },
+    h('h3', { className: 'contests-section-title', text: 'Enter it', attrs: { id: 'contests-submit-title' } }),
+    h('p', { className: 'contests-note', text: 'Submit by email is ready once the result file is made.' }));
   show('results', `${contest.title}: your result`, [
     h('div', { className: 'contests-hero', attrs: { role: 'group', 'aria-label': `Your score: ${speedScoreText(score)}` } },
       h('span', { className: 'contests-hero-kicker' }, logo(contest.kind, 22, 'contests-hero-logo'), document.createTextNode(`${contest.title} · your score`)),
@@ -490,6 +586,7 @@ async function showResults(run, { stats, reason, score }) {
     verified,
     h('p', { className: 'contests-note', text: SELF_REPORTED }),
     h('div', { className: 'contests-actions' }, exportButton, watchButton, again, back),
+    submitBox,
   ]);
   chart.update(run.points);
 
@@ -510,7 +607,10 @@ async function showResults(run, { stats, reason, score }) {
   if (panel.run !== run) return;
   hash.textContent = made.result.hash;
   copy.disabled = false;
-  copy.onclick = () => copyText(made.result.hash);
+  copy.onclick = () => copyText(made.result.hash, 'hash');
+  submitBox.replaceChildren(submitBox.firstChild, ...submitParts({
+    contest, score, browser: made.result.details.browser, hash: made.result.hash, text: made.text,
+  }));
   exportButton.disabled = false;
   exportButton.onclick = () => exportResult(contest, score, made.text);
   watchButton.disabled = false;
@@ -530,13 +630,60 @@ async function exportResult(contest, score, text) {
   }
 }
 
-async function copyText(text) {
+/** Copies text to the clipboard; `what` names it, should the browser refuse. */
+async function copyText(text, what) {
   try {
     await navigator.clipboard.writeText(text);
     status('Copied.');
   } catch {
-    status("The browser didn't allow copying; select the hash and copy it by hand.");
+    status(`The browser didn't allow copying; select the ${what} and copy it by hand.`);
   }
+}
+
+// ---- Submit by email ----
+
+/**
+ * The results card's Submit by email: the link that downloads the result file and opens the
+ * email, what must be attached by hand, and the address, subject and text with Copy, for webmail.
+ * The link is a plain mailto: link, so the browser opens the mail app as it would for any other;
+ * clicking it downloads the file first, in the same click.
+ */
+function submitParts({ contest, score, browser, hash, text }) {
+  const fileName = resultFileName(contest, score);
+  const subject = emailSubject(contest, score);
+  const body = emailBody({ contest, score, browser, hash, fileName });
+  const link = h('a', {
+    className: 'glass-button contests-button contests-submit-button',
+    text: 'Submit by email',
+    attrs: { href: mailtoLink(subject, body), id: 'contests-submit-email' },
+  });
+  link.onclick = () => {
+    download(fileName, text);
+    status(`Downloaded ${fileName}. Attach it to the email, and a picture if you like.`);
+  };
+  const copyRow = (label, value, id, what) => h('div', { className: 'contests-submit-row' },
+    h('span', { className: 'contests-submit-label', text: label }),
+    h('span', { className: 'contests-submit-value', text: value, attrs: { id } }),
+    button('Copy', () => copyText(value, what), { id: `${id}-copy` }));
+  const textBox = h('textarea', {
+    className: 'contests-submit-text',
+    attrs: { id: 'contests-submit-body', readonly: '', rows: '8', spellcheck: 'false', 'aria-label': 'The email\'s text' },
+  });
+  textBox.value = body;
+  return [
+    h('p', { text: `Submit by email downloads your result file, ${fileName}, and opens an email to ${SUBMIT_ADDRESS} with its text filled in: add the name to show, and keep or delete the Hall of Fame line.` }),
+    h('div', { className: 'contests-submit-go' },
+      link,
+      h('p', { className: 'contests-submit-attach', text: `An email link can't attach files: attach ${fileName}, and a picture if you like, by hand.`, attrs: { id: 'contests-submit-attach' } })),
+    h('p', { className: 'contests-note', text: 'No mail app? Send it from webmail, with these:' }),
+    h('div', { className: 'contests-submit-copy' },
+      copyRow('To', SUBMIT_ADDRESS, 'contests-submit-to', 'address'),
+      copyRow('Subject', subject, 'contests-submit-subject', 'subject'),
+      h('div', { className: 'contests-submit-row contests-submit-row--text' },
+        h('span', { className: 'contests-submit-label', text: 'Text' }),
+        textBox,
+        button('Copy', () => copyText(body, 'text'), { id: 'contests-submit-body-copy' }))),
+  ];
 }
 
 // ---- Watch ----
@@ -557,7 +704,7 @@ function watchResult(result, title, from, line = null) {
     },
     onClose: () => {
       if (panel.view !== view) return;
-      hud(undefined, view === 'results' ? 'Finished' : 'Checked');
+      hud(undefined, { results: 'Finished', contest: 'Ready' }[view] ?? 'Checked');
       from.focus({ preventScroll: true });
     },
   });

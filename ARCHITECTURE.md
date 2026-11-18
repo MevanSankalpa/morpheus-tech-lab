@@ -36,6 +36,8 @@ local storage: whether GPU compute is on.
  │   run.worker, timed, which makes the result file; verify.worker for Verify   │
  │   └ Watch: watch.js ─► run.worker, a replay (keyframes, seek, its hash);     │
  │     contestsFrame() ─► watchFrame() ──► explore/view.js                      │
+ │   submit.js: the mailto: link; hallOfFame.js ◄── hall-of-fame.json, whose    │
+ │     result files (public/hall-of-fame/results/) Watch fetches and replays    │
  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -202,6 +204,28 @@ control bar's view settings as Explore does: the grid and the slice from the rep
 toggles call `watchViewChanged()` for a new snapshot. Play and step in
 `controls.js`, and the speed slider in `time.js`, go to Watch in Contests, and Esc closes Watch
 before it leaves the mode.
+
+**Submitting, and the Hall of Fame** (#79). A static site can't send email, so **Submit by
+email** on the results card is a `mailto:` link to lab@morpheustech.net (`submit.js`: the
+subject, the template's text and the link, tested in Node); its click downloads the result file
+(`explore.js`'s `download()`) in the same gesture, since a `mailto:` link can't attach it. The
+card shows the address, subject and text with Copy too. The text is the lab's promise to an
+entrant (the picture's conditions, the public repo, the email address used only to reply, Speed's
+self-reported timing); CONTRIBUTING.md's "Contest entries" is the maintainers' side of it. The
+**Hall of Fame** is data: `src/unbounded/hall-of-fame.json`, `{"entries": [...]}`, each entry
+with its contest, chosen name, picture (a path under `public/hall-of-fame/`, or null), score,
+browser, the date it arrived, and its result file under `public/hall-of-fame/results/`; paths
+are as the site serves them, without `public/`. `hallOfFame.js` reads it (`readHallOfFame()`,
+shape only), ranks a contest's entries (`rankEntries()`: the contest's order, `compareSpeed()`
+for Speed, then the earlier date, then the file's order, which is arrival order), and checks an
+entry against its file (`checkEntry()`: it reads as a result, passes `checkContest()`, and has the
+entry's contest, score and browser), which `npm test` runs on every entry without replaying;
+`scripts/verify.mjs` replays them. Each contest's page shows its top 10, the lab's logo standing
+in for a missing picture, each score led by what ranks it (`format.js`'s `boardScore()`): at
+Speed's ceiling every entry has 1,000 generations, so the time leads, to the millisecond the score
+holds (`secondsText()`), as on the results card (`speedHero()`), since two places would show
+times that rank apart as equal; and Watch fetches an entry's result file from the site and reads it
+through `readResult()` like any other.
 
 **Benchmarks**: `scripts/bench.mjs` (#39) measures the engine in Node (chunk sizes, seeds, rules,
 a bit-packed step, the dense `convolve3D()` in `denseStep.js`, serialization), times the Speed
