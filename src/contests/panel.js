@@ -28,6 +28,11 @@ import { HALL_OF_FAME_TOP, readHallOfFame, rankEntries, dayText } from './hallOf
 import { LOOKS, logo, verifyGlyph } from './looks.js';
 
 const ISSUES = 'https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/';
+/**
+ * The kinds of contest this page can run. Methuselah is defined in contests.js (#93) and verifies,
+ * but its page comes with #94; until then it stays in COMING.
+ */
+const ON_PAGE = ['speed'];
 /** The contests still to come, shown in the list without an Open button. */
 const COMING = [
   { kind: 'methuselah', title: 'Methuselah', about: 'The longest-lived pattern that settles inside an arena', issue: 41 },
@@ -190,7 +195,7 @@ function showList() {
   panel.contest = null;
   hud('–', 'Choosing', '–');
   const tiles = h('div', { className: 'contests-tiles' });
-  for (const contest of CONTESTS) {
+  for (const contest of CONTESTS.filter((c) => ON_PAGE.includes(c.kind))) {
     tiles.append(tile(contest.kind, contest.title, contest.summary,
       h('span', { className: 'contests-tile-foot', text: 'Open' }),
       { open: () => showContest(contest), id: `contests-open-${contest.id}` }));

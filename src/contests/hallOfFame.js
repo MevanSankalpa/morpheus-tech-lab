@@ -7,7 +7,8 @@
 // entries"). Each entry names its contest, the entrant's chosen name, their picture (a path under
 // public/hall-of-fame/, or null for the lab's logo), the score, the browser, the date the entry
 // arrived, and its result file, under public/hall-of-fame/results/, which Watch replays and
-// scripts/verify.mjs re-verifies. Paths are as the site serves them, without `public/`.
+// scripts/verify.mjs re-verifies. Paths are as the site serves them, without `public/`. A
+// Methuselah entry also gives its seed's cells (`seedCells`), which break a tie in its score.
 //
 // `npm test` reads every entry's result file through checkEntry(): it must read as a result,
 // pass checkContest(), and agree with its entry. The panel reads the data with readHallOfFame()
@@ -16,7 +17,7 @@
 // No DOM: the tests run it in Node.
 
 import { readResult, canonicalJson, ResultError } from '../unbounded/canonical.js';
-import { contestById, checkContest, compareSpeed } from '../unbounded/contests.js';
+import { contestById, checkContest, compareSpeed, compareMethuselah } from '../unbounded/contests.js';
 import { MAX_BROWSER_TEXT } from '../browser.js';
 
 /** How many entries a contest's page shows. */
@@ -30,9 +31,14 @@ export const PICTURE_PATH = /^hall-of-fame\/[a-z0-9][a-z0-9-]*\.(png|jpg)$/;
 export const RESULT_PATH = /^hall-of-fame\/results\/[a-z0-9][a-z0-9-]*\.json$/;
 
 const FIELDS = ['contest', 'name', 'picture', 'score', 'browser', 'date', 'result'];
+/** The fields an entry has for its kind of contest, beside FIELDS. */
+const KIND_FIELDS = { methuselah: ['seedCells'] };
 
-/** How each kind of contest orders two scores, best first. */
-const RANKS = { speed: compareSpeed };
+/** How each kind of contest orders two entries, best first, before the date. */
+const RANKS = {
+  speed: (a, b) => compareSpeed(a.score, b.score),
+  methuselah: compareMethuselah,
+};
 
 export class HallOfFameError extends Error {
   constructor(message) {
@@ -54,9 +60,11 @@ function isDay(text) {
 
 function checkEntryShape(entry, at) {
   if (!isPlainObject(entry)) throw new HallOfFameError(`${at} must be an object.`);
+  const kind = typeof entry.contest === 'string' ? contestById(entry.contest)?.kind : undefined;
+  const fields = [...FIELDS, ...(KIND_FIELDS[kind] ?? [])];
   const keys = Object.keys(entry);
-  const missing = FIELDS.filter((key) => !keys.includes(key));
-  const extra = keys.filter((key) => !FIELDS.includes(key));
+  const missing = fields.filter((key) => !keys.includes(key));
+  const extra = keys.filter((key) => !fields.includes(key));
   if (missing.length) throw new HallOfFameError(`${at} has no ${missing[0]}.`);
   if (extra.length) throw new HallOfFameError(`${at} has an unknown field, ${JSON.stringify(extra[0])}.`);
   const { contest, name, picture, score, browser, date, result } = entry;
@@ -78,6 +86,9 @@ function checkEntryShape(entry, at) {
     if (!ok) throw new HallOfFameError(`${at}.browser must be null or {name, version}, as in its result file.`);
   }
   if (!isDay(date)) throw new HallOfFameError(`${at}.date must be the day the entry arrived, as YYYY-MM-DD.`);
+  if ('seedCells' in entry && !(Number.isSafeInteger(entry.seedCells) && entry.seedCells >= 1)) {
+    throw new HallOfFameError(`${at}.seedCells must be the number of cells in its seed, as in its result file.`);
+  }
   if (typeof result !== 'string' || !RESULT_PATH.test(result)) {
     throw new HallOfFameError(`${at}.result must be a .json under hall-of-fame/results/.`);
   }
@@ -104,8 +115,9 @@ export function readHallOfFame(data) {
 }
 
 /**
- * A contest's entries, best first, as the contest ranks them. Equal scores go to the earlier
- * date, then to the file's order, which is the order the entries arrived in.
+ * A contest's entries, best first, as the contest ranks them: Speed by its score, Methuselah by
+ * its score, then fewer seed cells. Equal ones go to the earlier date, then to the file's order,
+ * which is the order the entries arrived in.
  * @param {object[]} entries - from readHallOfFame()
  * @param {import('../unbounded/contests.js').Contest} contest
  */
@@ -114,7 +126,7 @@ export function rankEntries(entries, contest) {
   return entries
     .map((entry, order) => ({ entry, order }))
     .filter(({ entry }) => entry.contest === contest.id)
-    .sort((a, b) => byScore(a.entry.score, b.entry.score)
+    .sort((a, b) => byScore(a.entry, b.entry)
       || (a.entry.date < b.entry.date ? -1 : a.entry.date > b.entry.date ? 1 : 0)
       || a.order - b.order)
     .map(({ entry }) => entry);
@@ -122,8 +134,8 @@ export function rankEntries(entries, contest) {
 
 /**
  * Checks an entry against its result file, without a replay: the file reads as a result, passes
- * checkContest(), and agrees with the entry's contest, score and browser. scripts/verify.mjs
- * replays the files.
+ * checkContest(), and agrees with the entry's contest, score, browser and, for Methuselah, seed
+ * cells. scripts/verify.mjs replays the files.
  * @param {object} entry - from readHallOfFame()
  * @param {string} text - its result file's contents
  * @returns {string | null} what is wrong, or null
@@ -146,6 +158,9 @@ export function checkEntry(entry, text) {
   }
   if (canonicalJson(result.details.browser) !== canonicalJson(entry.browser)) {
     return `The entry's browser isn't its result file's, ${canonicalJson(result.details.browser)}.`;
+  }
+  if ('seedCells' in entry && entry.seedCells !== result.run.seed.length) {
+    return `The entry's seedCells isn't its result file's seed, ${result.run.seed.length} cells.`;
   }
   return null;
 }

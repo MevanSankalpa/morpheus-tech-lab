@@ -15,8 +15,14 @@
 // How a run ended is checked when the pattern decides it. A pattern ending (a cell, extent,
 // coordinate or arena limit) must recur: one more step must end the replay for the same reason.
 // An ending that depends on the machine (stopped by hand, a deadline, memory) can't be checked,
-// and doesn't need to be: the result stands at its last complete generation either way. 'died'
-// and 'repeat' are scored, and checked, by the Methuselah contest (#41).
+// and doesn't need to be: the result stands at its last complete generation either way.
+//
+// A settled run ('died' or 'repeat') can't be checked by replaying to its generation and stepping
+// once: a still life formed at 100 also equals itself at 500. So it is replayed from the seed with
+// the settle detector (settle.js), as the run itself was, and verifies only if the run first
+// settles at the file's generation, with its ending, and the cells there match the file's hash. A
+// score's period (Methuselah's, #41) must be the cycle's. A table lookup can't see settling, so
+// with a table such a file is not checked.
 //
 // A contest's result is first checked against its contest (contests.js's checkContest()): its run
 // must be the contest's, and its score must follow from its generation and ending. That needs no
@@ -28,6 +34,7 @@ import { World, WorldError } from './world.js';
 import { step as stepWorld } from './step.js';
 import { readResult, hashWorld, canonicalJson, worldOptions, checkResultHashes, ResultError } from './canonical.js';
 import { checkContest } from './contests.js';
+import { Settler } from './settle.js';
 
 export const DEFAULT_MAX_GENERATIONS = 100_000;
 export const DEFAULT_MAX_MEMORY = 2 * 1024 ** 3;
@@ -36,8 +43,8 @@ export const DEFAULT_MAX_MEMORY = 2 * 1024 ** 3;
 export const PATTERN_ENDINGS = ['cell-limit', 'extent-limit', 'coordinate-limit', 'arena-edge'];
 /** Endings that depend on the machine or the visitor, which a replay can't check. */
 export const MACHINE_ENDINGS = ['stopped', 'deadline', 'memory-limit', 'out-of-memory'];
-/** Endings checked by the contest that scores them. */
-export const LATER_ENDINGS = ['died', 'repeat'];
+/** Endings checked by replaying the settling from the seed. */
+export const SETTLED_ENDINGS = ['died', 'repeat'];
 
 const MEMORY = ['memory-limit', 'out-of-memory'];
 
@@ -46,9 +53,8 @@ const MEMORY = ['memory-limit', 'out-of-memory'];
  * @property {'verified' | 'mismatch' | 'refused' | 'not-checked'} verdict
  * @property {string} message - one sentence, for a person
  * @property {object} [result] - the file as read, unless it was refused
- * @property {'confirmed' | 'machine' | 'later' | 'table'} [ending] - for a verified file: whether
- *   its ending was confirmed, can't be checked (machine), is checked by its contest (later), or
- *   wasn't replayed (a table lookup)
+ * @property {'confirmed' | 'machine' | 'table'} [ending] - for a verified file: whether its
+ *   ending was confirmed, can't be checked (machine), or wasn't replayed (a table lookup)
  */
 
 /**
@@ -61,11 +67,13 @@ const MEMORY = ['memory-limit', 'out-of-memory'];
  * @param {number} [options.chunkSize] - the replay's chunk size; the answer doesn't depend on it
  * @param {number} [options.slabBytes]
  * @param {typeof stepWorld} [options.step] - the tests wrap it to count the steps
+ * @param {(world: object) => string} [options.fingerprint] - a settling replay's fingerprint; the
+ *   tests force false matches with it
  * @returns {Promise<Verdict>}
  */
 export async function verifyResult(text, {
   table, maxGenerations = DEFAULT_MAX_GENERATIONS, maxMemory = DEFAULT_MAX_MEMORY,
-  chunkSize, slabBytes, step = stepWorld,
+  chunkSize, slabBytes, step = stepWorld, fingerprint,
 } = {}) {
   let result;
   try {
@@ -96,7 +104,12 @@ export async function verifyResult(text, {
       : `The file says the run reached its generation limit, ${limit}, at generation ${generation}.`);
   }
 
+  const settled = SETTLED_ENDINGS.includes(ending);
+
   if (table) {
+    if (settled) {
+      return answer('not-checked', `A table can't show where a run settles, so a file that ended with ${ending} is checked by replay.`);
+    }
     if (canonicalJson(table.run) !== canonicalJson(run)) {
       return answer('not-checked', "The table is for a different run from this file's.");
     }
@@ -113,13 +126,16 @@ export async function verifyResult(text, {
   }
   const tooBig = () => answer('not-checked', `The replay needed more than this verifier's memory limit of ${formatBytes(maxMemory)}.`);
 
-  const world = new World(worldOptions(run, { chunkSize, slabBytes, memory: maxMemory }));
+  const options = worldOptions(run, { chunkSize, slabBytes, memory: maxMemory });
+  const world = new World({ ...options, fingerprint: settled });
   try {
     world.setCells(run.seed);
   } catch (err) {
     if (err instanceof WorldError && MEMORY.includes(err.reason)) return tooBig();
     throw err; // readResult() has already checked the seed against the arena and the limits
   }
+  if (settled) return replaySettling(world, result, { options, maxGenerations, step, fingerprint, answer, tooBig });
+
   while (world.generation < generation) {
     const reason = step(world);
     if (!reason) continue;
@@ -143,10 +159,55 @@ export async function verifyResult(text, {
   if (ending === 'generation-limit') {
     return answer('verified', `Generation ${generation}, the run's generation limit, matches the file's hash.`, { ending: 'confirmed' });
   }
-  if (MACHINE_ENDINGS.includes(ending)) {
-    return answer('verified', `${matches}. The run ended with ${ending}, which depends on the machine and isn't checked.`, { ending: 'machine' });
+  return answer('verified', `${matches}. The run ended with ${ending}, which depends on the machine and isn't checked.`, { ending: 'machine' });
+}
+
+/**
+ * Replays a settled run from its seed with the settle detector, as the run itself was: the file
+ * verifies only if the run first settles at its generation, with its ending (and, for a score with
+ * a period, that period), and the cells there match its hash.
+ */
+async function replaySettling(world, result, { options, maxGenerations, step, fingerprint, answer, tooBig }) {
+  const { run, generation, ending, score } = result;
+  const budget = run.limits.generations ?? Infinity;
+  const settler = new Settler(world, { world: options, budget, fingerprint, step });
+  const claim = `The file says the run settled at generation ${generation} (${ending})`;
+  let found = null;
+  while (!found) {
+    // A cycle found from here on begins at or after world.generation + 1 − window: past the
+    // file's generation, the file can't be right
+    if (world.generation + 1 - settler.window > generation) {
+      return answer('mismatch', `${claim}, but it hasn't settled by generation ${world.generation}.`);
+    }
+    if (budget !== Infinity && world.generation >= budget) {
+      return answer('mismatch', `${claim}, but it reaches its generation limit, ${budget}, without settling.`);
+    }
+    if (world.generation >= maxGenerations) {
+      return answer('not-checked', `The run hadn't settled by generation ${world.generation}, this verifier's limit.`);
+    }
+    const reason = step(world);
+    if (reason) {
+      if (MEMORY.includes(reason)) return tooBig();
+      return answer('mismatch', `${claim}, but it ends at generation ${world.generation} (${reason}) without settling.`);
+    }
+    found = settler.check(world);
+    if (found && MEMORY.includes(found.ending)) return tooBig();
   }
-  return answer('verified', `${matches}. Its ending, ${ending}, is checked by its contest.`, { ending: 'later' });
+  const settledText = found.ending === 'died'
+    ? `the run dies at generation ${found.from}`
+    : `the run first settles at generation ${found.from}, a cycle of period ${found.period}`;
+  if (found.from !== generation || found.ending !== ending) {
+    return answer('mismatch', `${claim}, but ${settledText}.`);
+  }
+  if (score && score.period !== undefined && score.period !== found.period) {
+    return answer('mismatch', `The score says period ${score.period}, but ${settledText}.`);
+  }
+  world.generation = found.from; // a repeat's cells now are the cycle's first generation's
+  if (await hashWorld(world, run) !== result.hash) {
+    return answer('mismatch', `The run settles at generation ${generation}, as the file says, but the cells there don't match the file's hash.`);
+  }
+  const how = ending === 'died' ? 'every cell has died' : `the cells repeat with period ${found.period}`;
+  return answer('verified', `Generation ${generation} matches the file's hash, and the run first settles there: ${how}.`, { ending: 'confirmed' });
 }
 
 function formatBytes(bytes) {

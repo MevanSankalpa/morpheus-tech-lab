@@ -159,8 +159,9 @@ export class World {
   /**
    * A 64-bit fingerprint of the live cells, as text: two independent 32-bit sums of a hash of
    * each cell's coordinates. Equal cells, in place, give equal fingerprints whatever the chunk
-   * layout; different cells give different ones except by a one-in-2⁶⁴ chance. Needs the
-   * `fingerprint` option.
+   * layout. Different cells rarely share one by chance, but a sum of per-cell hashes can be made
+   * to collide on purpose, so a fingerprint only proposes a repeat: settle.js confirms it by
+   * comparing the cells, and that is what keeps an ending right. Needs the `fingerprint` option.
    */
   fingerprint() {
     let a = 0;

@@ -115,12 +115,14 @@ restarts the run as a popover's Apply does.
 `state.simulationData` stays null. `view.js` draws the latest snapshot in a point buffer that
 grows with the pattern, or the occupied chunks as boxes past 300,000 cells, and moves the camera
 to keep the pattern in view (`framing.js`). In the 2D view it asks the Worker for one plane of
-cells; the slice slider spans the pattern's extent on that axis. Explore's runs *settle*: the
-engine keeps a 64-bit fingerprint of the cells (`World`'s `fingerprint` option), and the run
-ends when every cell has died or a fingerprint matches one of the last 10,000 generations'
-(the cells repeat in place). The Worker then replays the cycle once to send its frames, which
-the view loops while the count stays put. A fingerprint is a hash, not a proof: scoring a
-contest on a repeat needs #38's canonical state.
+cells; the slice slider spans the pattern's extent on that axis. Explore's runs *settle*
+(`settle.js`, #93): the run ends when every cell has died, or the cells repeat in place those of
+one of the last 10,000 generations. The engine keeps a 64-bit fingerprint of the cells
+(`World`'s `fingerprint` option), and a match only proposes a repeat: the candidate generation is
+rebuilt from the nearest of the settle detector's own keyframes (`keyframes.js`) and compared
+with the current cells, cell for cell, before the run ends. A false match costs that comparison,
+and the run carries on. The Worker then replays the cycle once to send its frames, which the view
+loops while the count stays put.
 
 **Saving** (`save.js`): Save this generation, in Explore's Run box, and Save seed, in the Seed
 box, open one popover, which moves beside the box of the button that opened it. **Save this generation**
@@ -146,11 +148,23 @@ without a replay, so an edited file fails. Explore's Save this generation writes
 can carry on from the generation. `verifyResult()` replays the run from its seed to the stated generation and
 compares hashes, and checks an ending the pattern decides by taking one more step; with a
 reference table (every generation's hash, made once by `scripts/reference-hashes.mjs`) it looks
-the hash up instead. `scripts/verify.mjs` runs it in Node.
+the hash up instead. A settled result (`died`, `repeat`) can't be checked that way, since a still
+life formed at 100 also equals itself at 500: it is replayed from the seed with the same settle
+detector as the run, and verifies only if the run first settles at its generation, with its
+ending (and its score's period), and the cells there match its hash. A table can't show settling,
+so with one such a file is not checked. `scripts/verify.mjs` runs it in Node.
 
 **Contests** (`contests.js`, #40): each contest is data, with a versioned id (`speed-1`), its
 kind, what it fixes (rules, seed or seed box, arena, limits), its chunk size and, for Speed, its
-seconds. `runFor(contest, entry)` makes a run's definition from the contest's fixed parts and the
+seconds. **Methuselah** (`methuselah-1`, #41) fixes the 64³ arena (`DISCOVERY_ARENA`, cells −32 to
+31), the 10³ seed box and a budget of 10,000 generations, with chunk size 16, and takes the
+entry's rules (any but B0) and seed (1 to 1,000 cells in the seed box, never shifted; `runFor()`
+refuses an empty seed or a cell outside the box). A run is a settling run in the arena: it scores
+`{generations: h, period}`, h being the first generation of the state or cycle it ends in, once
+that cycle closes within the budget (a death is a cycle of period 1), so the top score is 9,999.
+Reaching the arena's edge or the budget scores nothing. Entries rank by generations, then fewer
+seed cells (`compareMethuselah()`), then the earlier submission. Under B1 a pattern always
+reaches the edge, by generation 37, so `methuselahWarnings()` warns of it. `runFor(contest, entry)` makes a run's definition from the contest's fixed parts and the
 entry's rules and seed, so a contest's result states its whole run like any other. A contest's
 result adds a `score`, outside the hash: Speed's is `{generations, ms}`, where `ms` is the time to
 reach the 1,000-generation ceiling, and null for a run the 6 seconds ended. `verifyResult()`
@@ -190,8 +204,9 @@ terminates its Workers.
 a result has read (`readResult()` again, on the page). It hides the panel and starts a *replay* in a
 Worker (`run.js`'s `replay` kind): an open-ended run from the result's seed that ends at the
 result's generation, with the control bar's pause, step and rate. A replay keeps no history, only
-**keyframes**, the cells every K generations (8 at first), under a budget (128 MB of cells): when
-they pass it, every other one is dropped and K doubles. A `seek` restores the nearest keyframe at
+**keyframes** (`keyframes.js`, shared with the settle detector), the cells every K generations (8
+at first), under a budget (128 MB of cells): when they pass it, every other one is dropped and K
+doubles. A `seek` restores the nearest keyframe at
 or before its target, or the seed, and steps on flat out, in the loop's slices, so the scrub
 bar's next seek takes over from one still on its way (`seeked` answers both). When the replay
 first ends at the result's generation, the Worker hashes its cells under the result's run and
@@ -214,12 +229,13 @@ entrant (the picture's conditions, the public repo, the email address used only 
 self-reported timing); CONTRIBUTING.md's "Contest entries" is the maintainers' side of it. The
 **Hall of Fame** is data: `src/unbounded/hall-of-fame.json`, `{"entries": [...]}`, each entry
 with its contest, chosen name, picture (a path under `public/hall-of-fame/`, or null), score,
-browser, the date it arrived, and its result file under `public/hall-of-fame/results/`; paths
+browser, the date it arrived, and its result file under `public/hall-of-fame/results/`, and a
+Methuselah entry its seed's cell count (`seedCells`), which breaks a tie in its score; paths
 are as the site serves them, without `public/`. `hallOfFame.js` reads it (`readHallOfFame()`,
 shape only), ranks a contest's entries (`rankEntries()`: the contest's order, `compareSpeed()`
-for Speed, then the earlier date, then the file's order, which is arrival order), and checks an
-entry against its file (`checkEntry()`: it reads as a result, passes `checkContest()`, and has the
-entry's contest, score and browser), which `npm test` runs on every entry without replaying;
+for Speed, `compareMethuselah()` for Methuselah, then the earlier date, then the file's order,
+which is arrival order), and checks an entry against its file (`checkEntry()`: it reads as a
+result, passes `checkContest()`, and has the entry's contest, score, browser and seed cells), which `npm test` runs on every entry without replaying;
 `scripts/verify.mjs` replays them. Each contest's page shows its top 10, the lab's logo standing
 in for a missing picture, each score led by what ranks it (`format.js`'s `boardScore()`): at
 Speed's ceiling every entry has 1,000 generations, so the time leads, to the millisecond the score

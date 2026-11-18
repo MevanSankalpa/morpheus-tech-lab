@@ -40,8 +40,10 @@ vite.config.js           base '/', because the site is served from the domain ro
                          so the bundled libraries' licence notices (three.js's MIT) ship with the site
 test/                    `npm test` (Node's built-in node:test, no dependency): unbounded/ checks the unbounded engine,
                          its run loop on a fake clock and in a worker_threads Worker, the canonical hash and
-                         the verifier (fixtures/ holds an example result and a hand-edited copy), the contests and
-                         their scores (contests.test.js), and the engine against convolve3D() (dense.test.js);
+                         the verifier (fixtures/ holds an example result and a hand-edited copy), settling and its
+                         keyframes on small hand-made patterns (settle.test.js; the patterns are in helpers.js),
+                         the contests and their scores, Methuselah's included (contests.test.js), and the engine
+                         against convolve3D() (dense.test.js);
                          browser.test.js checks telling the browser; contests/ checks a Speed run and Verify a
                          result… on worker_threads (verifyNodeWorker.js stands in for verify.worker.js) and
                          the panel's text (format.test.js), Watch's included, the email's text (submit.test.js)
@@ -77,24 +79,33 @@ src/
   unbounded/rules.js     validateRules() (refuses B0) and the rule lookup table
   unbounded/reference.js ReferenceWorld: a deliberately simple Set-of-strings engine the tests check world.js against
   unbounded/run.js       Run: the run loop (timed and open-ended runs, and replays with keyframes and seek;
-                         pause, step, stop, settling), statistics, snapshots, an ended run's result file (the
-                         `result` message), and a replay's hash at its generation (`replayed`)
+                         pause, step, stop, settling through settle.js), statistics, snapshots, an ended run's
+                         result file (the `result` message), and a replay's hash at its generation (`replayed`)
+  unbounded/settle.js    Settler: the settle detector (#41). Ends a run when its pattern dies or repeats in place:
+                         the fingerprint proposes a repeat, a rebuilt generation confirms it cell for cell; the
+                         window and the budget's boundary. run.js and verify.js both use it
+  unbounded/keyframes.js Keyframes: a run's cells every K generations under a byte budget, thinning as K doubles,
+                         and a World rebuilt from the nearest; a replay seeks with them, settle.js confirms with them
   unbounded/run.worker.js The Web Worker that serves one Run
   unbounded/canonical.js The canonical state (a run's definition, the generation, the cells as bytes), its SHA-256
                          hash, the result file (readResult() reads one as untrusted data) and the reference table
   unbounded/verify.js    verifyResult(): replays a result, or looks it up in a table; verified, mismatch, refused
-                         or not checked
+                         or not checked. A settled result (died, repeat) is replayed with settle.js, never looked up
   unbounded/verify.worker.js The Web Worker that runs verifyResult() for the page's Verify a result
   unbounded/endings.js   END_REASONS, how a run can end; apart from run.js so canonical.js can import it without
                          a cycle (run.js imports canonical.js to make a result file in the Worker)
-  unbounded/contests.js  The contests as data (#40): CONTESTS (speed-1), runFor(contest, entry), each kind's score,
-                         and checkContest(), which checks a result's run and score against its contest; SEED_BOX
+  unbounded/contests.js  The contests as data (#40, #41): CONTESTS (speed-1, methuselah-1), runFor(contest, entry),
+                         which refuses an entry's empty seed or a cell outside the seed box, each kind's score
+                         and order (speedScore(), methuselahScore(), compareMethuselah()), methuselahWarnings()
+                         (B1), and checkContest(), which checks a result's run and score against its contest;
+                         SEED_BOX, DISCOVERY_ARENA
   unbounded/hall-of-fame.json The Hall of Fame's entries (#79), added by maintainers by pull request after
                          verifying them (CONTRIBUTING.md, "Contest entries"); read by contests/hallOfFame.js
   unbounded/driver.js    EngineDriver: the page's side of a run; starts a fresh Worker per run and relays its messages
   contests/              The Contests mode (#77): the contests on the page
   contests/contests.js   isContests(), startContests() and stopContests(): an empty scene, the panel, nothing drawn
-  contests/panel.js      The panel in the middle of the screen: the list, a contest's page with its Hall of Fame,
+  contests/panel.js      The panel in the middle of the screen: the list (the kinds in ON_PAGE; Methuselah's page
+                         is #94), a contest's page with its Hall of Fame,
                          the run (countdown, statistics, a chart of generations over time), the results card
                          with Export result and Submit by email, Verify a result, and the
                          HUD's Contest section. Sets only textContent
@@ -107,9 +118,9 @@ src/
                          and Verify a result's scales, drawn as SVG on the page
   contests/submit.js     Submit by email (#79): the address, the subject, the email's text (the lab's promise to an
                          entrant) and the mailto: link (no DOM; tested in Node)
-  contests/hallOfFame.js The Hall of Fame (#79): readHallOfFame() (the data's shape), rankEntries() (as the contest
-                         ranks, then date, then arrival), checkEntry() (an entry against its result file) (no
-                         DOM; tested in Node)
+  contests/hallOfFame.js The Hall of Fame (#79): readHallOfFame() (the data's shape; a Methuselah entry also has
+                         seedCells), rankEntries() (as the contest ranks, then date, then arrival), checkEntry()
+                         (an entry against its result file) (no DOM; tested in Node)
   contests/format.js     What the panel says and draws: countdown, the chart's layout (chartLayout()), scores,
                          endings, statistics, and what Watch found (selfVerifiedText()) (tested in Node)
   contests/contests-check.html Not bundled: a dev page (/src/contests/contests-check.html under `npm run dev`) that
@@ -249,6 +260,14 @@ src/
   `veto`), so a generation that finishes late is discarded like one that crosses a limit.
   Statistics go out at most every 250 ms on their own; snapshots only when asked for. A replay
   keeps only keyframes, under their byte budget (`KEYFRAME_BYTES`), never every generation.
+- **A run settles only on a confirmed repeat** (`settle.js`). The fingerprint is a sum of
+  per-cell hashes, which can be made to collide on purpose, so it only proposes: a repeat ends a
+  run once the candidate generation, rebuilt from a keyframe, equals the current one cell for
+  cell. Every generation that had a fingerprint is kept, so a false match never hides the true
+  one. With a budget B, the window is B, so a cycle from generation 0 closing at B is found, and
+  a run settles only by a cycle that closes within B (h + period ≤ B): a repeat found at B counts,
+  a death at B doesn't. `run.js` and `verify.js` must settle through the same `Settler`, so a
+  replay finds the run's own ending; never end a run on a fingerprint alone.
 - **The canonical bytes are a public format.** A result's hash depends only on the run's
   definition, the generation and the cells: never the chunk size, the order cells were added in,
   timings or the machine. Any change to the bytes (`canonical.js`) bumps `FORMAT_VERSION`, and the
@@ -256,12 +275,12 @@ src/
   strangers: read them only through `readResult()`, which refuses anything over 128 MB or not
   exactly the format, and never run anything from one. A result's optional `cells` and `seedHash`
   are claims too: `checkResultHashes()` confirms them before they are used. So is its `score`:
-  `checkContest()` works it out again from the generation and ending, and only Speed's time is
-  self-reported.
+  `checkContest()` works it out again from the generation and ending, a settled result's period
+  is confirmed by replaying its settling, and only Speed's time is self-reported.
 - **The Hall of Fame holds only verified entries, and what entrants agreed to show.** An entry
   is added by pull request with its result file, and `npm test` checks it against that file. It
-  carries the chosen name, picture, score, browser and date, never an email address or anything
-  else about the entrant, and the email's text (`submit.js`) and CONTRIBUTING.md's "Contest
+  carries the chosen name, picture, score, browser and date (and, for Methuselah, the seed's cell
+  count, from the file), never an email address or anything else about the entrant, and the email's text (`submit.js`) and CONTRIBUTING.md's "Contest
   entries" must keep promising the same. Pictures are 128×128 with their metadata stripped.
   Removing an entry removes its files too; the test fails on a file no entry names.
 - **A contest's id names everything that decides its results** (`contests.js`): rules, seed or

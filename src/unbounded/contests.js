@@ -13,13 +13,14 @@
 // must be from the run's own generation and ending, which verifyResult() then checks by replay
 // or by table lookup. Only Speed's time can't be worked out: it is self-reported.
 //
-// The Discovery contests, Methuselah (#41) and Contained chaos (#42), will be added here. The
-// pinned values come from #39's benchmarks (#44's Pinned values table).
+// Speed (#40) fixes everything. The Discovery contests fix the arena, the seed box and the
+// budget, and leave the rules and the seed to the entry: Methuselah (#41) is here, Contained
+// chaos (#42) will be. The pinned values come from #39's benchmarks (#44's Pinned values table).
 //
 // Nothing here imports `state` or touches the page.
 
 import { validateRules } from './rules.js';
-import { normaliseRun, canonicalJson } from './canonical.js';
+import { normaliseRun, canonicalJson, ResultError } from './canonical.js';
 
 /**
  * The seed box (#44's shared decisions): cells -5 to 4 on each axis, a fixed place in the world,
@@ -27,6 +28,9 @@ import { normaliseRun, canonicalJson } from './canonical.js';
  * Discovery contests' seeds must lie in it, so a design moves into a contest unchanged.
  */
 export const SEED_BOX = Object.freeze({ min: Object.freeze([-5, -5, -5]), max: Object.freeze([4, 4, 4]) });
+
+/** The Discovery arena: 64³, cells -32 to 31 on each axis, centred on the origin as the seed box is. */
+export const DISCOVERY_ARENA = Object.freeze({ min: Object.freeze([-32, -32, -32]), max: Object.freeze([31, 31, 31]) });
 
 /** The kinds of contest. */
 export const CONTEST_KINDS = Object.freeze(['speed', 'methuselah', 'contained-chaos']);
@@ -56,15 +60,17 @@ const deepFreeze = (value) => {
  * @property {'speed' | 'methuselah' | 'contained-chaos'} kind
  * @property {string} title
  * @property {string} summary - one line on what it measures
- * @property {{rules?: object, seed?: number[][], arena: object | null,
+ * @property {{rules?: object, seed?: number[][], seedBox?: object, arena: object | null,
  *   limits: {cells: number | null, extent: number | null, generations: number | null}}} fixes -
- *   what the contest fixes; what it leaves out (rules, seed) comes from the entry
+ *   what the contest fixes; what it leaves out (rules, seed) comes from the entry, and a seed
+ *   must then lie in the seed box
  * @property {number} chunkSize - the chunk size its runs use: not in the hash, but fixed so every
  *   entrant runs the same engine
  * @property {string | null} closes - the day entries close, as YYYY-MM-DD, or null while it is
  *   still to be announced. It decides nothing about a result, so setting it needs no new id
  * @property {number} [seconds] - Speed: how long a run lasts
  * @property {number} [ceiling] - Speed: the generation that ends a run early (limits.generations)
+ * @property {number} [budget] - Discovery: the generations a run has (limits.generations)
  */
 
 /**
@@ -91,8 +97,32 @@ const SPEED_1 = {
   ceiling: 1000,
 };
 
+/**
+ * Methuselah: the longest-lived pattern that settles, in place, inside the arena. It fixes, from
+ * #39's pinned values, the 64³ arena, the 10³ seed box and a budget of 10,000 generations, with
+ * chunk size 16; the entry brings the rules (any but B0) and the seed (1 to 1,000 cells, all in
+ * the seed box). The arena already bounds the cells and the extent. A run scores h, the first
+ * generation of the state or cycle it ends in, once that cycle closes, at h + period ≤ 10,000
+ * (settle.js): the top score is 9,999.
+ * @type {Contest}
+ */
+const METHUSELAH_1 = {
+  id: 'methuselah-1',
+  kind: 'methuselah',
+  title: 'Methuselah',
+  summary: 'The longest-lived pattern that settles inside the arena',
+  fixes: {
+    seedBox: SEED_BOX,
+    arena: DISCOVERY_ARENA,
+    limits: { cells: null, extent: null, generations: 10_000 },
+  },
+  chunkSize: 16,
+  closes: null,
+  budget: 10_000,
+};
+
 /** @type {readonly Contest[]} */
-export const CONTESTS = deepFreeze([SPEED_1]);
+export const CONTESTS = deepFreeze([SPEED_1, METHUSELAH_1]);
 
 /** @returns {Contest | undefined} */
 export function contestById(id) {
@@ -101,19 +131,32 @@ export function contestById(id) {
 
 /**
  * A run's definition, in normal form: the contest's fixed parts, and the entry's for the rest.
+ * An entry's seed must have a cell, and lie in the contest's seed box; it is never shifted.
  * @param {Contest} contest
  * @param {{rules?: object, seed?: number[][]}} [entry] - Speed's entry brings nothing
- * @throws {ResultError} if the entry's part doesn't make a run
+ * @throws {ResultError} if the entry's part doesn't make a run: a B0 rule, an empty seed, or a
+ *   cell outside the seed box
  */
 export function runFor(contest, entry = {}) {
   const { fixes } = contest;
-  return normaliseRun({
+  if (!fixes.rules && !entry.rules) throw new ResultError('The entry needs its rules.');
+  if (!fixes.seed && !Array.isArray(entry.seed)) throw new ResultError('The entry needs its seed, a list of [x, y, z] cells.');
+  const run = normaliseRun({
     contest: contest.id,
     rules: fixes.rules ?? entry.rules,
     seed: fixes.seed ?? entry.seed,
     arena: fixes.arena,
     limits: fixes.limits,
   });
+  if (!fixes.seed) {
+    if (!run.seed.length) throw new ResultError('The seed is empty: it needs at least one live cell.');
+    const box = fixes.seedBox;
+    const outside = run.seed.find((cell) => cell.some((c, a) => c < box.min[a] || c > box.max[a]));
+    if (outside) {
+      throw new ResultError(`The seed's cell [${outside.join(', ')}] is outside the seed box, cells ${box.min[0]} to ${box.max[0]} on each axis.`);
+    }
+  }
+  return run;
 }
 
 /**
@@ -136,6 +179,46 @@ export function speedScore(contest, generation, elapsedMs) {
 export function compareSpeed(a, b) {
   if (a.generations !== b.generations) return b.generations - a.generations;
   return (a.ms ?? Infinity) - (b.ms ?? Infinity);
+}
+
+/**
+ * Methuselah's score for a run that settled: h, the generation its final state or cycle began, and
+ * the cycle's period (1 for a death), or null if the run didn't settle within the budget.
+ * @param {Contest} contest
+ * @param {{ending: string, generation: number, period?: number}} run - how the run ended, at
+ *   which generation (h, for a settled run), and a repeat's period
+ * @returns {{generations: number, period: number} | null}
+ */
+export function methuselahScore(contest, { ending, generation, period }) {
+  if (ending !== 'died' && ending !== 'repeat') return null;
+  const cycle = ending === 'died' ? 1 : period;
+  if (!(Number.isSafeInteger(cycle) && cycle >= 1) || generation + cycle > contest.budget) return null;
+  return { generations: generation, period: cycle };
+}
+
+/**
+ * Orders two Methuselah entries, best first: more generations, then fewer seed cells. Ties go to
+ * the earlier submission, which the caller knows and this doesn't.
+ * @param {{score: {generations: number}, seedCells: number}} a
+ * @param {{score: {generations: number}, seedCells: number}} b
+ * @returns {number} negative if `a` ranks above `b`
+ */
+export function compareMethuselah(a, b) {
+  if (a.score.generations !== b.score.generations) return b.score.generations - a.score.generations;
+  return a.seedCells - b.seedCells;
+}
+
+/**
+ * What the page warns of before a Methuselah run, for an entry's rules: under birth on 1
+ * neighbour, the pattern grows by at least a cell a generation on every side, so it always
+ * reaches the arena's edge (by generation 37 from the seed box) and can't score.
+ * @param {{birth: number[]}} rules
+ * @returns {string[]} the warnings, none for most rules
+ */
+export function methuselahWarnings(rules) {
+  return rules.birth.includes(1)
+    ? ['With birth on 1 neighbour (B1), a pattern grows by at least a cell a generation on every side, so it always reaches the edge of the arena, by generation 37, and can\'t score.']
+    : [];
 }
 
 const FIELDS = [
@@ -172,6 +255,31 @@ const SCORE_CHECKS = {
       }
     } else if (score.ms !== null) {
       return 'A run below the ceiling has no time in its score: ms must be null.';
+    }
+    return null;
+  },
+
+  methuselah(result, contest) {
+    const { generation, ending, score } = result;
+    if (ending !== 'died' && ending !== 'repeat') {
+      return `A Methuselah run that ended with ${ending} has no score: only a run that dies or repeats, within ${contest.budget.toLocaleString('en')} generations, has one.`;
+    }
+    if (score === undefined) return 'A Methuselah result needs its score.';
+    const keys = Object.keys(score);
+    if (keys.length !== 2 || !keys.includes('generations') || !keys.includes('period')) {
+      return 'A Methuselah score is {generations, period}, and nothing else.';
+    }
+    if (score.generations !== generation) {
+      return `The score says ${score.generations} generations, but the file is generation ${generation}.`;
+    }
+    if (!(Number.isSafeInteger(score.period) && score.period >= 1)) {
+      return 'A Methuselah score\'s period is a whole number of at least 1.';
+    }
+    if (ending === 'died' && score.period !== 1) {
+      return `A death is a cycle of period 1, not ${score.period}.`;
+    }
+    if (generation + score.period > contest.budget) {
+      return `A cycle that begins at generation ${generation} with period ${score.period} closes at ${generation + score.period}, past the budget of ${contest.budget.toLocaleString('en')} generations.`;
     }
     return null;
   },
