@@ -21,7 +21,7 @@ import { SpeedRun, verifyInWorker } from './speed.js';
 import { openWatch, closeWatch } from './watch.js';
 import {
   n, rulesText, countdownText, chartLayout, speedHero, speedScoreText, speedEndingText, resultFileName,
-  statsRows, verdictTitle, closingText, scoreText,
+  statsRows, verdictTitle, closingText, scoreText, boardScore,
 } from './format.js';
 import { SUBMIT_ADDRESS, emailSubject, emailBody, mailtoLink } from './submit.js';
 import { HALL_OF_FAME_TOP, readHallOfFame, rankEntries, dayText } from './hallOfFame.js';
@@ -263,7 +263,7 @@ function showContest(contest) {
         factTile('Ceiling', `${n(contest.ceiling)} generations`, 'A run that reaches it sooner also scores its time'))),
     hallOfFame(contest),
     section('How it runs',
-      h('p', { text: `On the CPU, in a background thread (a Web Worker), with chunks of ${contest.chunkSize}³ cells, so every entrant runs the same engine. Nothing is drawn while it runs, so the run has your machine to itself. Your score is the generations completed in the ${contest.seconds} seconds.` })),
+      h('p', { text: `On the CPU, in a background thread (a Web Worker), with chunks of ${contest.chunkSize}³ cells, so every entrant runs the same engine. Nothing is drawn while it runs, so the run has your machine to itself. Your score is the generations completed in the ${contest.seconds} seconds. Runs that reach the ceiling of ${n(contest.ceiling)} all have the same generations, so they rank by the time they took, to the millisecond.` })),
     section('Fair play',
       h('p', { className: 'contests-note', text: SELF_REPORTED })),
     h('div', { className: 'contests-actions' },
@@ -325,8 +325,16 @@ function hallOfFameRow(entry, place, contest) {
     h('span', { className: 'contests-hof-who' },
       h('span', { className: 'contests-hof-name', text: entry.name }),
       h('span', { className: 'contests-hof-meta', text: `${browser} · ${dayText(entry.date)}` })),
-    h('span', { className: 'contests-hof-score', text: score }),
+    hallOfFameScore(contest, entry.score),
     watch);
+}
+
+/** An entry's score: what ranks it, then the rest; at Speed's ceiling, the time leads. */
+function hallOfFameScore(contest, score) {
+  const { main, detail } = boardScore(contest, score);
+  return h('span', { className: 'contests-hof-score' },
+    h('span', { className: 'contests-hof-score-main', text: main }),
+    detail ? h('span', { className: 'contests-hof-score-detail', text: detail }) : null);
 }
 
 /**

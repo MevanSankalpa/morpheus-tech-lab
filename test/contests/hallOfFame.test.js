@@ -123,12 +123,13 @@ test('rankEntries: as Speed ranks, then the earlier date, then the order they ar
     at('slow', 412, null, '2026-11-20'),
     at('ceiling-late', 1000, 4210, '2026-11-22'),
     at('ceiling-fast', 1000, 3900, '2026-11-25'),
+    at('ceiling-fastest-by-1ms', 1000, 3899, '2026-11-26'),
     at('tie-arrived-first', 900, null, '2026-11-21'),
     at('tie-arrived-second', 900, null, '2026-11-21'),
     at('tie-earlier', 900, null, '2026-11-20'),
   ];
   assert.deepEqual(rankEntries(entries, SPEED).map((e) => e.name),
-    ['ceiling-fast', 'ceiling-late', 'tie-earlier', 'tie-arrived-first', 'tie-arrived-second', 'slow']);
+    ['ceiling-fastest-by-1ms', 'ceiling-fast', 'ceiling-late', 'tie-earlier', 'tie-arrived-first', 'tie-arrived-second', 'slow']);
   // Only the contest's own entries
   assert.deepEqual(rankEntries(entries, { id: 'methuselah-1', kind: 'methuselah' }), []);
   assert.ok(HALL_OF_FAME_TOP >= 3);

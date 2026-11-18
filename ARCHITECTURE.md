@@ -221,7 +221,10 @@ for Speed, then the earlier date, then the file's order, which is arrival order)
 entry against its file (`checkEntry()`: it reads as a result, passes `checkContest()`, and has the
 entry's contest, score and browser), which `npm test` runs on every entry without replaying;
 `scripts/verify.mjs` replays them. Each contest's page shows its top 10, the lab's logo standing
-in for a missing picture, and Watch fetches an entry's result file from the site and reads it
+in for a missing picture, each score led by what ranks it (`format.js`'s `boardScore()`): at
+Speed's ceiling every entry has 1,000 generations, so the time leads, to the millisecond the score
+holds (`secondsText()`), as on the results card (`speedHero()`), since two places would show
+times that rank apart as equal; and Watch fetches an entry's result file from the site and reads it
 through `readResult()` like any other.
 
 **Benchmarks**: `scripts/bench.mjs` (#39) measures the engine in Node (chunk sizes, seeds, rules,

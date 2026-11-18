@@ -86,7 +86,9 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   the entrant keep or delete the Hall of Fame line, and states the picture's conditions, that the
   repo is public, how the email address is used, and that Speed's timing is self-reported. Each
   contest's page shows its Hall of Fame, verified entries ranked as the contest ranks them, each
-  with its picture (or the lab's logo), name, score, browser, date and Watch.
+  with its picture (or the lab's logo), name, score, browser, date and Watch. Runs that reach
+  Speed's ceiling compete on time: the results card and the board lead with it, to the
+  millisecond, and the result file's name carries it (`speed-1-1000-3871ms.json`).
   `scripts/verify.mjs` takes several files, so it re-verifies the whole board at once (#79).
 
 ### Changed

@@ -39,7 +39,7 @@ export function emailBody({ contest, score, browser, hash, fileName }) {
   const lines = [
     `My entry for ${contest.title} (${contest.id}).`,
     '',
-    `Score: ${scoreText(contest, score)}`,
+    `Score: ${scoreText(contest, score)}${contest.kind === 'speed' && score.ms !== null ? ' (the ceiling, so the time ranks it)' : ''}`,
     `Result file: ${fileName} (attached)`,
     `Hash: ${hash}`,
     '',

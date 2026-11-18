@@ -4142,10 +4142,18 @@
     white-space: nowrap;
   }
   .contests-hof-score {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-variant-numeric: tabular-nums;
+  }
+  .contests-hof-score-main {
     color: #e8edf3;
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
+  }
+  .contests-hof-score-detail {
+    color: rgba(200, 220, 255, 0.7);
+    font-size: 12px;
   }
   .contests-hof-empty {
     color: rgba(200, 220, 255, 0.75);
@@ -4157,7 +4165,7 @@
     }
     .contests-hof-score {
       grid-column: 3;
-      text-align: left;
+      align-items: flex-start;
       font-size: 13px;
     }
     .contests-hof-entry .contests-button {

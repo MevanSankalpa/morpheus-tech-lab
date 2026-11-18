@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { contestById } from '../../src/unbounded/contests.js';
 import {
   countdownText, niceScale, chartLayout, CHART_MARGIN, speedHero, speedScoreText, speedEndingText, resultFileName, statsRows,
+  secondsText, boardScore,
   rulesText, bytesText, extentText, verdictTitle, closingText, watchGenerationText, selfVerifiedText,
 } from '../../src/contests/format.js';
 
@@ -55,10 +56,18 @@ test("the chart puts time across and generations up, so a run climbs", () => {
 
 test("Speed's score and ending, in words", () => {
   assert.deepEqual(speedHero({ generations: 412, ms: null }, SPEED), { value: '412', unit: 'generations in 6 seconds' });
-  assert.deepEqual(speedHero({ generations: 1000, ms: 4210 }, SPEED), { value: '1,000', unit: 'generations in 4.21 s, the ceiling' });
+  // At the ceiling the time ranks a run, so the card leads with it
+  assert.deepEqual(speedHero({ generations: 1000, ms: 4210 }, SPEED), { value: '4.210', unit: 'seconds to reach the ceiling of 1,000 generations' });
   assert.equal(speedScoreText({ generations: 412, ms: null }), '412 generations');
   assert.equal(speedScoreText({ generations: 1, ms: null }), '1 generation');
-  assert.equal(speedScoreText({ generations: 1000, ms: 4210 }), '1,000 generations in 4.21 s');
+  assert.equal(speedScoreText({ generations: 1000, ms: 4210 }), '1,000 generations in 4.210 s');
+  // To the millisecond the score holds: times 3 ms apart, ranked apart, never read the same
+  assert.equal(secondsText(3871), '3.871 s');
+  assert.equal(secondsText(3874), '3.874 s');
+  assert.equal(secondsText(1), '0.001 s');
+  assert.equal(secondsText(6000), '6.000 s');
+  assert.deepEqual(boardScore(SPEED, { generations: 1000, ms: 3871 }), { main: '3.871 s', detail: '1,000 generations, the ceiling' });
+  assert.deepEqual(boardScore(SPEED, { generations: 742, ms: null }), { main: '742 generations', detail: 'in 6 seconds' });
   assert.equal(speedEndingText('deadline', SPEED), 'The 6 seconds ran out.');
   assert.match(speedEndingText('generation-limit', SPEED), /reached the ceiling, generation 1,000/);
   for (const reason of ['stopped', 'memory-limit', 'out-of-memory', 'error', 'cell-limit']) {
@@ -76,6 +85,8 @@ test('the closing date is the earliest set, or to be announced', () => {
 
 test("a result's file name gives the contest and the score", () => {
   assert.equal(resultFileName(SPEED, { generations: 412, ms: null }), 'speed-1-412.json');
+  // Every run at the ceiling has 1,000 generations: its time keeps the names apart
+  assert.equal(resultFileName(SPEED, { generations: 1000, ms: 3871 }), 'speed-1-1000-3871ms.json');
 });
 
 test('the statistics as the panel lists them', () => {

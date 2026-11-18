@@ -23,7 +23,8 @@ const entry = (over = {}) => ({
 
 test('the subject names the contest and the score', () => {
   assert.equal(emailSubject(SPEED, { generations: 412, ms: null }), '[Speed] 412 generations');
-  assert.equal(emailSubject(SPEED, { generations: 1000, ms: 4210 }), '[Speed] 1,000 generations in 4.21 s');
+  assert.equal(emailSubject(SPEED, { generations: 1000, ms: 4210 }), '[Speed] 1,000 generations in 4.210 s');
+  assert.equal(emailSubject(SPEED, { generations: 1000, ms: 3871 }), '[Speed] 1,000 generations in 3.871 s');
 });
 
 test('the text is the template, filled in: the result, the browser, and fields to finish', () => {
@@ -61,7 +62,8 @@ test('the text states the picture conditions, that the repo is public, how the a
 
 test('the mailto: link opens the email, addressed, with the subject and text', () => {
   const subject = emailSubject(SPEED, { generations: 1000, ms: 4210 });
-  const body = emailBody(entry({ score: { generations: 1000, ms: 4210 }, fileName: 'speed-1-1000.json' }));
+  const body = emailBody(entry({ score: { generations: 1000, ms: 4210 }, fileName: 'speed-1-1000-4210ms.json' }));
+  assert.ok(body.split('\n').includes('Score: 1,000 generations in 4.210 s (the ceiling, so the time ranks it)'));
   const link = mailtoLink(subject, body);
   assert.equal(SUBMIT_ADDRESS, 'lab@morpheustech.net');
   assert.ok(link.startsWith('mailto:lab@morpheustech.net?subject='));
