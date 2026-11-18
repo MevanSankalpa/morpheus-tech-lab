@@ -106,6 +106,11 @@ export function speedScoreText(score) {
   return score.ms === null ? generations : `${generations} in ${(score.ms / 1000).toFixed(2)} s`;
 }
 
+/** A score in words, by its contest's kind: Speed's as speedScoreText() writes it. */
+export function scoreText(contest, score) {
+  return contest.kind === 'speed' ? speedScoreText(score) : JSON.stringify(score);
+}
+
 /**
  * A Speed score as the results card leads with it: the number, and what it counts.
  * @returns {{value: string, unit: string}}

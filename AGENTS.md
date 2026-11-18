@@ -13,18 +13,22 @@ pull requests, DCO sign-off, changelog) is in [CONTRIBUTING.md](CONTRIBUTING.md)
 index.html               All markup: HUD, control bar, configuration modal, info panels
 public/CNAME             lab.morpheustech.net, copied into every build. Never delete
 public/favicon.svg       Brand pin (see brand.lock). Never hand-edit
+public/hall-of-fame/     The Hall of Fame's pictures (128×128, metadata stripped) and, in results/, each entry's
+                         verified result file (#79); created with the first entry. Only files an entry names
 brand.lock               The brand tag the pin came from, and a sha256 per pinned file
 LICENSE                  Apache License 2.0 (MIT through v1.4.0)
 NOTICE                   Copyright notice, and what the license does not cover: the Morpheus Tech name, logo and brand files
-CONTRIBUTING.md          How to contribute: setup from a fork, branches, pull requests, DCO sign-off, changelog
+CONTRIBUTING.md          How to contribute: setup from a fork, branches, pull requests, DCO sign-off, changelog;
+                         handling contest entries (maintainers)
 CODE_OF_CONDUCT.md       Contributor Covenant 2.1, unmodified apart from the enforcement contact
 SECURITY.md              Supported versions (latest only) and private vulnerability reporting
 ROADMAP.md               The public roadmap: the engine, new demos, the brand restyle, community
 RELEASING.md             Branches, versions, changelog format and the release steps
 CHANGELOG.md             What each version changed (Keep a Changelog)
 scripts/brand.mjs        `sync --org <brand repo>` re-pins the brand at a tag (maintainers); `check` verifies the lock
-scripts/verify.mjs       Checks a result file from the unbounded engine in Node: by replay, or by lookup with --table;
-                         a contest's result is checked against its contest too, and its score printed
+scripts/verify.mjs       Checks result files from the unbounded engine in Node: by replay, or by lookup with --table;
+                         a contest's result is checked against its contest too, and its score printed. Takes
+                         several files (public/hall-of-fame/results/*.json); the worst verdict sets the exit status
 scripts/reference-hashes.mjs Computes a run's reference table: the hash of every generation, for checking Speed by lookup;
                          --contest speed-1 takes the run from contests.js
 scripts/bench.mjs        Benchmarks for the unbounded engine (#39): chunk sizes, seeds and rules, bytes against bit-packed
@@ -40,7 +44,9 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          their scores (contests.test.js), and the engine against convolve3D() (dense.test.js);
                          browser.test.js checks telling the browser; contests/ checks a Speed run and Verify a
                          result… on worker_threads (verifyNodeWorker.js stands in for verify.worker.js) and
-                         the panel's text (format.test.js), Watch's included; explore/ checks
+                         the panel's text (format.test.js), Watch's included, the email's text (submit.test.js)
+                         and the Hall of Fame, hall-of-fame.json against its result files (hallOfFame.test.js);
+                         explore/ checks
                          Explore's seeds, presets, seed files, saves, settings (setup.test.js), camera framing
                          and the seed editor's model (editorModel.test.js)
 src/
@@ -83,12 +89,14 @@ src/
                          a cycle (run.js imports canonical.js to make a result file in the Worker)
   unbounded/contests.js  The contests as data (#40): CONTESTS (speed-1), runFor(contest, entry), each kind's score,
                          and checkContest(), which checks a result's run and score against its contest; SEED_BOX
+  unbounded/hall-of-fame.json The Hall of Fame's entries (#79), added by maintainers by pull request after
+                         verifying them (CONTRIBUTING.md, "Contest entries"); read by contests/hallOfFame.js
   unbounded/driver.js    EngineDriver: the page's side of a run; starts a fresh Worker per run and relays its messages
   contests/              The Contests mode (#77): the contests on the page
   contests/contests.js   isContests(), startContests() and stopContests(): an empty scene, the panel, nothing drawn
-  contests/panel.js      The panel in the middle of the screen: the list, a contest's page, the run (countdown,
-                         statistics, a chart of generations over time), the results card with Export result,
-                         Verify a result, and the
+  contests/panel.js      The panel in the middle of the screen: the list, a contest's page with its Hall of Fame,
+                         the run (countdown, statistics, a chart of generations over time), the results card
+                         with Export result and Submit by email, Verify a result, and the
                          HUD's Contest section. Sets only textContent
   contests/speed.js      SpeedRun: one Speed run in a Worker, its score and its result file made in the Worker;
                          verifyInWorker() (no DOM; tested in Node with worker_threads)
@@ -97,11 +105,17 @@ src/
                          whether the replay's hash at the result's generation matched
   contests/looks.js      Each kind of contest's colour and logo (a stopwatch, an hourglass, a scribble in a box),
                          and Verify a result's scales, drawn as SVG on the page
+  contests/submit.js     Submit by email (#79): the address, the subject, the email's text (the lab's promise to an
+                         entrant) and the mailto: link (no DOM; tested in Node)
+  contests/hallOfFame.js The Hall of Fame (#79): readHallOfFame() (the data's shape), rankEntries() (as the contest
+                         ranks, then date, then arrival), checkEntry() (an entry against its result file) (no
+                         DOM; tested in Node)
   contests/format.js     What the panel says and draws: countdown, the chart's layout (chartLayout()), scores,
                          endings, statistics, and what Watch found (selfVerifiedText()) (tested in Node)
   contests/contests-check.html Not bundled: a dev page (/src/contests/contests-check.html under `npm run dev`) that
-                         clicks through the Contests mode in a frame holding the lab, two real Speed runs
-                         included, marking each check ✔ or ✖, and lists what to check by hand
+                         clicks through the Contests mode in a frame holding the lab, two real Speed runs,
+                         Submit by email and a staged Hall of Fame included, marking each check ✔ or ✖, and
+                         lists what to check by hand
   explore/               The Explore mode: the unbounded engine on the page (#37)
   explore/explore.js     Starts and drives the run, the control bar's commands in Explore, the HUD box and notices,
                          and the save popover
@@ -244,6 +258,12 @@ src/
   are claims too: `checkResultHashes()` confirms them before they are used. So is its `score`:
   `checkContest()` works it out again from the generation and ending, and only Speed's time is
   self-reported.
+- **The Hall of Fame holds only verified entries, and what entrants agreed to show.** An entry
+  is added by pull request with its result file, and `npm test` checks it against that file. It
+  carries the chosen name, picture, score, browser and date, never an email address or anything
+  else about the entrant, and the email's text (`submit.js`) and CONTRIBUTING.md's "Contest
+  entries" must keep promising the same. Pictures are 128×128 with their metadata stripped.
+  Removing an entry removes its files too; the test fails on a file no entry names.
 - **A contest's id names everything that decides its results** (`contests.js`): rules, seed or
   seed box, arena, limits and, for Speed, the seconds. Changing any of them means a new id
   (`speed-2`), never an edit to a contest that has opened, so a result is never checked against

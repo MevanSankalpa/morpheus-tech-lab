@@ -607,7 +607,8 @@ function fillSave({ title, what, hashes, where, status, ready }) {
   placeOpenPopover();
 }
 
-function download(name, text) {
+/** Downloads `text` as a JSON file called `name`, through the browser's downloads. */
+export function download(name, text) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;

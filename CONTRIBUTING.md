@@ -326,6 +326,36 @@ Tech name, logo and brand files are not part of the license; see [NOTICE](NOTICE
 - `npm run brand:sync` re-pins the brand from a clone of the private brand repo, and is for
   maintainers only.
 
+## Contest entries
+
+For maintainers. Contest results arrive by email at lab@morpheustech.net, from the results card's
+Submit by email. They come from strangers, so handle them like this:
+
+- **Open only the result file (`.json`) and a picture (`.png` or `.jpg`).** Ignore any other
+  attachment or link, and don't process mail that doesn't follow the template.
+- **Verify the result** with `node scripts/verify.mjs <file>`, which reads it as untrusted data.
+  Speed's results can also be looked up in a table (see the README). Speed's timing is
+  self-reported, so also judge whether the time is plausible, and ask the top entries for a screen
+  recording of the run on lab.morpheustech.net.
+- **List only an entry that kept the Hall of Fame line.** One without it is verified but not listed.
+  You may decline a name or a picture: one that isn't the entrant's to use, shows other people, or
+  breaks the [code of conduct](CODE_OF_CONDUCT.md).
+- **Resize the picture to 128×128 and strip its metadata**, which can include where a photo was
+  taken, before it goes anywhere near the repo. With ImageMagick, for example: `magick in.jpg
+  -auto-orient -resize 128x128^ -gravity center -extent 128x128 -strip out.png`.
+- **Rank by arrival.** An entry's `date` is the day the lab's own mail server received it, never
+  the date the sender claims. Add entries to the end of the list in the order they arrived: equal
+  scores go to the earlier one.
+- **Add the entry by pull request:** the entry in `src/unbounded/hall-of-fame.json` (its contest,
+  name, picture or null, score, browser, date and result file, as the existing entries and
+  [ARCHITECTURE.md](ARCHITECTURE.md) show), the result file under `public/hall-of-fame/results/`
+  and the picture under `public/hall-of-fame/`, named in lower case. Copy the score and the browser
+  from the result file: `npm test` checks the entry against it.
+- **Never commit or publish the entrant's email address**, or anything about them beyond their
+  chosen name, picture, score, browser and date. The address is used only to reply about the entry.
+- **Remove an entry on request**, with its result file and picture, by pull request. That takes it
+  off the site and out of the current files; it stays in the repo's history.
+
 ## Releases
 
 Branching, versioning and the release process are in [RELEASING.md](RELEASING.md).

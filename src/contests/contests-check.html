@@ -4,8 +4,8 @@
   Not bundled: a dev page (/src/contests/contests-check.html under `npm run dev`) that clicks
   through the Contests mode (#77) in a frame holding the lab, and marks each check ✔ or ✖: choosing
   the mode, the list, Speed's page, two real 6-second runs (one to the end, one stopped), Export,
-  Verify a result on the exported file, an edited copy and a file that isn't a result, and
-  leaving the mode. It changes only the lab in its frame; reload to run it again. The list under
+  Submit by email (#79), Verify a result on the exported file, an edited copy and a file that
+  isn't a result, a staged Hall of Fame (#79), and leaving the mode. It changes only the lab in its frame; reload to run it again. The list under
   the results is what to check by eye.
 -->
 <html lang="en">
@@ -52,6 +52,9 @@
     <li>The GPU toggle's popover says contests run on the CPU.</li>
     <li>Watch: the run plays back in 3D as in Explore, the camera follows the pattern as it grows, and past the render budget the chunks show as boxes. Dragging the scrub bar back and forth feels responsive, and the view settles on the generation let go at.</li>
     <li>Watch's bar sits above the control bar, clear of it and of the HUD, at full width and at phone width.</li>
+    <li>Submit by email, in Chrome, Firefox and Safari with a mail app set up: the file downloads and a new email opens to lab@morpheustech.net, with the subject and the text filled in, line breaks kept.</li>
+    <li>The Copy buttons beside the address, the subject and the text each put it on the clipboard; pasted into a webmail compose window, the text keeps its lines.</li>
+    <li>The Submit section and the Hall of Fame (staged by the check above, or with real entries) read well at full width and at phone width: long names end in an ellipsis, and Watch stays on the row.</li>
   </ul>
   <script type="module">
     const frame = document.getElementById('lab');
@@ -214,7 +217,8 @@
       ok(el('contests-panel').querySelector('.contests-page-logo path'), "Speed's page shows Speed's logo");
       ok(panelText().includes('A branch of the contest'), 'It says Speed is a branch of the contest');
       const areas = [...el('contests-panel').querySelectorAll('.contests-section-title')].map((t) => t.textContent);
-      ok(areas.join(' / ') === 'What everyone runs / How it runs / Fair play', `Its details are in titled areas (${areas.join(' / ')})`);
+      ok(areas.join(' / ') === 'What everyone runs / Hall of Fame / How it runs / Fair play', `Its details are in titled areas (${areas.join(' / ')})`);
+      ok(visible('contests-hof-empty') && text('contests-hof-empty').startsWith('No entries yet.') && !el('contests-hof'), `With no entries, the Hall of Fame says so ("${text('contests-hof-empty')}")`);
       ok(el('contests-panel').querySelectorAll('.contests-fact').length === 4, 'Seed, rules, time and ceiling each have a tile');
       ok(panelText().includes('B9-10/S5-15') && panelText().includes('6 seconds') && panelText().includes('1,000 generations'), 'It gives the rules, the 6 seconds and the 1,000-generation ceiling');
       ok(panelText().includes('self-reported'), 'It says the timing is self-reported');
@@ -374,6 +378,37 @@
       ok(data.run?.contest === 'speed-1' && data.score?.generations === score && data.generation === score, 'The file is a speed-1 result, with its score');
       ok(data.cells === undefined, "It doesn't carry the cells");
       ok(data.details?.browser?.name, `It names the browser (${data.details?.browser?.name} ${data.details?.browser?.version})`);
+
+      section('Submit by email');
+      const link = el('contests-submit-email');
+      ok(visible('contests-submit-email') && link.tagName === 'A', 'The results card offers Submit by email, as a link');
+      const mail = new URL(link.href);
+      const subject = mail.searchParams.get('subject');
+      const body = mail.searchParams.get('body') ?? '';
+      const scoreWords = text('contests-score-unit').includes('the ceiling')
+        ? `${text('contests-score')} generations in ${text('contests-score-unit').match(/in ([\d.]+ s)/)[1]}`
+        : `${text('contests-score')} generations`;
+      ok(mail.protocol === 'mailto:' && mail.pathname === 'lab@morpheustech.net', `It writes to lab@morpheustech.net (${mail.protocol}${mail.pathname})`);
+      ok(subject === `[Speed] ${scoreWords}`, `The subject names the contest and the score ("${subject}")`);
+      const browserWords = `${data.details?.browser?.name} ${data.details?.browser?.version}`;
+      ok(body.includes('Name to show: ') && body.includes(`Browser and version: ${browserWords}`) && body.includes('Hardware (optional): ') && body.includes(`Result file: speed-1-${score}.json`), 'The text is the template, with the browser and the file filled in');
+      ok(body.split('\n').includes('Hall of Fame: yes, show my name, picture, score, browser and date.'), 'It has the Hall of Fame line, on its own line, to keep or delete');
+      ok(/PNG or JPEG, square, at most 1 MB/.test(body) && /repo is public/.test(body) && /email address is used only to reply/.test(body) && /Speed's timing is self-reported/.test(body), 'It states the picture conditions, that the repo is public, how the address is used, and that Speed is self-reported');
+      ok(text('contests-submit-attach').includes("can't attach files") && text('contests-submit-attach').includes(`speed-1-${score}.json`), `Beside it, the card says what to attach by hand ("${text('contests-submit-attach')}")`);
+      const attachBox = el('contests-submit-attach').getBoundingClientRect();
+      const linkBox = link.getBoundingClientRect();
+      ok(attachBox.left >= linkBox.right - 1 || attachBox.top >= linkBox.bottom - 1, 'next to the link, or just under it');
+      ok(text('contests-submit-to') === 'lab@morpheustech.net' && visible('contests-submit-to-copy'), 'It shows the address, with Copy');
+      ok(text('contests-submit-subject') === subject && visible('contests-submit-subject-copy'), 'and the subject, with Copy');
+      ok(visible('contests-submit-body') && el('contests-submit-body').value === body && el('contests-submit-body').readOnly && visible('contests-submit-body-copy'), 'and the text, the same as the link\'s, with Copy');
+      exported = null;
+      link.addEventListener('click', (event) => event.preventDefault(), { once: true }); // no mail app from the check
+      // A click event, not click(), which the Export check above turned off for anchors
+      link.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true }));
+      await until(() => exported, 3000);
+      ok(exported && (await exported.text()) === file, 'Clicking it downloads the result file, the same as Export\'s');
+      ok(text('contests-panel-status').includes(`Downloaded speed-1-${score}.json`) && text('contests-panel-status').includes('Attach it'), `and says to attach it ("${text('contests-panel-status')}")`);
+
       chooseFile(`speed-1-${score}.json`, file);
       ok(await until(() => visible('contests-verdict'), 60000), 'Verify a result answers');
       ok(text('contests-verdict') === 'Verified', `The exported file verifies ("${text('contests-verdict')}": ${text('contests-verdict-message')})`);
@@ -395,9 +430,49 @@
       chooseFile('notes.json', '{"hello": "world"}');
       ok(await until(() => text('contests-verdict') === 'Not a result file', 10000), 'A file that is not a result is refused');
 
-      section('Stopping a run');
+      section('The Hall of Fame');
+      // A staged board: two entries in the frame's copy of hall-of-fame.json, one whose result file
+      // is this run's export (served by a stand-in fetch), one whose file and picture don't exist
+      // Vite serves the panel's import of a JSON file with ?import: the same URL is the same module
+      const board = (await win.eval("import('/src/unbounded/hall-of-fame.json?import')")).default;
+      // Made in the frame's realm, as the panel's own JSON is: readHallOfFame() wants plain objects
+      board.entries.push(...win.JSON.parse(JSON.stringify([
+        { contest: 'speed-1', name: 'Check, slower', picture: null, score: { generations: score - 1, ms: null }, browser: null, date: '2026-11-19', result: 'hall-of-fame/results/check-missing.json' },
+        { contest: 'speed-1', name: '<b>Check</b>, this run', picture: 'hall-of-fame/check-missing.png', score: data.score, browser: data.details.browser, date: '2026-11-20', result: 'hall-of-fame/results/check-run.json' },
+      ])));
+      const realFetch = win.fetch;
+      win.fetch = (url, ...rest) => (String(url).endsWith('/hall-of-fame/results/check-run.json')
+        ? Promise.resolve(new win.Response(file))
+        : realFetch.call(win, url, ...rest));
       press('contests-back');
       ok(text('contests-panel-title') === 'Speed', 'Back goes to Speed');
+      const rows = [...(el('contests-hof')?.children ?? [])];
+      ok(rows.length === 2 && !visible('contests-hof-empty'), 'The Hall of Fame lists the entries');
+      const cell = (row, name) => row?.querySelector(`.contests-hof-${name}`);
+      ok(cell(rows[0], 'name')?.textContent === '<b>Check</b>, this run' && cell(rows[1], 'name')?.textContent === 'Check, slower', 'ranked as Speed ranks them, more generations first');
+      ok(!el('contests-hof').querySelector('b'), 'A name is shown as text, never as markup');
+      ok(cell(rows[0], 'place')?.textContent === '1' && cell(rows[1], 'place')?.textContent === '2', 'Each has its place');
+      ok(cell(rows[0], 'score')?.textContent === scoreWords, `and its score ("${cell(rows[0], 'score')?.textContent}")`);
+      ok(cell(rows[0], 'meta')?.textContent === `${browserWords} · 20 Nov 2026` && cell(rows[1], 'meta')?.textContent === 'Browser not given · 19 Nov 2026', `its browser and date ("${cell(rows[0], 'meta')?.textContent}")`);
+      ok(cell(rows[1], 'picture')?.src.includes('morpheus-tech') && cell(rows[1], 'picture').classList.contains('contests-hof-picture--logo'), "An entry without a picture shows the lab's logo");
+      ok(await until(() => cell(rows[0], 'picture')?.src.includes('morpheus-tech'), 5000), "A picture that doesn't load gives way to the logo");
+      ok(rows.every((row) => row.querySelector('button')?.textContent === 'Watch'), 'Each entry has Watch');
+      const hofBox = el('contests-hof').getBoundingClientRect();
+      ok(rows.every((row) => row.getBoundingClientRect().right <= hofBox.right + 1 && row.scrollWidth <= row.clientWidth + 1), 'Every row fits the panel');
+      press('contests-hof-watch-2');
+      ok(await until(() => text('contests-panel-status').startsWith("It can't be watched"), 5000), `An entry whose file can't be read says so ("${text('contests-panel-status')}")`);
+      ok(!visible('contests-watch'), 'and Watch stays shut');
+      press('contests-hof-watch-1');
+      ok(await until(() => visible('contests-watch'), 5000), "Watch plays an entry's result file");
+      ok(text('contests-watch-title') === `Hall of Fame: <b>Check</b>, this run, ${scoreWords}` && Number(el('contests-watch-scrub').max) === score, `to its generation (${text('contests-watch-title')})`);
+      doc.body.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await sleep(300);
+      ok(visible('contests-panel') && text('contests-panel-title') === 'Speed' && doc.activeElement?.id === 'contests-hof-watch-1', "Esc goes back to Speed's page, to the entry's Watch");
+      ok(text('contest-hud-status') === 'Ready', 'The HUD says ready again');
+      board.entries.length = 0;
+      win.fetch = realFetch;
+
+      section('Stopping a run');
       press('contests-run');
       await sleep(1200);
       press('contests-stop');
