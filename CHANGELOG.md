@@ -225,6 +225,7 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   The unbounded mode's files are named `game-of-life-3d-seed.json` and
   `game-of-life-3d-generation-N.json`; seed files, saved generations and result files are
   unchanged, and every one made before still loads (#116).
+- Moved inline styles from the company panel and bottom control bar into stylesheets (#21).
 
 ### Removed
 - The Morpheus Tech logo buttons beside the settings dialog's range hints; the logo at the top of
