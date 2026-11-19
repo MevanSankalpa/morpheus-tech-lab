@@ -66,6 +66,13 @@ export function shipsLeftReason(departed) {
 }
 
 /**
+ * Why Save this generation refuses while the arena wraps around (#115). A result file has no way
+ * to say that a run wraps, and no contest wraps, so its replay would end where the pattern first
+ * reached the arena's edge.
+ */
+export const WRAP_SAVE_REASON = "This run's arena wraps around, and a saved generation can't record that, so its replay wouldn't reach this generation: no contest wraps. Save seed still saves the seed, and its rules.";
+
+/**
  * Save this generation's file.
  * @param {object} options
  * @param {object} options.config - Explore's config, as runDefinition() takes it

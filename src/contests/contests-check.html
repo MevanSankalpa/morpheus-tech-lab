@@ -709,7 +709,7 @@
       press('contests-design-seed');
       await sleep(1500);
       ok(doc.body.classList.contains('mode-explore') && visible('seed-editor'), 'It opens the seed editor in Explore');
-      ok(state.explore.arena === 64 && state.explore.ships === true && text('explore-arena') === '64³, ships leave',
+      ok(state.explore.arena === 64 && state.explore.edge === 'ships' && text('explore-arena') === '64³, ships leave',
         `with the 64³ arena and ships leaving at its edge (#103: arena ${state.explore.arena}, "${text('explore-arena')}")`);
       ok(/ships (now leave|leaving) at (the|its) edge/i.test(text('seed-editor-note')) && text('seed-editor-note').includes("Classic Methuselah"), `and the note says so ("${text('seed-editor-note').slice(-140)}")`);
       el('seed-editor').querySelector('[data-action="cancel"]').click();
