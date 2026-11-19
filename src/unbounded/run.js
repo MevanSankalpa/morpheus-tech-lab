@@ -15,6 +15,10 @@
 // keyframes of its own to confirm with. With a budget (`generations`), it looks back over the
 // whole budget, and settles only by a cycle that closes within it.
 //
+// A world with departures (Classic Methuselah's, #100) lets ships leave at the arena's edge: every
+// step goes through departures.js, which is step() itself for any other world. A repeat whose
+// cycle had a departure ends as 'emits'.
+//
 // The loop steps for a short slice of time, then yields, so messages from the page (pause,
 // step, stop, snapshot) are handled between generations. A generation itself can't be
 // interrupted, and doesn't need to be: a timed run's deadline is checked once each generation
@@ -31,7 +35,8 @@
 //     (Explore loads a saved generation this way); `generations` counts from 0 all the same
 //     settle: end when every cell has died ('died') or the cells repeat, in place, those of
 //     an earlier generation ('repeat', with the cycle: {from, period}; the generation count
-//     goes back to `from`, whose cells they are). settle.js decides, confirming each repeat;
+//     goes back to `from`, whose cells they are; 'emits' likewise, if ships left during the
+//     cycle). settle.js decides, confirming each repeat;
 //     with `generations`, only a cycle that closes by then counts, and a death at the last
 //     generation ends the run as 'generation-limit'. The keyframes are the settle detector's
 //     replay: `generations` is the result's generation, where it ends ('generation-limit'),
@@ -76,6 +81,7 @@
 
 import { World } from './world.js';
 import { step as stepWorld } from './step.js';
+import { withDepartures } from './departures.js';
 import { END_REASONS } from './endings.js';
 import { resultOf, hashWorld } from './canonical.js';
 import { Keyframes, KEYFRAME_BYTES, KEYFRAME_EVERY, triples } from './keyframes.js';
@@ -120,14 +126,15 @@ export class Run {
    * @param {() => number} [host.now] - milliseconds
    * @param {(fn: () => void) => void} [host.yieldThen] - runs fn once pending messages are handled
    * @param {(ms: number, fn: () => void) => void} [host.wait] - runs fn after ms
-   * @param {typeof stepWorld} [host.step] - the tests wrap it to move a fake clock
+   * @param {typeof stepWorld} [host.step] - the tests wrap it to move a fake clock; the run
+   *   applies a world's departures round it
    */
   constructor({ post, now = () => performance.now(), yieldThen, wait = (ms, fn) => setTimeout(fn, ms), step = stepWorld }) {
     this.post = post;
     this.now = now;
     this.yieldThen = yieldThen ?? messageYield(this);
     this.wait = wait;
-    this.stepWorld = step;
+    this.stepWorld = withDepartures(step);
     this.world = null;
     this.state = 'idle'; // then 'running' or 'paused', then 'ended'
     this.ticket = 0; // bumped on every change of state, so a stale scheduled loop does nothing
@@ -283,7 +290,7 @@ export class Run {
   settled() {
     const found = this.settler.check(this.world);
     if (!found) return false;
-    if (found.ending === 'repeat') {
+    if (found.ending === 'repeat' || found.ending === 'emits') {
       this.cycleFound = { from: found.from, period: found.period };
       // The cells now are generation `from`'s, so the count goes back there: a settled run
       // reports the generation its cycle began, where its cells stay or keep returning
@@ -295,10 +302,10 @@ export class Run {
   }
 
   /**
-   * Every generation of the cycle a 'repeat' found, as cells, starting with the current one
-   * (the cycle's first). The world steps once round the cycle to make them, which brings it
-   * back to the same cells; its generation count is put back. Null frames past `budget` cells
-   * in all.
+   * Every generation of the cycle a 'repeat' (or 'emits') found, as cells, starting with the
+   * current one (the cycle's first). The world steps once round the cycle to make them, which
+   * brings it back to the same cells; its generation count, and its departures, are put back.
+   * Null frames past `budget` cells in all.
    */
   cycle(id, budget = Infinity) {
     if (!this.cycleFound) throw new RunError('The run has not settled into a repeating cycle.');
@@ -306,6 +313,7 @@ export class Run {
     const { from, period } = this.cycleFound;
     const reason = world.stopReason;
     const generation = world.generation;
+    const departed = world.departed.length;
     let frames = [];
     let cells = 0;
     world.stopReason = null;
@@ -321,6 +329,7 @@ export class Run {
     } finally {
       world.stopReason = reason;
       world.generation = generation;
+      world.departed.length = departed;
     }
     this.post({ type: 'cycle', id, from, period, frames }, frames ? frames.map((f) => f.buffer) : []);
   }
@@ -472,7 +481,7 @@ export class Run {
   sendState(reason) {
     const message = { type: 'state', state: this.state, stats: this.stats() };
     if (reason) message.reason = reason;
-    if (reason === 'repeat') message.cycle = this.cycleFound;
+    if (reason === 'repeat' || reason === 'emits') message.cycle = this.cycleFound;
     this.post(message);
   }
 

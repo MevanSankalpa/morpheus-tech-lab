@@ -38,6 +38,11 @@
 // checkContest() works out what it must be from the replayed or looked-up state, and the one part
 // that can't be (Speed's time) is self-reported.
 //
+// A result whose world let ships leave at the edge (Classic Methuselah's, #100) carries its
+// `departures`: [{generation, period, shift: [dx, dy, dz], cells: [[x, y, z], …]}, …], in the
+// order departures.js records them, empty if none left. Like the score, the list is outside the
+// hash and never trusted: verify.js replays the departures with the run and compares the list.
+//
 // Result files arrive from strangers, so readResult() treats one as untrusted data: it refuses
 // a file over MAX_RESULT_BYTES unread, and anything that doesn't match the format exactly,
 // unknown fields included. Only the known fields are ever read, and nothing in a file is run.
@@ -355,7 +360,7 @@ export function worldOptions(run, { chunkSize, slabBytes, memory } = {}) {
  *   elapsedMs, stats (run.js's statistics) and browser ({name, version}); each may be left out
  * @param {boolean} [options.withCells] - include the generation's live cells
  * @param {object} [options.score] - the contest's score (contests.js), outside the hash
- * @returns {Promise<object>}
+ * @returns {Promise<object>} with the world's departures, if it has a departure rule
  */
 export async function resultOf(world, { run, ending, details = {}, withCells = false, score }) {
   if (canonicalJson(world.rules) !== canonicalJson(normaliseRun(run).rules)) {
@@ -364,6 +369,7 @@ export async function resultOf(world, { run, ending, details = {}, withCells = f
   return resultFromCells({
     run, generation: world.generation, cells: world.cells(), ending,
     details: { chunkSize: world.n, ...details }, withCells, score,
+    departures: world.departures ? world.departed : undefined,
   });
 }
 
@@ -373,9 +379,10 @@ export async function resultOf(world, { run, ending, details = {}, withCells = f
  * @param {object} options - as resultOf()'s, with the generation and its cells
  * @param {number} options.generation
  * @param {Int32Array} options.cells - the live cells as x, y, z triples, in any order
+ * @param {object[]} [options.departures] - the run's departures, for a world that has the rule
  * @returns {Promise<object>}
  */
-export async function resultFromCells({ run, generation, cells, ending, details = {}, withCells = false, score }) {
+export async function resultFromCells({ run, generation, cells, ending, details = {}, withCells = false, score, departures }) {
   const definition = normaliseRun(run);
   if (!RESULT_ENDINGS.includes(ending)) {
     throw new ResultError(`A run that ended with ${JSON.stringify(ending)} can't be a result.`);
@@ -390,6 +397,7 @@ export async function resultFromCells({ run, generation, cells, ending, details 
     ending,
   };
   if (score !== undefined) result.score = checkScore(score);
+  if (departures !== undefined) result.departures = readDepartures(departures);
   Object.assign(result, {
     hash: await sha256(canonicalBytesSorted(definition, generation, sorted)),
     seedHash: await stateHash(definition, 0, Int32Array.from(definition.seed.flat())),
@@ -455,7 +463,7 @@ export function readResult(text) {
   } catch {
     throw new ResultError("The file isn't JSON.");
   }
-  exactKeys(data, 'The file', ['format', 'version', 'run', 'generation', 'ending', 'hash', 'details'], ['score', 'seedHash', 'cells']);
+  exactKeys(data, 'The file', ['format', 'version', 'run', 'generation', 'ending', 'hash', 'details'], ['score', 'departures', 'seedHash', 'cells']);
   if (data.format !== RESULT_FORMAT) throw new ResultError(`The file isn't a result file (its format isn't "${RESULT_FORMAT}").`);
   if (data.version !== RESULT_VERSION) {
     throw new ResultError(`The file's version is ${JSON.stringify(data.version)}; this lab reads version ${RESULT_VERSION}.`);
@@ -482,6 +490,7 @@ export function readResult(text) {
     ending: data.ending,
   };
   if (data.score !== undefined) result.score = checkScore(data.score);
+  if (data.departures !== undefined) result.departures = readDepartures(data.departures);
   result.hash = data.hash;
   if (data.seedHash !== undefined) result.seedHash = data.seedHash;
   result.details = data.details;
@@ -489,15 +498,43 @@ export function readResult(text) {
   return result;
 }
 
+/**
+ * A result's departures (#100), in departures.js's order: by generation, then by first cell.
+ * @returns {{generation: number, period: number, shift: number[], cells: number[][]}[]} a copy
+ */
+function readDepartures(list) {
+  if (!Array.isArray(list)) throw new ResultError('departures must be a list.');
+  return list.map((departure, i) => {
+    const at = `departures[${i}]`;
+    exactKeys(departure, at, ['generation', 'period', 'shift', 'cells']);
+    const { generation, period } = departure;
+    if (!(Number.isSafeInteger(generation) && generation >= 0)) throw new ResultError(`${at}.generation must be a whole number.`);
+    if (!(Number.isSafeInteger(period) && period >= 1)) throw new ResultError(`${at}.period must be a whole number of at least 1.`);
+    const shift = point(departure.shift, `${at}.shift`);
+    if (shift.every((d) => d === 0)) throw new ResultError(`${at}.shift must move the ship: it can't be [0, 0, 0].`);
+    const cells = readCells(departure.cells, `${at}.cells`);
+    if (!cells.length) throw new ResultError(`${at}.cells must have a cell.`);
+    if (i > 0) {
+      const before = list[i - 1];
+      const [x, y, z] = cells[0];
+      const [px, py, pz] = before.cells[0];
+      const after = generation > before.generation || (generation === before.generation
+        && (z > pz || (z === pz && (y > py || (y === py && x > px)))));
+      if (!after) throw new ResultError(`${at} is out of order: departures are listed by generation, then by their first cell.`);
+    }
+    return { generation, period, shift, cells };
+  });
+}
+
 // A result's cells: [x, y, z] each, sorted by z, y, x, each once. @returns {number[][]}
-function readCells(cells) {
-  if (!Array.isArray(cells)) throw new ResultError('cells must be a list of [x, y, z] cells.');
+function readCells(cells, path = 'cells') {
+  if (!Array.isArray(cells)) throw new ResultError(`${path} must be a list of [x, y, z] cells.`);
   return cells.map((cell, i) => {
-    const [x, y, z] = point(cell, `cells[${i}]`);
+    const [x, y, z] = point(cell, `${path}[${i}]`);
     if (i > 0) {
       const [px, py, pz] = cells[i - 1];
       const after = z > pz || (z === pz && (y > py || (y === py && x > px)));
-      if (!after) throw new ResultError(`cells[${i}] is out of order or listed twice: cells are sorted by z, then y, then x.`);
+      if (!after) throw new ResultError(`${path}[${i}] is out of order or listed twice: cells are sorted by z, then y, then x.`);
     }
     return [x, y, z];
   });

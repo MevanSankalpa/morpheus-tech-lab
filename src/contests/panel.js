@@ -32,8 +32,13 @@ import { HALL_OF_FAME_TOP, readHallOfFame, rankEntries, dayText } from './hallOf
 import { LOOKS, logo, verifyGlyph } from './looks.js';
 
 const ISSUES = 'https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/';
-/** The kinds of contest this page can run. */
+/**
+ * The kinds of contest this page can run. Classic Methuselah (#100) is of kind methuselah, but its
+ * runs need ships to leave at the edge, which the page brings in its piece 2 (#102): until then it
+ * isn't listed.
+ */
 const ON_PAGE = ['speed', 'methuselah'];
+const onPage = (contest) => ON_PAGE.includes(contest.kind) && !contest.departures;
 /** The contests still to come, shown in the list without an Open button. */
 const COMING = [
   { kind: 'contained-chaos', title: 'Contained chaos', about: 'A pattern that never settles and never escapes', issue: 42 },
@@ -230,7 +235,7 @@ function showList() {
   panel.contest = null;
   hud('–', 'Choosing', '–');
   const tiles = h('div', { className: 'contests-tiles' });
-  for (const contest of CONTESTS.filter((c) => ON_PAGE.includes(c.kind))) {
+  for (const contest of CONTESTS.filter(onPage)) {
     tiles.append(tile(contest.kind, contest.title, contest.summary,
       h('span', { className: 'contests-tile-foot', text: 'Open' }),
       { open: () => showContest(contest), id: `contests-open-${contest.id}` }));

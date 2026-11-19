@@ -42,7 +42,8 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          its run loop on a fake clock and in a worker_threads Worker, the canonical hash and
                          the verifier (fixtures/ holds an example result and a hand-edited copy), settling and its
                          keyframes on small hand-made patterns (settle.test.js; the patterns are in helpers.js),
-                         the contests and their scores, Methuselah's included (contests.test.js), and the engine
+                         the contests and their scores, Methuselah's included (contests.test.js), ships leaving
+                         at the edge and Classic Methuselah (departures.test.js), and the engine
                          against convolve3D() (dense.test.js);
                          browser.test.js checks telling the browser; contests/ checks a Speed run and Verify a
                          result… on worker_threads (verifyNodeWorker.js stands in for verify.worker.js) and
@@ -85,18 +86,25 @@ src/
                          result file (the `result` message), and a replay's hash at its generation (`replayed`)
   unbounded/settle.js    Settler: the settle detector (#41). Ends a run when its pattern dies or repeats in place:
                          the fingerprint proposes a repeat, a rebuilt generation confirms it cell for cell; the
-                         window and the budget's boundary. run.js and verify.js both use it
+                         window and the budget's boundary; 'emits', a repeat whose cycle had a departure (#100).
+                         run.js and verify.js both use it
+  unbounded/departures.js Ships leave at the edge (#100), Classic Methuselah's rule: withDepartures() wraps step()
+                         for a World built with `departures: {period}`. At an edge event it splits the cells into
+                         islands, tests each departing one for an outward ship of period ≤ P, deletes them and
+                         records each departure in world.departed, or ends the run at the edge
   unbounded/keyframes.js Keyframes: a run's cells every K generations under a byte budget, thinning as K doubles,
                          and a World rebuilt from the nearest; a replay seeks with them, settle.js confirms with them
   unbounded/run.worker.js The Web Worker that serves one Run
   unbounded/canonical.js The canonical state (a run's definition, the generation, the cells as bytes), its SHA-256
                          hash, the result file (readResult() reads one as untrusted data) and the reference table
   unbounded/verify.js    verifyResult(): replays a result, or looks it up in a table; verified, mismatch, refused
-                         or not checked. A settled result (died, repeat) is replayed with settle.js, never looked up
+                         or not checked. A settled result (died, repeat, emits) is replayed with settle.js, never
+                         looked up; a result's departures are replayed with the run and compared
   unbounded/verify.worker.js The Web Worker that runs verifyResult() for the page's Verify a result
   unbounded/endings.js   END_REASONS, how a run can end; apart from run.js so canonical.js can import it without
                          a cycle (run.js imports canonical.js to make a result file in the Worker)
-  unbounded/contests.js  The contests as data (#40, #41): CONTESTS (speed-1, methuselah-1), runFor(contest, entry),
+  unbounded/contests.js  The contests as data (#40, #41, #100): CONTESTS (speed-1, methuselah-1,
+                         classic-methuselah-1), departuresFor(run), runFor(contest, entry),
                          which refuses an entry's empty seed or a cell outside the seed box, each kind's score
                          and order (speedScore(), methuselahScore(), compareMethuselah()), methuselahWarnings()
                          (B1), and checkContest(), which checks a result's run and score against its contest;
@@ -282,6 +290,12 @@ src/
   a run settles only by a cycle that closes within B (h + period ≤ B): a repeat found at B counts,
   a death at B doesn't. `run.js` and `verify.js` must settle through the same `Settler`, so a
   replay finds the run's own ending; never end a run on a fingerprint alone.
+- **A departure belongs to the step from t to t + 1** (`departures.js`, #100). Generation t, as
+  it is hashed, kept as a keyframe and compared when settling, is the whole state, ship
+  included; the ship is deleted only on the way to t + 1. So every stepping of a world with
+  departures goes through `withDepartures()` (`run.js`, the `Settler`'s rebuilds, `verify.js`,
+  `reference-hashes.mjs`), and a rebuild or a replay meets the same departures as the run. The
+  rule needs no catalogue of ships: never add one, or anything that depends on the machine.
 - **The canonical bytes are a public format.** A result's hash depends only on the run's
   definition, the generation and the cells: never the chunk size, the order cells were added in,
   timings or the machine. Any change to the bytes (`canonical.js`) bumps `FORMAT_VERSION`, and the
@@ -290,7 +304,8 @@ src/
   exactly the format, and never run anything from one. A result's optional `cells` and `seedHash`
   are claims too: `checkResultHashes()` confirms them before they are used. So is its `score`:
   `checkContest()` works it out again from the generation and ending, a settled result's period
-  is confirmed by replaying its settling, and only Speed's time is self-reported.
+  is confirmed by replaying its settling, and only Speed's time is self-reported. So are its
+  `departures` (#100): the replay makes them again, and the file's list must be the replay's.
 - **The Hall of Fame holds only verified entries, and what entrants agreed to show.** An entry
   is added by pull request with its result file, and `npm test` checks it against that file. It
   carries the chosen name, picture, score, browser and date (and, for Methuselah, the seed's cell
@@ -298,9 +313,9 @@ src/
   entries" must keep promising the same. Pictures are 128×128 with their metadata stripped.
   Removing an entry removes its files too; the test fails on a file no entry names.
 - **A contest's id names everything that decides its results** (`contests.js`): rules, seed or
-  seed box, arena, limits and, for Speed, the seconds. Changing any of them means a new id
-  (`speed-2`), never an edit to a contest that has opened, so a result is never checked against
-  the wrong definition.
+  seed box, arena, limits, for Speed the seconds, and for Classic Methuselah the departures' P.
+  Changing any of them means a new id (`speed-2`), never an edit to a contest that has opened, so
+  a result is never checked against the wrong definition.
 - The unbounded engine asks for cell memory only by adding a slab (`World.addSlab()`), so a refusal
   is one catchable `RangeError` in one place. Keep it that way.
 - `state.reset()` keeps the scene, renderer and camera, so a rebuild reuses one WebGL context.

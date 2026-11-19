@@ -13,5 +13,6 @@ export const END_REASONS = [
   'generation-limit', // the run completed the generations it was given
   'died', // a settling run: no live cells remain
   'repeat', // a settling run: the cells repeat, in place, an earlier generation's
+  'emits', // a settling run with departures (#100): the cells repeat, but ships left during the cycle
   'error', // a fault in the engine; the message says what
 ];

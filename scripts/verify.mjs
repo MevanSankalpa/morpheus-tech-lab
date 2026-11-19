@@ -8,7 +8,9 @@
 // It replays each file's run from its seed to the stated generation and compares the hash, or,
 // with --table (from scripts/reference-hashes.mjs), looks the hash up without a replay. A run that
 // settled (died or repeated, as Methuselah's do) is replayed with the settle detector, to check
-// that it first settles at the stated generation; a table can't show that, so it isn't used. Result
+// that it first settles at the stated generation; a table can't show that, so it isn't used. A
+// Classic Methuselah file's ships leave the arena in the replay as in the run, and its list of
+// departures must be the replay's; it is printed. Result
 // files come from strangers: a file is refused unread if it is over 128 MB (room for a generation
 // saved from Explore, with its cells), and nothing in it is ever run. src/unbounded/verify.js
 // does the checking. A contest's result is also checked against its contest
@@ -74,6 +76,14 @@ function scoreText(kind, { score, ending }) {
   return `${fields}${kind === 'speed' ? ' (the time is self-reported)' : ''}`;
 }
 
+/** A file's departures: "2 ships left, at generations 140 and 412". */
+function departuresText(departures) {
+  if (!departures.length) return 'no ship left';
+  const at = departures.map((d) => d.generation.toLocaleString('en'));
+  const list = at.length === 1 ? at[0] : `${at.slice(0, -1).join(', ')} and ${at[at.length - 1]}`;
+  return `${departures.length === 1 ? '1 ship' : `${departures.length} ships`} left, at generation${at.length === 1 ? '' : 's'} ${list}`;
+}
+
 /**
  * Checks one file, and prints its verdict.
  * @returns {Promise<string>} the verdict
@@ -103,6 +113,7 @@ async function verifyFile(file, options) {
     const rules = `B${run.rules.birth.join(',')}/S${run.rules.survival.join(',')}`;
     console.log(`  contest ${run.contest ?? 'none'}, rules ${rules}, seed of ${run.seed.length} cells, generation ${result.generation}, ended with ${result.ending}`);
     if (result.score) console.log(`  score: ${scoreText(contestById(run.contest)?.kind, result)}`);
+    if (result.departures) console.log(`  departures: ${departuresText(result.departures)}`);
   }
   return verdict;
 }

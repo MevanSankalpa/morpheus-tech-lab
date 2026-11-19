@@ -91,3 +91,22 @@ export const SHIP = {
   seed: [[1, 0, 0], [0, 1, 0], [2, 1, 0], [0, 0, 1], [2, 0, 1], [0, 1, 1], [2, 1, 1], [0, 2, 1], [1, 2, 1], [0, 0, 2],
     [2, 0, 2], [0, 1, 2], [1, 1, 2], [2, 1, 2], [0, 2, 2], [1, 2, 2], [2, 2, 2]],
 };
+
+// ---- Departures (#100) ----
+
+/** Under SHIP's rules, settles into a period-2 cycle of 4 cells from generation 8: SHIP's rest, at cells -5 to -3. */
+export const SHIP_REST = [[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [2, 2, 0], [0, 0, 1], [2, 0, 1],
+  [0, 1, 1], [1, 1, 1], [2, 1, 1], [1, 2, 1], [0, 0, 2], [0, 1, 2], [0, 2, 2], [2, 2, 2]].map(([x, y, z]) => [x - 5, y - 5, z - 5]);
+/**
+ * A ship of period 2 moving 2 cells along +x, which wobbles in z: these cells span z 0 to 2, and
+ * the next generation's span -1 to 2.
+ */
+export const WOBBLER = {
+  rules: { birth: [4], survival: [7] },
+  cells: [[2, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [1, -1, 1], [3, 0, 1], [3, 1, 1], [1, 2, 1], [2, 2, 1], [3, 0, 2], [3, 1, 2], [2, 2, 2]],
+};
+/** A ship of period 6 moving 6 cells along +x. */
+export const SLOW_SHIP = {
+  rules: { birth: [4], survival: [] },
+  cells: [[0, 0, -1], [2, 0, -1], [3, 1, -1], [3, 0, 0], [4, 1, 0], [1, 2, 0], [4, 2, 0], [1, 1, 1], [4, 1, 1], [4, 2, 1]],
+};

@@ -209,3 +209,19 @@ test('rankEntries: Methuselah by generations, then fewer seed cells, then the ea
     ['top', 'long-lean', 'long-lean-later', 'long-heavy', 'tie-first', 'tie-second', 'short']);
   assert.deepEqual(rankEntries(entries, SPEED).map((e) => e.name), ['speedy']);
 });
+
+test('rankEntries: Classic Methuselah ranks as Methuselah does, on a board of its own', () => {
+  const at = (name, contest, generations, seedCells) => lasting({
+    name, contest, score: { generations, period: 1 }, seedCells, result: `hall-of-fame/results/${name}.json`,
+  });
+  const entries = [
+    at('strict', 'methuselah-1', 9000, 5),
+    at('classic-short', 'classic-methuselah-1', 40, 3),
+    at('classic-long', 'classic-methuselah-1', 1103, 7),
+    at('classic-long-lean', 'classic-methuselah-1', 1103, 5),
+  ];
+  assert.deepEqual(readHallOfFame({ entries }), entries);
+  const CLASSIC = contestById('classic-methuselah-1');
+  assert.deepEqual(rankEntries(entries, CLASSIC).map((e) => e.name), ['classic-long-lean', 'classic-long', 'classic-short']);
+  assert.deepEqual(rankEntries(entries, METHUSELAH).map((e) => e.name), ['strict']);
+});

@@ -24,6 +24,11 @@
 // score's period (Methuselah's, #41) must be the cycle's. A table lookup can't see settling, so
 // with a table such a file is not checked.
 //
+// Where ships leave at the edge (Classic Methuselah, #100), the replay steps through the departure
+// rule (departures.js), which it reads from the contest, and makes the same departures as the run.
+// Once the cells match, the file's list must be the replay's, departure for departure. 'emits' is
+// checked as a settled ending is. Only a settled ending scores there, and a table can't check one.
+//
 // A contest's result is first checked against its contest (contests.js's checkContest()): its run
 // must be the contest's, and its score must follow from its generation and ending. That needs no
 // replay, so it holds for a table lookup too. A contest this lab doesn't know isn't checked.
@@ -33,8 +38,9 @@
 import { World, WorldError } from './world.js';
 import { step as stepWorld } from './step.js';
 import { readResult, hashWorld, canonicalJson, worldOptions, checkResultHashes, ResultError } from './canonical.js';
-import { checkContest } from './contests.js';
+import { checkContest, departuresFor } from './contests.js';
 import { Settler } from './settle.js';
+import { withDepartures } from './departures.js';
 
 export const DEFAULT_MAX_GENERATIONS = 100_000;
 export const DEFAULT_MAX_MEMORY = 2 * 1024 ** 3;
@@ -44,7 +50,7 @@ export const PATTERN_ENDINGS = ['cell-limit', 'extent-limit', 'coordinate-limit'
 /** Endings that depend on the machine or the visitor, which a replay can't check. */
 export const MACHINE_ENDINGS = ['stopped', 'deadline', 'memory-limit', 'out-of-memory'];
 /** Endings checked by replaying the settling from the seed. */
-export const SETTLED_ENDINGS = ['died', 'repeat'];
+export const SETTLED_ENDINGS = ['died', 'repeat', 'emits'];
 
 const MEMORY = ['memory-limit', 'out-of-memory'];
 
@@ -66,15 +72,17 @@ const MEMORY = ['memory-limit', 'out-of-memory'];
  * @param {number} [options.maxMemory] - the most bytes of slabs a replay may hold
  * @param {number} [options.chunkSize] - the replay's chunk size; the answer doesn't depend on it
  * @param {number} [options.slabBytes]
- * @param {typeof stepWorld} [options.step] - the tests wrap it to count the steps
+ * @param {typeof stepWorld} [options.step] - the tests wrap it to count the steps; a run's
+ *   departures are applied round it
  * @param {(world: object) => string} [options.fingerprint] - a settling replay's fingerprint; the
  *   tests force false matches with it
  * @returns {Promise<Verdict>}
  */
 export async function verifyResult(text, {
   table, maxGenerations = DEFAULT_MAX_GENERATIONS, maxMemory = DEFAULT_MAX_MEMORY,
-  chunkSize, slabBytes, step = stepWorld, fingerprint,
+  chunkSize, slabBytes, step: baseStep = stepWorld, fingerprint,
 } = {}) {
+  const step = withDepartures(baseStep);
   let result;
   try {
     result = readResult(text);
@@ -105,6 +113,7 @@ export async function verifyResult(text, {
   }
 
   const settled = SETTLED_ENDINGS.includes(ending);
+  const departures = departuresFor(run);
 
   if (table) {
     if (settled) {
@@ -126,7 +135,7 @@ export async function verifyResult(text, {
   }
   const tooBig = () => answer('not-checked', `The replay needed more than this verifier's memory limit of ${formatBytes(maxMemory)}.`);
 
-  const options = worldOptions(run, { chunkSize, slabBytes, memory: maxMemory });
+  const options = { ...worldOptions(run, { chunkSize, slabBytes, memory: maxMemory }), departures };
   const world = new World({ ...options, fingerprint: settled });
   try {
     world.setCells(run.seed);
@@ -146,6 +155,8 @@ export async function verifyResult(text, {
   if (await hashWorld(world, run) !== result.hash) {
     return answer('mismatch', `The cells at generation ${generation} don't match the file's hash.`);
   }
+  const departed = compareDepartures(world, result);
+  if (departed) return answer('mismatch', `Generation ${generation} matches the file's hash, but ${departed}`);
   const matches = `Generation ${generation} matches the file's hash`;
 
   if (PATTERN_ENDINGS.includes(ending)) {
@@ -193,9 +204,9 @@ async function replaySettling(world, result, { options, maxGenerations, step, fi
     found = settler.check(world);
     if (found && MEMORY.includes(found.ending)) return tooBig();
   }
-  const settledText = found.ending === 'died'
-    ? `the run dies at generation ${found.from}`
-    : `the run first settles at generation ${found.from}, a cycle of period ${found.period}`;
+  const settledText = found.ending === 'died' ? `the run dies at generation ${found.from}`
+    : found.ending === 'emits' ? `the run first repeats at generation ${found.from}, a cycle of period ${found.period} that sends off ships`
+      : `the run first settles at generation ${found.from}, a cycle of period ${found.period}`;
   if (found.from !== generation || found.ending !== ending) {
     return answer('mismatch', `${claim}, but ${settledText}.`);
   }
@@ -206,8 +217,37 @@ async function replaySettling(world, result, { options, maxGenerations, step, fi
   if (await hashWorld(world, run) !== result.hash) {
     return answer('mismatch', `The run settles at generation ${generation}, as the file says, but the cells there don't match the file's hash.`);
   }
-  const how = ending === 'died' ? 'every cell has died' : `the cells repeat with period ${found.period}`;
+  const departed = compareDepartures(world, result);
+  if (departed) return answer('mismatch', `The run settles at generation ${generation}, as the file says, but ${departed}`);
+  const how = ending === 'died' ? 'every cell has died'
+    : ending === 'emits' ? `the cells repeat with period ${found.period}, sending off ships each time round`
+      : `the cells repeat with period ${found.period}`;
   return answer('verified', `Generation ${generation} matches the file's hash, and the run first settles there: ${how}.`, { ending: 'confirmed' });
+}
+
+/**
+ * Compares the file's departures with the replay's: the same departures, in the same order.
+ * @returns {string | null} the first difference, as the end of a sentence, or null
+ */
+function compareDepartures(world, result) {
+  if (!world.departures) return null; // checkContest() has seen that the file lists none
+  const replayed = world.departed;
+  const claimed = result.departures;
+  for (let i = 0; i < Math.max(replayed.length, claimed.length); i++) {
+    const [ours, theirs] = [replayed[i], claimed[i]];
+    if (!theirs) return `the replay's departure ${i + 1}, at generation ${ours.generation}, isn't in the file's list.`;
+    if (!ours) return `the file's departure ${i + 1}, at generation ${theirs.generation}, isn't in the replay: ${shipsLeft(replayed.length)}.`;
+    for (const field of ['generation', 'period', 'shift', 'cells']) {
+      if (canonicalJson(ours[field]) !== canonicalJson(theirs[field])) {
+        return `departure ${i + 1}'s ${field} isn't the replay's (generation ${ours.generation}).`;
+      }
+    }
+  }
+  return null;
+}
+
+function shipsLeft(count) {
+  return count === 0 ? 'no ship left' : count === 1 ? 'one ship left' : `${count} ships left`;
 }
 
 function formatBytes(bytes) {
