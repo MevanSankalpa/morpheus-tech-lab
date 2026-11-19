@@ -419,9 +419,13 @@
               <button type="submit" class="glass-button explore-small-button">Apply</button>
               <button type="button" class="glass-button explore-small-button" data-cancel>Cancel</button>
             </div>
-            <!-- Use in a contest (#95): the seed in use and its rules, into a Discovery contest -->
+            <!-- Use in a contest (#95): the seed in use and its rules, into a Discovery contest,
+                 Methuselah or Classic Methuselah (#102) -->
             <div class="explore-popover-contest">
-              <button type="button" id="explore-use-in-contest" class="glass-button explore-small-button">Use in a contest</button>
+              <div class="explore-contest-row">
+                <select id="explore-contest-choice" class="glass-select" aria-label="The contest to use it in"></select>
+                <button type="button" id="explore-use-in-contest" class="glass-button explore-small-button">Use in a contest</button>
+              </div>
               <p id="explore-contest-status" class="explore-popover-text explore-popover-quiet"></p>
               <p id="explore-contest-error" class="explore-error" role="alert" hidden></p>
             </div>
@@ -567,16 +571,19 @@
   <input type="file" id="contests-seed-file" accept=".json,application/json" hidden>
   <!-- Watch (src/contests/watch.js, #78): a result played back in 3D, in place of the panel. The
        control bar plays, pauses, steps and sets the speed; this bar, above it, scrubs to any
-       generation up to the result's, says whether the replay matched, and closes -->
+       generation up to the result's, marks where ships left (Classic Methuselah, #102), says
+       whether the replay matched, and closes -->
   <section id="contests-watch" class="contests-watch" aria-label="Watch" hidden>
     <div class="contests-watch-top">
       <span id="contests-watch-title" class="contests-watch-title">Watch</span>
       <button type="button" id="contests-watch-close" class="glass-button contests-button" title="Back to the panel (Esc)">Close</button>
     </div>
     <div class="contests-watch-scrub">
-      <input type="range" id="contests-watch-scrub" class="glass-slider" min="0" max="0" step="1" value="0" aria-label="Generation">
+      <input type="range" id="contests-watch-scrub" class="glass-slider" min="0" max="0" step="1" value="0" aria-label="Generation" list="contests-watch-ticks">
+      <datalist id="contests-watch-ticks"></datalist>
       <span id="contests-watch-generation" class="contests-watch-generation">0 / 0</span>
     </div>
+    <p id="contests-watch-departures" class="contests-watch-departures" aria-live="polite" hidden></p>
     <p id="contests-watch-verified" class="contests-self-verified" role="status" aria-live="polite" data-verdict="pending"></p>
   </section>
   <!-- The seed editor (src/explore/editor.js, #70): its panel, beside the 3D view it takes over.
@@ -3154,6 +3161,16 @@
     padding-top: 10px;
     border-top: 1px solid rgba(255, 255, 255, 0.12);
   }
+  .explore-contest-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .explore-contest-row select {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
   .explore-popover-locked {
     margin-bottom: 8px;
     padding: 6px 8px;
@@ -3479,13 +3496,6 @@
     outline: 3px solid rgba(120, 180, 255, 0.9);
     outline-offset: 3px;
   }
-  .contests-tile--coming {
-    box-shadow: none;
-    border-style: dashed;
-  }
-  .contests-tile--coming .contests-tile-logo {
-    opacity: 0.7;
-  }
   .contests-tile-logo {
     filter: drop-shadow(0 0 8px color-mix(in srgb, var(--contest-color) 60%, transparent));
   }
@@ -3503,15 +3513,6 @@
     color: var(--contest-color);
     font-size: 13px;
     font-weight: 700;
-  }
-  .contests-tag {
-    flex: none;
-    padding: 2px 8px;
-    border: 1px solid rgba(140, 140, 150, 0.5);
-    border-radius: 10px;
-    color: rgba(200, 220, 255, 0.85);
-    font-size: 12px;
-    font-weight: 600;
   }
   /* A contest's page: its logo and what it measures, Run, then titled areas */
   .contests-page-head {
@@ -4026,7 +4027,8 @@
     color: rgba(200, 220, 255, 0.75);
     font-size: 12px;
   }
-  .contests-ending {
+  .contests-ending,
+  .contests-departures {
     font-size: 13px;
   }
   .contests-hash {
@@ -4341,8 +4343,12 @@
     white-space: nowrap;
     font-size: 13px;
   }
-  .contests-watch .contests-self-verified {
+  .contests-watch .contests-self-verified,
+  .contests-watch-departures {
     margin: 6px 0 0;
+  }
+  .contests-watch-departures {
+    font-size: 13px;
   }
   body.mode-contests.contests-watching #playPauseButton,
   body.mode-contests.contests-watching #stepButton {

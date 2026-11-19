@@ -3,7 +3,9 @@
 // A Methuselah run (#94) on a real second thread, Node's worker_threads standing in for the
 // browser's Web Worker, as the page runs it: its ending and score, every generation's live cells
 // for the chart, and its result file, made in the Worker, which verifies by replay; a run that
-// reaches the edge, or is stopped, has no score; an entry that can't run is refused.
+// reaches the edge, or is stopped, has no score; an entry that can't run is refused. And Classic
+// Methuselah's (#102): ships leave at the edge in the Worker's world, the run ends with its
+// departures, and its result file lists them and verifies, Verify a result… reporting them.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,9 +17,10 @@ import { ReferenceWorld } from '../../src/unbounded/reference.js';
 import { DiscoveryRun } from '../../src/contests/discovery.js';
 import { verifyInWorker } from '../../src/contests/speed.js';
 import { resultFileName } from '../../src/contests/format.js';
-import { DIES, OSCILLATOR, SHIP, GROWING, randomSeed } from '../unbounded/helpers.js';
+import { DIES, OSCILLATOR, SHIP, SHIP_REST, GROWING, randomSeed } from '../unbounded/helpers.js';
 
 const METHUSELAH = contestById('methuselah-1');
+const CLASSIC = contestById('classic-methuselah-1');
 
 /** A Node Worker dressed as a browser one: onmessage, onerror, postMessage, terminate. */
 function nodeWorker(file) {
@@ -34,12 +37,12 @@ function nodeWorker(file) {
 const engineWorker = nodeWorker('../unbounded/nodeWorker.js');
 const verifierWorker = nodeWorker('./verifyNodeWorker.js');
 
-/** Runs an entry in Methuselah; `stop` stops it as soon as it has started. */
-function methuselahRun(entry, { stop = false } = {}) {
+/** Runs an entry in Methuselah, or another Discovery contest; `stop` stops it as soon as it has started. */
+function methuselahRun(entry, { stop = false, contest = METHUSELAH } = {}) {
   const log = { stats: [], started: 0, errors: [] };
   let run;
   const ended = new Promise((resolve) => {
-    run = new DiscoveryRun(METHUSELAH, entry, {
+    run = new DiscoveryRun(contest, entry, {
       createWorker: engineWorker,
       onStart: () => { log.started++; },
       onStats: (stats) => log.stats.push(stats),
@@ -178,4 +181,74 @@ test('an entry that can\'t run in Methuselah is refused before it starts, saying
   assert.deepEqual(run.points, [[0, 1000]]);
   // Speed isn't a Discovery contest
   assert.throws(() => new DiscoveryRun(contestById('speed-1'), DIES), /isn't a Discovery contest/);
+});
+
+// ---- Classic Methuselah (#102) ----
+
+/** SHIP, which leaves at generation 35, and a period-2 oscillator that settled long before. */
+const SHIP_AND_REST = { rules: SHIP.rules, seed: [...SHIP.seed, ...SHIP_REST] };
+
+test('a Classic Methuselah run lets its ship leave, then scores where it settled, with its departures', async () => {
+  const { run, ended, log } = methuselahRun(SHIP_AND_REST, { contest: CLASSIC });
+  const end = await ended;
+  try {
+    assert.deepEqual(log.errors, []);
+    assert.equal(end.reason, 'repeat');
+    assert.deepEqual(end.score, { generations: 36, period: 2 });
+    assert.deepEqual(end.departures, [{ generation: 35, period: 1, shift: [1, 0, 0] }]);
+    assert.equal(end.stats.departed, 1);
+    assert.ok(log.stats.every((stats) => Number.isInteger(stats.departed)));
+
+    const { result, text } = await run.makeResult();
+    assert.equal(result.run.contest, 'classic-methuselah-1');
+    assert.equal(result.departures.length, 1);
+    assert.deepEqual(result.departures[0].shift, [1, 0, 0]);
+    assert.equal(result.departures[0].cells.length, 8);
+    assert.equal(resultFileName(CLASSIC, result.score), 'classic-methuselah-1-36.json');
+    assert.equal((await verifyResult(text)).verdict, 'verified');
+
+    // Verify a result… reports the file's departures, without their cells
+    const answer = await verifyInWorker(text, { createWorker: verifierWorker }).promise;
+    assert.equal(answer.verdict, 'verified', answer.message);
+    assert.equal(answer.contest, 'classic-methuselah-1');
+    assert.deepEqual(answer.departures, [{ generation: 35, period: 1, shift: [1, 0, 0] }]);
+  } finally {
+    run.close();
+  }
+});
+
+test('Methuselah runs as before beside it: no departures, and the same seed ends at the edge', async () => {
+  const { run, ended } = methuselahRun(SHIP_AND_REST);
+  const end = await ended;
+  try {
+    assert.equal(end.reason, 'arena-edge');
+    assert.equal(end.stats.generation, 35);
+    assert.equal(end.departures, null);
+    assert.equal(end.stats.departed, undefined);
+  } finally {
+    run.close();
+  }
+  // A Methuselah file reports no departures to Verify a result…
+  const dies = methuselahRun(DIES);
+  await dies.ended;
+  try {
+    const { text } = await dies.run.makeResult();
+    const answer = await verifyInWorker(text, { createWorker: verifierWorker }).promise;
+    assert.equal(answer.departures, null);
+  } finally {
+    dies.run.close();
+  }
+});
+
+test('a Classic Methuselah run whose island at the edge is no ship ends there, without a score, listing none', async () => {
+  // Under B1, the pattern grows a cell a generation on every side: never a ship
+  const { run, ended } = methuselahRun({ rules: { birth: [1], survival: [] }, seed: [[0, 0, 0]] }, { contest: CLASSIC });
+  const end = await ended;
+  try {
+    assert.equal(end.reason, 'arena-edge');
+    assert.equal(end.score, null);
+    assert.deepEqual(end.departures, []);
+  } finally {
+    run.close();
+  }
 });

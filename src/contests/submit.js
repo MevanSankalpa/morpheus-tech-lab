@@ -12,7 +12,7 @@
 //
 // No DOM: the tests run it in Node.
 
-import { scoreText, rulesText, n } from './format.js';
+import { scoreText, rulesText, departuresText, n } from './format.js';
 
 /** Where entries go, for every contest. */
 export const SUBMIT_ADDRESS = 'lab@morpheustech.net';
@@ -41,8 +41,9 @@ export function emailSubject(contest, score, ending) {
  * @param {string} [entry.ending] - the result's ending
  * @param {{rules: object, seed: number[][]}} [entry.run] - the result's run: a Methuselah entry's
  *   rules and seed are stated too
+ * @param {{generation: number}[]} [entry.departures] - a Classic Methuselah result's ships
  */
-export function emailBody({ contest, score, browser, hash, fileName, ending, run }) {
+export function emailBody({ contest, score, browser, hash, fileName, ending, run, departures }) {
   const lines = [
     `My entry for ${contest.title} (${contest.id}).`,
     '',
@@ -51,6 +52,7 @@ export function emailBody({ contest, score, browser, hash, fileName, ending, run
   if (contest.kind === 'methuselah' && run) {
     lines.push(`Rules: ${rulesText(run.rules)}`, `Seed: ${n(run.seed.length)} cell${run.seed.length === 1 ? '' : 's'}`);
   }
+  if (contest.departures && departures) lines.push(`Ships: ${departuresText(departures)}`);
   lines.push(
     `Result file: ${fileName} (attached)`,
     `Hash: ${hash}`,
@@ -65,7 +67,7 @@ export function emailBody({ contest, score, browser, hash, fileName, ending, run
     HALL_OF_FAME_LINE,
   );
   if (contest.kind === 'methuselah') {
-    lines.push("Methuselah's Hall of Fame also shows the entry's rules and its seed's cell count, from the result file.");
+    lines.push(`${contest.title}'s Hall of Fame also shows the entry's rules and its seed's cell count, from the result file.`);
   }
   lines.push(
     '',

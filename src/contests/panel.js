@@ -9,8 +9,10 @@
 //
 // Text from a result file comes from strangers, so the panel only ever sets textContent: nothing
 // from a file is parsed as HTML. What it says is worked out in format.js. A Speed run is
-// speed.js's SpeedRun, and a Methuselah run discovery.js's DiscoveryRun (#94), with the entry the
-// visitor brought: a seed and its rules, from Load seed… (or, with #95, from Explore).
+// speed.js's SpeedRun, and a Discovery run, Methuselah's or Classic Methuselah's (#102),
+// discovery.js's DiscoveryRun (#94), with the entry the visitor brought: a seed and its rules,
+// from Load seed… or from Explore (#95). The two Methuselah contests share a page, which says
+// where Classic Methuselah differs: ships may leave at the arena's edge.
 
 import { CONTESTS, contestById, runFor, methuselahWarnings } from '../unbounded/contests.js';
 import { MAX_RESULT_BYTES, readResult, ResultError } from '../unbounded/canonical.js';
@@ -25,30 +27,23 @@ import { openWatch, closeWatch } from './watch.js';
 import {
   n, rulesText, countdownText, chartLayout, speedHero, speedScoreText, speedEndingText, resultFileName,
   statsRows, verdictTitle, closingText, scoreText, boardScore, methuselahHero, methuselahEndingText,
-  arenaText, budgetText, seedPicture, sentence,
+  arenaText, budgetText, seedPicture, sentence, departuresText,
 } from './format.js';
 import { SUBMIT_ADDRESS, emailSubject, emailBody, mailtoLink } from './submit.js';
 import { HALL_OF_FAME_TOP, readHallOfFame, rankEntries, dayText } from './hallOfFame.js';
 import { LOOKS, logo, verifyGlyph } from './looks.js';
 
-const ISSUES = 'https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/';
-/**
- * The kinds of contest this page can run. Classic Methuselah (#100) is of kind methuselah, but its
- * runs need ships to leave at the edge, which the page brings in its piece 2 (#102): until then it
- * isn't listed.
- */
+/** The kinds of contest this page can run: Speed, and Methuselah's, Classic Methuselah included. */
 const ON_PAGE = ['speed', 'methuselah'];
-const onPage = (contest) => ON_PAGE.includes(contest.kind) && !contest.departures;
-/** The contests still to come, shown in the list without an Open button. */
-const COMING = [
-  { kind: 'contained-chaos', title: 'Contained chaos', about: 'A pattern that never settles and never escapes', issue: 42 },
-];
+const onPage = (contest) => ON_PAGE.includes(contest.kind);
 const SELF_REPORTED = 'The time is measured by your own browser, on your own machine. Replaying a result proves '
   + 'that its generation is right, but not how long it took, so the Speed board is self-reported.';
 const SAME_EVERYWHERE = 'Your score depends only on the seed and the rules, never on time or the machine: anyone '
   + 'replaying the result file, in the lab or with scripts/verify.mjs, gets the same ending and the same score.';
 const STRICT = "This is a stricter methuselah than classic Life's: the whole pattern must settle inside the arena, "
-  + 'and anything that flies off ends the run unscored.';
+  + 'and anything that flies off ends the run unscored. Classic Methuselah lets ships leave.';
+/** How Classic Methuselah differs from Methuselah, in one sentence, with P from the contest. */
+const differs = (contest) => `Unlike Methuselah, a ship may leave the arena here: an island that reaches a wall and is a ship heading out, of period up to ${contest.departures.period}, the longest recognised, is deleted and listed as a departure, and the rest of the pattern must still settle.`;
 
 const panel = {
   open: false,
@@ -213,19 +208,18 @@ function cancelVerify() {
 
 // ---- The list ----
 
-/** A contest's square card: its logo in its colour, its name and what it measures. */
-function tile(kind, title, about, footer, { open, id } = {}) {
-  const color = LOOKS[kind].color;
-  const parts = [
-    logo(kind, 56, 'contests-tile-logo'),
-    h('span', { className: 'contests-tile-name', text: title }),
-    h('span', { className: 'contests-tile-about', text: about }),
-    footer,
-  ];
-  const node = open
-    ? h('button', { className: 'contests-tile', onclick: open, attrs: { type: 'button', id } }, ...parts)
-    : h('div', { className: 'contests-tile contests-tile--coming' }, ...parts);
-  node.style.setProperty('--contest-color', color);
+/** A contest's square card, to open it: its logo in its colour, its name and what it measures. */
+function tile(contest) {
+  const node = h('button', {
+    className: 'contests-tile',
+    onclick: () => showContest(contest),
+    attrs: { type: 'button', id: `contests-open-${contest.id}` },
+  },
+  logo(contest.kind, 56, 'contests-tile-logo'),
+  h('span', { className: 'contests-tile-name', text: contest.title }),
+  h('span', { className: 'contests-tile-about', text: contest.summary }),
+  h('span', { className: 'contests-tile-foot', text: 'Open' }));
+  node.style.setProperty('--contest-color', LOOKS[contest.kind].color);
   return node;
 }
 
@@ -234,19 +228,7 @@ function showList() {
   cancelVerify();
   panel.contest = null;
   hud('–', 'Choosing', '–');
-  const tiles = h('div', { className: 'contests-tiles' });
-  for (const contest of CONTESTS.filter(onPage)) {
-    tiles.append(tile(contest.kind, contest.title, contest.summary,
-      h('span', { className: 'contests-tile-foot', text: 'Open' }),
-      { open: () => showContest(contest), id: `contests-open-${contest.id}` }));
-  }
-  for (const coming of COMING) {
-    tiles.append(tile(coming.kind, coming.title, coming.about,
-      h('span', { className: 'contests-tile-foot' },
-        h('span', { className: 'contests-tag', text: 'Coming' }),
-        document.createTextNode(' '),
-        h('a', { text: `#${coming.issue}`, attrs: { href: `${ISSUES}${coming.issue}`, target: '_blank', rel: 'noopener' } }))));
-  }
+  const tiles = h('div', { className: 'contests-tiles' }, ...CONTESTS.filter(onPage).map(tile));
   show('list', 'The Contest', [
     h('p', { text: 'One contest, in three branches. Each branch fixes its own rules, so everyone in it runs the same thing, and any result can be checked by anyone, by replaying it, in the lab or with scripts/verify.mjs.' }),
     h('p', { className: 'contests-closes', text: closingText(CONTESTS), attrs: { id: 'contests-closes' } }),
@@ -337,8 +319,9 @@ function showContest(contest) {
 // ---- Methuselah's page: the entry, and what the contest fixes ----
 
 /**
- * Methuselah's page: the entry it will run (its seed, drawn, and its rules) with Load seed…, Run,
- * what the contest fixes, how a run ends and what scores, the Hall of Fame, and how it runs.
+ * Methuselah's page, and Classic Methuselah's: the entry it will run (its seed, drawn, and its
+ * rules) with Load seed…, Run, what the contest fixes, how a run ends and what scores, the Hall of
+ * Fame, and how it runs. Classic Methuselah's also says how it differs, and its ships' period.
  */
 function showMethuselah(contest) {
   const entry = panel.entries.get(contest.id) ?? null;
@@ -356,12 +339,15 @@ function showMethuselah(contest) {
         factTile('Arena', arenaText(fixes.arena), `Cells ${fixes.arena.min[0]} to ${fixes.arena.max[0]} on each axis. The cells never see its walls: it only decides when a run is over`),
         factTile('Seed box', `${side(fixes.seedBox)}³`, `Your seed: 1 to ${n(side(fixes.seedBox) ** 3)} cells, all within cells ${fixes.seedBox.min[0]} to ${fixes.seedBox.max[0]} on each axis, never shifted`),
         factTile('Budget', `${n(contest.budget)} generations`, `A pattern still unsettled at generation ${n(contest.budget)} scores nothing`),
-        factTile('Top score', n(contest.budget - 1), `A run scores once its final state or cycle closes, by generation ${n(contest.budget)}`))),
+        factTile('Top score', n(contest.budget - 1), `A run scores once its final state or cycle closes, by generation ${n(contest.budget)}`),
+        contest.departures ? factTile('Ships leave', `Period ≤ ${contest.departures.period}`, 'A ship heading out through a wall is deleted and listed; anything else at the edge ends the run') : null)),
     section('How a run ends', endingsTable(contest),
-      h('p', { className: 'contests-note', text: STRICT, attrs: { id: 'contests-strict' } })),
+      contest.departures
+        ? h('p', { className: 'contests-note', text: differs(contest), attrs: { id: 'contests-differs' } })
+        : h('p', { className: 'contests-note', text: STRICT, attrs: { id: 'contests-strict' } })),
     hallOfFame(contest),
     section('How it runs',
-      h('p', { text: `On the CPU, in a background thread (a Web Worker), with chunks of ${contest.chunkSize}³ cells, and nothing drawn while it runs. A run can take a few minutes. A repeat is confirmed cell for cell before it ends a run. Equal scores rank by fewer seed cells, then the earlier submission.` })),
+      h('p', { text: `On the CPU, in a background thread (a Web Worker), with chunks of ${contest.chunkSize}³ cells, and nothing drawn while it runs. A run can take a few minutes. A repeat is confirmed cell for cell before it ends a run.${contest.departures ? ` A ship needs no catalogue: under your rules, an island at a wall is a ship if, run alone, it returns to its own shape, moved, within ${contest.departures.period} generations.` : ''} Equal scores rank by fewer seed cells, then the earlier submission.` })),
     section('Fair play',
       h('p', { className: 'contests-note', text: SAME_EVERYWHERE })),
     h('div', { className: 'contests-actions' },
@@ -371,15 +357,22 @@ function showMethuselah(contest) {
   (entry ? run : el('contests-load-seed'))?.focus({ preventScroll: true });
 }
 
-/** The four endings of a Methuselah run, and which score. */
+/**
+ * The endings of a Methuselah run, and which score: four, and for Classic Methuselah a fifth,
+ * Emits, a cycle that sends off ships.
+ */
 function endingsTable(contest) {
   const budget = n(contest.budget);
+  const ships = contest.departures;
   const rows = [
     ['Death', 'No live cells remain, by generation ' + n(contest.budget - 1), 'The generation the last cell died'],
-    ['Repeat', 'The cells equal, in place, those of an earlier generation h, by generation ' + budget, 'h, where the final cycle began'],
-    ['Edge', 'A step would bring a cell to life outside the arena', 'None'],
-    ['Budget', `Generation ${budget} is reached unsettled`, 'None: the pattern may suit Contained chaos'],
-  ];
+    ['Repeat', `The cells equal, in place, those of an earlier generation h, by generation ${budget}${ships ? ', with no ship leaving in the cycle' : ''}`, 'h, where the final cycle began'],
+    ships ? ['Emits', 'The cells repeat, but ships leave the arena during the cycle', 'None: it never settles'] : null,
+    ships
+      ? ['Edge', `A step would bring a cell to life outside the arena, from something that isn't a ship of period up to ${n(ships.period)} heading out`, 'None']
+      : ['Edge', 'A step would bring a cell to life outside the arena', 'None'],
+    ['Budget', `Generation ${budget} is reached unsettled`, 'None'],
+  ].filter(Boolean);
   return h('table', { className: 'contests-endings', attrs: { id: 'contests-endings' } },
     h('thead', {}, h('tr', {}, h('th', { text: 'Ending' }), h('th', { text: 'When' }), h('th', { text: 'Score' }))),
     h('tbody', {}, ...rows.map(([name, when, score]) => h('tr', {},
@@ -793,7 +786,7 @@ function startRun(contest) {
         h('div', { className: 'contests-clock-face' },
           h('span', { className: 'contests-countdown-value', text: countdownText(contest.seconds, 0), attrs: { id: 'contests-countdown' } }),
           h('span', { className: 'contests-clock-unit', text: 'seconds left' }))),
-      statsGrid(statsRows(emptyStats()), 'contests-stat')),
+      statsGrid(statsRows(emptyStats(contest)), 'contests-stat')),
     chart.node,
     h('div', { className: 'contests-actions' }, button('Stop', () => run.stop(), { id: 'contests-stop' })),
   ]);
@@ -836,9 +829,9 @@ function startDiscovery(contest) {
         h('div', { className: 'contests-clock-face' },
           h('span', { className: 'contests-countdown-value contests-countdown-value--small', text: '0', attrs: { id: 'contests-countdown' } }),
           h('span', { className: 'contests-clock-unit', text: `of ${n(run.budget)} generations`, attrs: { id: 'contests-budget' } }))),
-      statsGrid(statsRows(emptyStats()), 'contests-stat')),
+      statsGrid(statsRows(emptyStats(contest)), 'contests-stat')),
     chart.node,
-    h('p', { className: 'contests-note', text: `Running ${rulesText(entry.rules)} from ${n(entry.seed.length)} seed cells until the pattern settles, reaches the edge of the arena, or reaches generation ${n(run.budget)}. Stop ends it without a score.` }),
+    h('p', { className: 'contests-note', text: `Running ${rulesText(entry.rules)} from ${n(entry.seed.length)} seed cells until the pattern settles, reaches the edge of the arena, or reaches generation ${n(run.budget)}.${contest.departures ? ` Ships of period up to ${n(contest.departures.period)} leave at the edge, and are counted.` : ''} Stop ends it without a score.` }),
     h('div', { className: 'contests-actions' }, button('Stop', () => run.stop(), { id: 'contests-stop' })),
   ]);
   chart.update(run.points);
@@ -859,8 +852,11 @@ function showDiscoveryStats(run, stats, chart) {
   hud(undefined, undefined, budgetText(stats.generation, run.budget));
 }
 
-function emptyStats() {
-  return { generation: 0, rate: 0, live: 0, livePeak: 0, chunks: 0, memoryBytes: 0, extent: null };
+/** Statistics before the first: a contest where ships leave counts them too. */
+function emptyStats(contest) {
+  const stats = { generation: 0, rate: 0, live: 0, livePeak: 0, chunks: 0, memoryBytes: 0, extent: null };
+  if (contest?.departures) stats.departed = 0;
+  return stats;
 }
 
 function showStats(stats, chart) {
@@ -888,6 +884,10 @@ async function showResults(run, end) {
     ['Seed', `${n(run.run.seed.length)} cell${run.run.seed.length === 1 ? '' : 's'}`],
     ['Rules', rulesText(run.run.rules)],
   ], 'contests-result-entry');
+  // Classic Methuselah's ships, scored or not
+  const departed = end.departures
+    ? h('p', { className: 'contests-departures', text: `${departuresText(end.departures)}.`, attrs: { id: 'contests-departures' } })
+    : null;
   // A Discovery run's chart: every generation's live cells, which the Worker kept
   const history = speed ? Promise.resolve() : run.loadHistory().then(() => {
     if (panel.run === run) chart.update(run.points);
@@ -898,6 +898,7 @@ async function showResults(run, end) {
     if (panel.run !== run) return;
     show('results', `${contest.title}: no score`, [
       h('p', { className: 'contests-ending', text: endingText, attrs: { id: 'contests-ending' } }),
+      departed,
       chart.node,
       entryFacts,
       statsGrid(statsRows(stats)),
@@ -933,6 +934,7 @@ async function showResults(run, end) {
       meta),
     chart.node,
     h('p', { className: 'contests-ending', text: endingText, attrs: { id: 'contests-ending' } }),
+    departed,
     entryFacts,
     statsGrid(statsRows(stats)),
     h('div', { className: 'contests-hash-box' },
@@ -966,7 +968,7 @@ async function showResults(run, end) {
   copy.onclick = () => copyText(made.result.hash, 'hash');
   submitBox.replaceChildren(submitBox.firstChild, ...submitParts({
     contest, score, browser: made.result.details.browser, hash: made.result.hash, text: made.text,
-    ending: reason, run: made.result.run,
+    ending: reason, run: made.result.run, departures: made.result.departures,
   }));
   exportButton.disabled = false;
   exportButton.onclick = () => exportResult(contest, score, made.text);
@@ -1005,10 +1007,10 @@ async function copyText(text, what) {
  * The link is a plain mailto: link, so the browser opens the mail app as it would for any other;
  * clicking it downloads the file first, in the same click.
  */
-function submitParts({ contest, score, browser, hash, text, ending, run }) {
+function submitParts({ contest, score, browser, hash, text, ending, run, departures }) {
   const fileName = resultFileName(contest, score);
   const subject = emailSubject(contest, score, ending);
-  const body = emailBody({ contest, score, browser, hash, fileName, ending, run });
+  const body = emailBody({ contest, score, browser, hash, fileName, ending, run, departures });
   const link = h('a', {
     className: 'glass-button contests-button contests-submit-button',
     text: 'Submit by email',
@@ -1123,6 +1125,7 @@ function showVerdict(name, answer, back, text) {
   }
   if (answer.rules) rows.push(['Rules', rulesText(answer.rules)]);
   if (answer.seedCells) rows.push(['Seed', `${n(answer.seedCells)} cell${answer.seedCells === 1 ? '' : 's'}`]);
+  if (answer.departures) rows.push(['Ships left', `${departuresText(answer.departures)}${answer.verdict === 'verified' ? ', as the replay found' : ''}`]);
   // Watch reads the file again, on this thread: readResult() checks it as untrusted data
   const readable = text !== undefined && ['verified', 'mismatch', 'not-checked'].includes(answer.verdict);
   const line = readable ? h('p', {

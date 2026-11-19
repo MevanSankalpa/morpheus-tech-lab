@@ -131,6 +131,12 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   works under any rules. A result file lists its departures, and `scripts/verify.mjs` replays
   them, prints them and fails a file whose list differs. Season 1 of the contests is Speed,
   Methuselah and Classic Methuselah; Contained chaos moves to a later season (#101).
+- **Classic Methuselah** is on the Contests page, beside Speed and Methuselah: Methuselah with one
+  rule changed, that a ship of period up to 32 may leave the arena. Its page says how it differs
+  and lists its five endings, `emits` among them; a run counts the ships that leave, and its
+  results card, its result file, its email and Verify a result list them. Watch lets them leave
+  too, marking where each left on its scrub bar. Explore's Use in a contest offers both Methuselah
+  contests, and Contained chaos is no longer listed as coming (#102).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).

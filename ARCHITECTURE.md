@@ -198,8 +198,8 @@ The browser's name and version in a result's details come from `src/browser.js`,
 checked.
 
 **The Contests mode** (`src/contests/`, #77). The page presents one contest in three branches
-(Speed, Methuselah, and Classic Methuselah from #100's piece 2, which takes Contained chaos's
-place in season 1); the code calls each branch a contest (`contests.js`'s
+(Speed, Methuselah, and Classic Methuselah, #102, which takes Contained chaos's place in season
+1); the code calls each branch a contest (`contests.js`'s
 `CONTESTS`, an id such as `speed-1`, and a result file's `run.contest`, which is hashed, so it
 keeps its name). It is a sixth mode, opened from a compact banner left of the
 company logo, which also gives the date entries close (`closes` in `contests.js`, "Closes TBD"
@@ -251,8 +251,16 @@ statistics while it runs and from the whole history once it ends. `DiscoveryRun`
 from its end reason, generation and cycle (`methuselahScore()`), and has the Worker make the
 result file, as `SpeedRun` does. The card's and the email's words come from `format.js`
 (`methuselahScoreText()`, `methuselahHero()`, `methuselahEndingText()`) and `submit.js`, which
-adds the rules and the seed's cells. Classic Methuselah (#100) runs here too, with its world's
-departures, from its piece 2; Contained chaos (#42), a later season's, would add its kind.
+adds the rules and the seed's cells. Classic Methuselah (#102) shares Methuselah's page, run and
+card: its kind is `methuselah`. `DiscoveryRun` builds its Worker's world with `departuresFor(run)`,
+so ships leave at the edge as they will in a replay; the run's statistics then count them
+(`departed`), and its ended state lists them, without their cells, as the run's `departures`.
+The page adds what differs: a sentence and a fact on the ships, a fifth ending (`emits`), the
+ships that left on the results card (`departuresText()`) and in the email, and in Watch, which
+replays with the same rule, a tick on the scrub bar where each left and a line that follows them
+(`watchDeparturesText()`). Verify a result's Worker passes a file's departures back, without
+their cells. Explore's Use in a contest offers both Methuselah contests. Contained chaos (#42), a
+later season's, would add its kind.
 
 **Watch** (`watch.js`, #78) plays a result back in 3D: from the results card, or from a file Verify
 a result has read (`readResult()` again, on the page). It hides the panel and starts a *replay* in a

@@ -12,17 +12,20 @@
 // them with the result's hash: Watch, and the results card, then say whether the run is
 // self-verified.
 //
+// A Classic Methuselah result (#102) replays with ships leaving at the edge, as its run did: the
+// scrub bar marks the generations they left at, and a line says how many have left so far.
+//
 // The result is read with readResult() before it gets here, and nothing from it is ever parsed
 // as HTML: the text Watch shows is set with textContent.
 
 import { state } from '../state.js';
 import { EngineDriver } from '../unbounded/driver.js';
-import { contestById } from '../unbounded/contests.js';
+import { contestById, departuresFor } from '../unbounded/contests.js';
 import { worldOptions } from '../unbounded/canonical.js';
 import { ExploreView, RENDER_BUDGET } from '../explore/view.js';
 import { rateFromSlider, fitSlice } from '../explore/explore.js';
 import { SPEED_MEMORY_MB } from './speed.js';
-import { watchGenerationText, selfVerifiedText } from './format.js';
+import { watchGenerationText, selfVerifiedText, watchDeparturesText } from './format.js';
 
 /** How long after the visitor lets go of the view the camera starts following again. */
 const FOLLOW_AFTER_MS = 3000;
@@ -113,6 +116,14 @@ export function openWatch(result, { title = 'Watch', onReplayed, onClose } = {})
   scrub.onpointerup = () => { watch.dragging = false; };
   scrub.onblur = () => { watch.dragging = false; };
   el('contests-watch-close').onclick = () => closeWatch();
+  // Ships leaving: ticks on the scrub bar where they left, and a line that follows the replay
+  const departures = result.departures ?? null;
+  el('contests-watch-ticks').replaceChildren(...[...new Set((departures ?? []).map((d) => d.generation))].map((g) => {
+    const tick = document.createElement('option');
+    tick.value = String(g);
+    return tick;
+  }));
+  el('contests-watch-departures').hidden = !departures;
   showGeneration(0);
 
   const slider = el('speed-control');
@@ -143,7 +154,11 @@ export function openWatch(result, { title = 'Watch', onReplayed, onClose } = {})
   });
   watch.driver = driver;
   driver.start({
-    world: worldOptions(result.run, { chunkSize: contest?.chunkSize, memory: SPEED_MEMORY_MB * 1024 * 1024 }),
+    // Ships leave at the edge as they did in the run: a replay without the rule would end there
+    world: {
+      ...worldOptions(result.run, { chunkSize: contest?.chunkSize, memory: SPEED_MEMORY_MB * 1024 * 1024 }),
+      departures: departuresFor(result.run),
+    },
     seed: Int32Array.from(result.run.seed.flat()),
     run: { kind: 'replay', rate, check: { run: result.run, hash: result.hash } },
     generations: result.generation,
@@ -166,6 +181,8 @@ export function closeWatch({ quietly = false } = {}) {
   document.body.classList.remove('contests-watching');
   el('contests-watch').hidden = true;
   el('contests-watch-scrub').oninput = null;
+  el('contests-watch-ticks').replaceChildren();
+  el('contests-watch-departures').hidden = true;
   const icon = el('playPauseIcon');
   if (icon) icon.className = 'play';
   setText('bottom-state-value', 'pause');
@@ -301,6 +318,8 @@ function showGeneration(generation) {
   setText('contests-watch-generation', text);
   setText('bottom-gen', text);
   setText('contest-hud-generation', text);
+  const departures = watch.result?.departures;
+  if (departures) setText('contests-watch-departures', watchDeparturesText(departures, generation));
 }
 
 function showPlaying() {

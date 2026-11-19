@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // What the Contests panel says and draws (#77, #94): the countdown, the charts, scores, endings,
-// file names, statistics, and a Discovery entry's seed as a picture.
+// file names, statistics, and a Discovery entry's seed as a picture; and Classic Methuselah's
+// departures, on the results card and in Watch (#102).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,10 +12,12 @@ import {
   secondsText, boardScore, methuselahScoreText, scoreText, methuselahHero, methuselahEndingText, arenaText, budgetText,
   seedPicture, sentence,
   rulesText, bytesText, extentText, verdictTitle, closingText, watchGenerationText, selfVerifiedText,
+  departuresText, headingText, watchDeparturesText,
 } from '../../src/contests/format.js';
 
 const SPEED = contestById('speed-1');
 const METHUSELAH = contestById('methuselah-1');
+const CLASSIC = contestById('classic-methuselah-1');
 
 test('the countdown runs from the full length to 0.0, rounding down', () => {
   assert.equal(countdownText(6, 0), '6.0');
@@ -184,12 +187,12 @@ test('how a Methuselah run ended: its score, or why it has none', () => {
     'Died at generation 1,234: no live cells remain. The empty world is a still life, so a death scores the generation the last cell died.');
   assert.match(methuselahEndingText('repeat', METHUSELAH, { ...at(1234), cycle: { from: 1234, period: 1 } }), /^Settled at generation 1,234: a still life\./);
   assert.match(methuselahEndingText('repeat', METHUSELAH, { ...at(1234), cycle: { from: 1234, period: 2 } }), /^Settled at generation 1,234: period 2\. From there its cells repeat every 2 generations, in place/);
-  // The edge and the budget say why there is no score; the budget points to Contained chaos
+  // The edge and the budget say why there is no score
   const edge = methuselahEndingText('arena-edge', METHUSELAH, at(37));
   assert.match(edge, /^Reached the edge at generation 37: .* outside the 64³ arena, so it has no score/);
   assert.match(edge, /sends something flying off/);
   const budget = methuselahEndingText('generation-limit', METHUSELAH, at(10_000));
-  assert.match(budget, /^Still unsettled at generation 10,000, the budget, so it has no score\. .* may suit Contained chaos/);
+  assert.equal(budget, 'Still unsettled at generation 10,000, the budget, so it has no score.');
   // A death at the budget's last generation doesn't score either, and says why
   assert.match(methuselahEndingText('generation-limit', METHUSELAH, at(10_000, 0)), /died at generation 10,000, the budget's last, so it has no score: .* closes a generation later, past the budget/);
   for (const reason of ['stopped', 'memory-limit', 'out-of-memory', 'error']) {
@@ -223,4 +226,60 @@ test('a seed is drawn as cubes in its box, back to front, leaving out those its 
   // Back to front: a cube in front of another (further along x, y or z) is drawn after it
   const pair = seedPicture([[1, 0, 0], [0, 0, 0]], box);
   assert.deepEqual(pair.cubes.map((c) => c.top), [seedPicture([[0, 0, 0]], box).cubes[0].top, seedPicture([[1, 0, 0]], box).cubes[0].top]);
+});
+
+// ---- Classic Methuselah (#102) ----
+
+test("how a Classic Methuselah run ended: 'emits' and the edge say why there is no score", () => {
+  const at = (generation, live = 5) => ({ stats: { generation, live } });
+  const emits = methuselahEndingText('emits', CLASSIC, { ...at(400), cycle: { from: 400, period: 30 } });
+  assert.match(emits, /^Emits from generation 400: its cells repeat every 30 generations, but ships leave the arena during each cycle, so it never settles and has no score\./);
+  const edge = methuselahEndingText('arena-edge', CLASSIC, at(37));
+  assert.match(edge, /^Reached the edge at generation 37: .* outside the 64³ arena from something that isn't a ship of period 32 or less heading out, so it has no score\./);
+  // Settling, and the budget, read as Methuselah's
+  for (const [reason, end] of [['died', at(36, 0)], ['repeat', { ...at(36), cycle: { from: 36, period: 2 } }], ['generation-limit', at(10_000)]]) {
+    assert.equal(methuselahEndingText(reason, CLASSIC, end), methuselahEndingText(reason, METHUSELAH, end));
+  }
+  // No ending suggests Contained chaos, a later season's
+  for (const reason of ['died', 'repeat', 'emits', 'arena-edge', 'generation-limit']) {
+    for (const contest of [METHUSELAH, CLASSIC]) {
+      assert.doesNotMatch(methuselahEndingText(reason, contest, { ...at(10_000), cycle: { from: 9000, period: 2 } }), /Contained chaos/);
+    }
+  }
+});
+
+test('the ships that left, in words, for the results card', () => {
+  const at = (...generations) => generations.map((generation) => ({ generation, period: 1, shift: [1, 0, 0] }));
+  assert.equal(departuresText([]), 'No ship left the arena');
+  assert.equal(departuresText(at(140)), '1 ship left, at generation 140');
+  assert.equal(departuresText(at(35, 35)), '2 ships left, at generation 35');
+  assert.equal(departuresText(at(140, 412)), '2 ships left, at generations 140 and 412');
+  assert.equal(departuresText(at(140, 140, 290, 1412)), '4 ships left, at generations 140, 290 and 1,412');
+  assert.equal(departuresText(at(1, 2, 3, 4, 5)), '5 ships left, at generations 1, 2, 3, 4 and 5');
+  assert.equal(departuresText(at(140, 200, 260, 320, 380, 9412)), '6 ships left, from generation 140 to generation 9,412');
+});
+
+test('Watch says how many ships have left, as the replay passes each', () => {
+  assert.equal(headingText([1, 0, 0]), '+x');
+  assert.equal(headingText([0, -2, 1]), '−y +z');
+  const departures = [
+    { generation: 35, period: 1, shift: [1, 0, 0] },
+    { generation: 35, period: 1, shift: [0, 0, -1] },
+    { generation: 90, period: 4, shift: [0, 2, 0] },
+  ];
+  assert.equal(watchDeparturesText([], 12), 'No ship leaves in this run.');
+  assert.equal(watchDeparturesText(departures, 0), '3 ships leave in this run, the first at generation 35.');
+  // At generation 35 the ships are still there: they leave on the step to 36
+  assert.equal(watchDeparturesText(departures, 35), '3 ships leave in this run, the first at generation 35.');
+  assert.equal(watchDeparturesText(departures, 36), '2 of 3 ships have left, the last at generation 35, heading −z.');
+  assert.equal(watchDeparturesText(departures, 91), 'All 3 ships have left, the last at generation 90, heading +y.');
+  assert.equal(watchDeparturesText(departures.slice(2), 50), '1 ship leaves in this run, the first at generation 90.');
+  assert.equal(watchDeparturesText(departures.slice(2), 91), 'The ship has left, at generation 90, heading +y.');
+  assert.equal(watchDeparturesText([...departures.slice(0, 1), ...departures.slice(2)], 40), '1 of 2 ships has left, the last at generation 35, heading +x.');
+});
+
+test("a run where ships leave counts them among its statistics; others don't", () => {
+  const stats = { generation: 40, rate: 100, live: 4, livePeak: 30, chunks: 1, memoryBytes: 1 << 20, extent: null };
+  assert.equal(statsRows(stats).find(([label]) => label === 'Ships left'), undefined);
+  assert.deepEqual(statsRows({ ...stats, departed: 2 }).at(-1), ['Ships left', '2']);
 });

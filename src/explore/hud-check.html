@@ -2,7 +2,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <!--
   Not bundled: a dev page (/src/explore/hud-check.html under `npm run dev`) that clicks through
-  Explore's settings in the HUD (#69) in a frame holding the lab, Use in a contest (#95) included,
+  Explore's settings in the HUD (#69) in a frame holding the lab, Use in a contest (#95, both
+  Methuselah contests since #102) included,
   and marks each check ✔ or ✖.
   It changes only the lab in its frame; reload to run it again. The look of the popovers is still
   checked by eye, in the lab itself.
@@ -366,6 +367,21 @@
       doc.body.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await sleep(1500);
       ok(doc.body.classList.contains('mode-explore') && text('explore-seed-label') === 'Seed file: tiny.json', 'Esc goes back to Explore, with the same seed');
+      // Both Methuselah contests are offered (#102)
+      press('explore-change-seed');
+      const choice = el('explore-contest-choice');
+      const offered = [...choice.options].map((o) => o.textContent);
+      ok(offered.join(', ') === 'Methuselah, Classic Methuselah' && choice.value === 'methuselah-1', `Use in a contest offers both Methuselah contests, Methuselah first (${offered.join(', ')})`);
+      choice.value = 'classic-methuselah-1';
+      choice.dispatchEvent(new win.Event('change'));
+      ok(text('explore-contest-status').includes('into Classic Methuselah'), `Choosing Classic Methuselah, the status says so ("…${text('explore-contest-status').slice(-60)}")`);
+      press('explore-use-in-contest');
+      await sleep(1500);
+      ok(doc.body.classList.contains('mode-contests') && text('contests-panel-title') === 'Classic Methuselah' && text('contests-entry-0') === '3 cells',
+        `and Use in a contest opens it, with the entry (${text('contests-panel-title')}, ${text('contests-entry-0')})`);
+      doc.body.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await sleep(1500);
+      ok(doc.body.classList.contains('mode-explore'), 'Esc goes back to Explore again');
 
       section('The settings dialog');
       press('seedConfigButton');
