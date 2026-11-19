@@ -26,7 +26,7 @@
 // the deadline is discarded, and the count is the generations completed before it.
 //
 // Messages to the run:
-//   {type: 'start', world: {rules, chunkSize?, slabBytes?, limits?, arena?}, seed: Int32Array,
+//   {type: 'start', world: {rules, chunkSize?, slabBytes?, limits?, arena?, wrap?}, seed: Int32Array,
 //    run: {kind: 'timed', seconds}
 //       | {kind: 'open', paused?, rate?, settle?, history?, keyframeBytes?, keyframeEvery?}
 //       | {kind: 'replay', paused?, rate?, check?: {run, hash}, keyframeBytes?, keyframeEvery?},

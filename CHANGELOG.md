@@ -144,6 +144,11 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   Classic Methuselah switches it on with the 64³ arena, from Methuselah off. Once a ship has left,
   Save this generation says why it can't save that generation, whose file couldn't replay it;
   Save seed still works (#103).
+- The unbounded engine's arena can wrap: with `wrap`, it is a torus whose opposite faces are
+  neighbours, so a pattern that crosses one comes back in at the other, exactly as the dense
+  grid does with wrapping on, and nothing is born outside it. It needs an arena at least 3 cells
+  a side, and ships can't leave one. Worlds that don't wrap give the same cells and hashes as
+  before (#114).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).
