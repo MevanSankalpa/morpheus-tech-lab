@@ -14,8 +14,10 @@
 // or by table lookup. Only Speed's time can't be worked out: it is self-reported.
 //
 // Speed (#40) fixes everything. The Discovery contests fix the arena, the seed box and the
-// budget, and leave the rules and the seed to the entry: Methuselah (#41) is here, Contained
-// chaos (#42) will be. The pinned values come from #39's benchmarks (#44's Pinned values table).
+// budget, and leave the rules and the seed to the entry: Methuselah (#41) and Classic Methuselah
+// (#100), which is Methuselah with ships leaving at the edge (departures.js). Contained chaos
+// (#42) is a later season's. The pinned values come from #39's benchmarks (#44's Pinned values
+// table).
 //
 // Nothing here imports `state` or touches the page.
 
@@ -71,6 +73,9 @@ const deepFreeze = (value) => {
  * @property {number} [seconds] - Speed: how long a run lasts
  * @property {number} [ceiling] - Speed: the generation that ends a run early (limits.generations)
  * @property {number} [budget] - Discovery: the generations a run has (limits.generations)
+ * @property {{period: number}} [departures] - Classic Methuselah: ships leave at the edge
+ *   (departures.js), up to this period. It isn't in the run's definition: a replay reads it from
+ *   the contest, through run.contest (departuresFor())
  */
 
 /**
@@ -121,12 +126,47 @@ const METHUSELAH_1 = {
   budget: 10_000,
 };
 
+/**
+ * Classic Methuselah (#100): Methuselah with one rule changed, that a ship may leave the arena. It
+ * fixes what Methuselah fixes, and adds the departure rule with P = 32, the longest ship period
+ * recognised. A run that sends off outward ships and then settles scores h, as Methuselah's does;
+ * one whose island at the edge isn't an outward ship of period 32 or less ends at the edge, and a
+ * cycle that sends off ships ends as 'emits', neither with a score.
+ * @type {Contest}
+ */
+const CLASSIC_METHUSELAH_1 = {
+  id: 'classic-methuselah-1',
+  kind: 'methuselah',
+  title: 'Classic Methuselah',
+  summary: 'The longest-lived pattern that settles once its ships have left the arena',
+  fixes: {
+    seedBox: SEED_BOX,
+    arena: DISCOVERY_ARENA,
+    limits: { cells: null, extent: null, generations: 10_000 },
+  },
+  chunkSize: 16,
+  closes: null,
+  budget: 10_000,
+  departures: { period: 32 },
+};
+
 /** @type {readonly Contest[]} */
-export const CONTESTS = deepFreeze([SPEED_1, METHUSELAH_1]);
+export const CONTESTS = deepFreeze([SPEED_1, METHUSELAH_1, CLASSIC_METHUSELAH_1]);
 
 /** @returns {Contest | undefined} */
 export function contestById(id) {
   return CONTESTS.find((contest) => contest.id === id);
+}
+
+/**
+ * The departure rule a run's world needs, from its contest: {period}, or null for a run whose
+ * contest has none, or that has no contest this lab knows.
+ * @param {{contest: string | null}} run
+ * @returns {{period: number} | null}
+ */
+export function departuresFor(run) {
+  const departures = run.contest === null ? undefined : contestById(run.contest)?.departures;
+  return departures ? { period: departures.period } : null;
 }
 
 /**
@@ -261,10 +301,13 @@ const SCORE_CHECKS = {
 
   methuselah(result, contest) {
     const { generation, ending, score } = result;
-    if (ending !== 'died' && ending !== 'repeat') {
-      return `A Methuselah run that ended with ${ending} has no score: only a run that dies or repeats, within ${contest.budget.toLocaleString('en')} generations, has one.`;
+    if (ending === 'emits') {
+      return `A ${contest.title} run that ended with emits has no score: it repeats while sending off ships, so it never settles.`;
     }
-    if (score === undefined) return 'A Methuselah result needs its score.';
+    if (ending !== 'died' && ending !== 'repeat') {
+      return `A ${contest.title} run that ended with ${ending} has no score: only a run that dies or repeats, within ${contest.budget.toLocaleString('en')} generations, has one.`;
+    }
+    if (score === undefined) return `A ${contest.title} result needs its score.`;
     const keys = Object.keys(score);
     if (keys.length !== 2 || !keys.includes('generations') || !keys.includes('period')) {
       return 'A Methuselah score is {generations, period}, and nothing else.';
@@ -296,6 +339,9 @@ const SCORE_CHECKS = {
 export function checkContest(result) {
   const { run } = result;
   if (run.contest === null) {
+    if (result.departures !== undefined) {
+      return { verdict: 'mismatch', message: 'The file lists departures, but has no contest where ships leave.' };
+    }
     return result.score === undefined ? null
       : { verdict: 'mismatch', message: 'The file has a score but no contest to score it.' };
   }
@@ -314,6 +360,29 @@ export function checkContest(result) {
       return { verdict: 'mismatch', message: `The run isn't ${contest.id}'s: its ${name} differs from the contest's.` };
     }
   }
-  const wrong = SCORE_CHECKS[contest.kind](result, contest);
+  const wrong = checkDepartures(result, contest) ?? SCORE_CHECKS[contest.kind](result, contest);
   return wrong ? { verdict: 'mismatch', message: wrong } : null;
+}
+
+/**
+ * A contest where ships leave lists its departures, even none; any other lists none. Each must be
+ * a ship the contest recognises, inside the budget. The replay checks the list itself.
+ * @returns {string | null} what is wrong, for a person
+ */
+function checkDepartures(result, contest) {
+  const { departures } = result;
+  if (!contest.departures) {
+    return departures === undefined ? null : `Ships don't leave the arena in ${contest.id}, so its results list no departures.`;
+  }
+  if (departures === undefined) return `A ${contest.title} result lists its departures, even when no ship left.`;
+  const limit = contest.departures.period;
+  for (const [i, departure] of departures.entries()) {
+    if (departure.period > limit) {
+      return `Departure ${i + 1} has period ${departure.period}, but ${contest.title} recognises ships of period up to ${limit}.`;
+    }
+    if (departure.generation >= contest.budget) {
+      return `Departure ${i + 1} is at generation ${departure.generation}, past the budget of ${contest.budget.toLocaleString('en')} generations.`;
+    }
+  }
+  return null;
 }

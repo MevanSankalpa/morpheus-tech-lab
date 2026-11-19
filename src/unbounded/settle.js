@@ -13,6 +13,11 @@
 // A run with a budget B settles only by a cycle that closes within it, at h + period ≤ B: a
 // repeat found at B itself counts, a death at B doesn't (its cycle would close at B + 1).
 //
+// Where ships leave at the edge (departures.js, #100), a repeat whose cycle had a departure, at
+// some t with h ≤ t < g, is no settling: it will send off ships for ever. It ends the run all the
+// same, as 'emits', at h with its period. Rebuilds step through the departure rule, so they meet
+// the same departures as the run.
+//
 // A repeat is proposed, then confirmed. The world's 64-bit fingerprint of every generation in the
 // window proposes candidates, and each candidate h is rebuilt from the nearest keyframe at or
 // before it (keyframes.js) and compared with C(g), cell for cell. The fingerprint is a sum of
@@ -28,7 +33,7 @@
 // Nothing here imports `state` or touches the page.
 
 import { StopSignal, WorldError } from './world.js';
-import { step as stepWorld } from './step.js';
+import { stepWithDepartures } from './departures.js';
 import { Keyframes } from './keyframes.js';
 
 /** How far back an open-ended run, one with no budget, looks for a repeat: its longest period. */
@@ -39,7 +44,7 @@ const MEMORY = ['memory-limit', 'out-of-memory'];
 
 /**
  * @typedef {object} Settled
- * @property {'died' | 'repeat'} ending
+ * @property {'died' | 'repeat' | 'emits'} ending
  * @property {number} from - h: the generation the final state or cycle began
  * @property {number} period - 1 for a death
  */
@@ -56,10 +61,11 @@ export class Settler {
    * @param {number} [options.keyframeBytes]
    * @param {number} [options.keyframeEvery]
    * @param {(world: object) => string} [options.fingerprint] - the tests force false matches with it
-   * @param {typeof stepWorld} [options.step]
+   * @param {typeof stepWithDepartures} [options.step] - how a rebuild steps: the run's own step,
+   *   departures included
    */
   constructor(world, {
-    world: options, budget = Infinity, window, keyframeBytes, keyframeEvery, fingerprint, step = stepWorld,
+    world: options, budget = Infinity, window, keyframeBytes, keyframeEvery, fingerprint, step = stepWithDepartures,
   }) {
     if (!fingerprint && !world.fingerprinting) throw new Error('A settling world needs the fingerprint option.');
     this.options = { ...options, fingerprint: false };
@@ -103,7 +109,11 @@ export class Settler {
         if (err instanceof WorldError && MEMORY.includes(err.reason)) return { ending: err.reason };
         throw err;
       }
-      if (h !== null) return { ending: 'repeat', from: h, period: g - h };
+      if (h !== null) {
+        // The departures so far are all before g: one at h or later was in the cycle
+        const emits = world.departed.some((d) => d.generation >= h);
+        return { ending: emits ? 'emits' : 'repeat', from: h, period: g - h };
+      }
     }
     this.remember(g, key);
     this.keyframes.keep(world);

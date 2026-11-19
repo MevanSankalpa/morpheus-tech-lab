@@ -15,11 +15,12 @@
 //
 // The table is text: a first line naming the run, then one hash per line, so line g + 2 is
 // generation g. If the run ends before --to (a limit), the table stops at its last generation.
+// A run whose contest lets ships leave at the edge (Classic Methuselah) steps through that rule.
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { World } from '../src/unbounded/world.js';
-import { contestById, runFor, CONTESTS } from '../src/unbounded/contests.js';
-import { step } from '../src/unbounded/step.js';
+import { contestById, runFor, departuresFor, CONTESTS } from '../src/unbounded/contests.js';
+import { stepWithDepartures as step } from '../src/unbounded/departures.js';
 import {
   normaliseRun, readResult, hashWorld, tableText, worldOptions, RESULT_FORMAT, ResultError,
 } from '../src/unbounded/canonical.js';
@@ -91,7 +92,7 @@ async function main() {
   const limit = run.limits.generations;
   if (limit !== null && to > limit) usage(`--to ${to} is past the run's generation limit, ${limit}.`);
 
-  const world = new World(worldOptions(run, { memory }));
+  const world = new World({ ...worldOptions(run, { memory }), departures: departuresFor(run) });
   world.setCells(run.seed);
   const hashes = [await hashWorld(world, run)];
   const started = Date.now();

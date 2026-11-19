@@ -33,7 +33,7 @@ for after it are talked through in [Discussion #45](https://github.com/Morpheus-
 | [#39](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/39) | **Benchmarks** | Measurements that pin the chunk size and the contests' values |
 | [#40](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/40) | **Contests and Speed** | A Contests view, the Speed contest and a Hall of Fame |
 | [#41](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/41) | **Methuselah** | A Discovery contest: the longest-lived pattern that settles inside an arena |
-| [#42](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/42) | **Contained chaos** | A Discovery contest: a pattern that never settles and never escapes |
+| [#100](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/100) | **Classic Methuselah** | A Discovery contest: Methuselah with ships leaving at the edge, so a pattern that settles after sending off ships scores. Season 1 of the contests is Speed, Methuselah and Classic Methuselah; Contained chaos ([#42](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/42)) moves to a later season |
 | [#43](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/43) | **Caps become advice** | The existing modes' size and generation caps become popovers that explain the memory each run needs |
 
 ## New demos
