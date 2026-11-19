@@ -52,6 +52,20 @@ export function savedEnding(status, reason) {
 }
 
 /**
+ * Why Save this generation refuses, once ships have left (#103), or null. A result file without a
+ * contest has no way to say that ships leave at the edge, so its replay would end where the first
+ * one left: before any has, the run has stepped exactly as one without the rule, and the file
+ * verifies.
+ * @param {number} [departed] - how many ships have left by the generation, from the statistics
+ * @returns {string | null}
+ */
+export function shipsLeftReason(departed) {
+  if (!departed) return null;
+  const ships = departed === 1 ? 'A ship has' : `${departed.toLocaleString('en')} ships have`;
+  return `${ships} left the arena by this generation, and a saved generation can't record that ships leave at the edge, so its replay wouldn't reach it. Restart and save before the first one leaves; Save seed still saves the seed.`;
+}
+
+/**
  * Save this generation's file.
  * @param {object} options
  * @param {object} options.config - Explore's config, as runDefinition() takes it
@@ -74,7 +88,7 @@ export async function generationSave({ config, generation, cells, ending, stats 
     generation,
     cells,
     ending,
-    details: { chunkSize, elapsedMs: stats?.elapsedMs ?? null, stats, browser },
+    details: { chunkSize, elapsedMs: stats?.elapsedMs ?? null, stats: fileStats(stats), browser },
     withCells: true,
   });
   return { result, text: resultText(result) };
@@ -138,4 +152,11 @@ export async function readSeedOrSave(text) {
   const format = /"format"\s*:\s*"([^"]*)"/.exec(text.slice(0, 4096))?.[1];
   if (format === RESULT_FORMAT) return { kind: 'generation', ...await readGenerationSave(text) };
   return { kind: 'seed', ...parseSeedFile(text) };
+}
+
+/** The statistics as a result file holds them: without the ships counted for the page (#103). */
+function fileStats(stats) {
+  if (!stats) return stats;
+  const { departed, lastDeparture, ...rest } = stats;
+  return rest;
 }

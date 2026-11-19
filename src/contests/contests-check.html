@@ -706,6 +706,16 @@
       ok(cEndings.join(' ') === 'Death Repeat Emits Edge Budget', `It lists five endings, Emits among them (${cEndings.join(', ')})`);
       ok(visible('contests-hof-empty'), 'Its Hall of Fame is empty, apart from Methuselah\'s');
       ok(visible('contests-design-seed'), 'Its entry offers Design a seed in Explore');
+      press('contests-design-seed');
+      await sleep(1500);
+      ok(doc.body.classList.contains('mode-explore') && visible('seed-editor'), 'It opens the seed editor in Explore');
+      ok(state.explore.arena === 64 && state.explore.ships === true && text('explore-arena') === '64³, ships leave',
+        `with the 64³ arena and ships leaving at its edge (#103: arena ${state.explore.arena}, "${text('explore-arena')}")`);
+      ok(/ships (now leave|leaving) at (the|its) edge/i.test(text('seed-editor-note')) && text('seed-editor-note').includes("Classic Methuselah"), `and the note says so ("${text('seed-editor-note').slice(-140)}")`);
+      el('seed-editor').querySelector('[data-action="cancel"]').click();
+      await sleep(300);
+      await openContests();
+      ok(text('contests-panel-title') === 'Classic Methuselah', 'The banner brings it back to Classic Methuselah\'s page');
 
       section('A Classic Methuselah run whose ship leaves');
       // SHIP, which leaves at generation 35, and a period-2 oscillator in a corner of the seed box

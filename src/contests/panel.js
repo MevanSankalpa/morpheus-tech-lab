@@ -137,7 +137,7 @@ function hud(name, state, generation) {
  * Shows the panel, on the list of contests, or back on the contest the visitor left for Explore
  * to design an entry.
  * @param {object} [options]
- * @param {(contest: {note: string, arena: number, title: string}) => void} [options.designInExplore]
+ * @param {(contest: {note: string, arena: number, title: string, ships: boolean}) => void} [options.designInExplore]
  *   - leaves for Explore with the contest's arena and the seed editor open
  * @param {{contestId: string, rules: object, cells: Int32Array, source: string, note: string | null}} [options.entry]
  *   - from Explore's Use in a contest (#95): the panel opens on that contest with it as the entry
@@ -425,6 +425,7 @@ function designSeed(contest) {
     note: `For ${contest.title}: the seed must lie in this 10³ box. Export saves it, with the Rules box's rules, as a seed file; then the Contest banner takes you back to ${contest.title}, to Load seed….`,
     arena: arena.max[0] - arena.min[0] + 1,
     title: contest.title,
+    ships: Boolean(contest.departures),
   });
 }
 

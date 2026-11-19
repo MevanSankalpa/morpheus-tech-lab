@@ -126,8 +126,8 @@ export class DiscoveryRun {
    */
   async makeResult(browser = null) {
     if (!this.end?.score) throw new Error('Only a run that scored has a result to enter.');
-    // The count of ships that left is the page's: the file lists the departures themselves
-    const { score, stats: { departed, ...stats } } = this.end;
+    // The ships that left are counted for the page: the file lists the departures themselves
+    const { score, stats: { departed, lastDeparture, ...stats } } = this.end;
     const result = await this.driver.result({
       run: this.run,
       score,

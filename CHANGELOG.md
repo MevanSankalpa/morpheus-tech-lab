@@ -137,6 +137,13 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   results card, its result file, its email and Verify a result list them. Watch lets them leave
   too, marking where each left on its scrub bar. Explore's Use in a contest offers both Methuselah
   contests, and Contained chaos is no longer listed as coming (#102).
+- Explore's arena has **Ships leave at the edge**, off by default: with it on, a ship of period up
+  to 32 heading out through a wall leaves the arena and the run goes on, as in Classic Methuselah,
+  and a pattern that keeps sending off ships ends as `emits`. The Run box counts the ships that
+  left and where the last went, and a note says when one leaves. Design a seed in Explore from
+  Classic Methuselah switches it on with the 64³ arena, from Methuselah off. Once a ship has left,
+  Save this generation says why it can't save that generation, whose file couldn't replay it;
+  Save seed still works (#103).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).

@@ -215,7 +215,9 @@
       ok(isOpen('explore-limits-popover'), "The Limits box's gear opens its popover");
       ok(fits('explore-limits-popover'), 'The popover fits in the window');
       ok(el('explore-memory-input').value === '1024' && !el('explore-arena-on').checked, 'It holds the arena and the memory limit as they are');
+      ok(el('explore-ships-on').disabled && !el('explore-ships-on').checked, 'Ships leave at the edge is off, and waits for an arena (#103)');
       check('explore-arena-on', true);
+      ok(!el('explore-ships-on').disabled, 'With an arena, it can be switched on');
       setValue('explore-arena-side', '8');
       submit('explore-limits-popover');
       ok(text('explore-limits-error').includes("doesn't fit inside a 8³ arena"), 'An arena too small for the seed is refused');
@@ -232,6 +234,20 @@
       ok(text('explore-arena') === '20³', `The Limits box shows the arena ("${text('explore-arena')}")`);
       ok(text('explore-memory-limit') === '512 MB', 'and the new memory limit');
       ok(text('explore-memory-used').endsWith('/ 512 MB'), 'The run uses it');
+      ok(!visible('explore-departed-line'), 'The Run box counts no ships while they don\'t leave');
+      press('explore-change-limits');
+      ok(!el('explore-ships-on').checked && !el('explore-ships-on').disabled, 'Ships leave at the edge is off, ready to switch on');
+      check('explore-ships-on', true);
+      submit('explore-limits-popover');
+      await sleep(600);
+      ok(text('explore-arena') === '20³, ships leave', `With it on, the Limits box says so ("${text('explore-arena')}")`);
+      ok(visible('explore-departed-line') && text('explore-departed') === '0', 'and the Run box counts the ships that leave, none yet');
+      press('explore-change-limits');
+      ok(el('explore-ships-on').checked, 'Reopened, the popover holds it on');
+      check('explore-ships-on', false);
+      submit('explore-limits-popover');
+      await sleep(600);
+      ok(text('explore-arena') === '20³' && !visible('explore-departed-line'), 'Switched off, the box and the run are as before');
 
       section('One popover at a time, and the saves');
       press('explore-change-rules');

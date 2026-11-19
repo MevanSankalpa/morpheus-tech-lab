@@ -1801,15 +1801,15 @@ function enterContests({ entry } = {}) {
 }
 
 /**
- * From a Discovery contest's page (#94): Explore, with the contest's arena and the seed editor
- * open on its seed, to design an entry. The banner then brings the visitor back to Contests, and
- * the panel to the contest's page.
- * @param {{note: string, arena: number, title: string}} contest - the editor's note, and the
- *   contest's arena side and title
+ * From a Discovery contest's page (#94): Explore, with the contest's arena (and, for Classic
+ * Methuselah, ships leaving at its edge, #103) and the seed editor open on its seed, to design an
+ * entry. The banner then brings the visitor back to Contests, and the panel to the contest's page.
+ * @param {{note: string, arena: number, title: string, ships?: boolean}} contest - the editor's
+ *   note, and the contest's arena side, title and whether ships leave at its edge
  */
-function designInExplore({ note, arena, title }) {
+function designInExplore({ note, arena, title, ships = false }) {
   beforeContests = null;
-  const fitted = contestArena(state.explore, arena, title);
+  const fitted = contestArena(state.explore, arena, title, ships);
   state.explore = fitted.setup;
   state.simulationMode = 'explore';
   restartExplore();

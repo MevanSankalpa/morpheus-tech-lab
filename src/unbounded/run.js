@@ -121,6 +121,8 @@ export { END_REASONS };
  *   each chunk's cells: it follows the pattern
  * @property {number} [departed] - only in a world where ships leave at the edge (#100): how many
  *   have left so far
+ * @property {{generation: number, shift: number[]} | null} [lastDeparture] - the same: the last
+ *   one to leave, for Explore to say where it went (#103)
  */
 
 export class Run {
@@ -525,7 +527,7 @@ export class Run {
       memoryBytes: world.memoryBytes,
       usedBytes: world.usedBytes,
       // Only in a world where ships leave at the edge: how many have left so far
-      ...(world.departures ? { departed: world.departed.length } : {}),
+      ...(world.departures ? { departed: world.departed.length, lastDeparture: lastDeparture(world) } : {}),
     };
   }
 
@@ -647,4 +649,10 @@ function messageYield(run) {
     queue.push(fn);
     run.channel.port2.postMessage(null);
   };
+}
+
+/** The last ship to leave a world, without its cells, or null if none has. */
+function lastDeparture(world) {
+  const last = world.departed[world.departed.length - 1];
+  return last ? { generation: last.generation, shift: [...last.shift] } : null;
 }
