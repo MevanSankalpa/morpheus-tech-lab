@@ -97,6 +97,22 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   unsettled at 10,000, scores nothing. B0 rules, empty seeds and seeds outside the box are
   refused. `scripts/verify.mjs` confirms a Methuselah result by replaying its settling, and prints
   its score; the Hall of Fame ranks Methuselah entries by score, then fewer seed cells (#93).
+- Methuselah on the Contests page: the second branch of the contest opens from the list. Its page
+  says what the contest fixes (the 64³ arena, the 10³ seed box, 10,000 generations), how a run
+  ends and what scores, that the top score is 9,999, and that this is a stricter methuselah than
+  classic Life's: the whole pattern must settle inside the arena. **Design a seed in Explore**
+  opens Explore's seed editor, with Explore's arena set to the contest's 64³ so a run there ends
+  as the contest's would, and the Contest banner then comes back to Methuselah's page.
+  **Load seed…** reads a seed file
+  from Explore's Save seed or the seed editor's Export as the entry, drawn as cubes in the seed box
+  with its cell count and rules; a seed outside the box, an empty one or a B0 rule is refused with
+  the reason, and a B1 rule is warned of before Run. A run shows the generation against the
+  budget, the statistics and a chart of live cells by generation, with Stop; its results card
+  names the ending, gives the score ("Settled at generation 1,234: a still life", "period 2",
+  "Died at generation 1,234"), the seed's cells and the rules, with Export result
+  (`methuselah-1-1234.json`), Submit by email and Watch, or says why a run that reached the edge
+  or the budget has no score. Verify a result shows a file's score, rules and seed, and the Hall
+  of Fame shows each Methuselah entry's rules and seed cells beside its score (#94).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).

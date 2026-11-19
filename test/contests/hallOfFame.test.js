@@ -163,14 +163,20 @@ async function methuselahResult() {
 }
 
 const lasting = (over = {}) => entry({
-  contest: 'methuselah-1', score: { generations: 4, period: 1 }, seedCells: 13, browser: null,
+  contest: 'methuselah-1', score: { generations: 4, period: 1 }, rules: STILL.rules, seedCells: 13, browser: null,
   result: 'hall-of-fame/results/methuselah-1-ada.json', ...over,
 });
 
-test('a Methuselah entry gives its seed cells, and they must be its result file\'s', async () => {
+test('a Methuselah entry gives its rules and seed cells, and they must be its result file\'s', async () => {
   assert.deepEqual(readHallOfFame({ entries: [lasting()] }), [lasting()]);
   const bad = [
     [{ entries: [(({ seedCells, ...rest }) => rest)(lasting())] }, /has no seedCells/],
+    [{ entries: [(({ rules, ...rest }) => rest)(lasting())] }, /has no rules/],
+    [{ entries: [lasting({ rules: { birth: [5, 7, 8] } })] }, /rules must be \{birth, survival\}/],
+    [{ entries: [lasting({ rules: { birth: [8, 5], survival: [] } })] }, /rules must be/],
+    [{ entries: [lasting({ rules: { birth: [5], survival: [27] } })] }, /rules must be/],
+    [{ entries: [lasting({ rules: { birth: [5], survival: [], extra: 1 } })] }, /rules must be/],
+    [{ entries: [entry({ rules: STILL.rules })] }, /unknown field, "rules"/],
     [{ entries: [lasting({ seedCells: 0 })] }, /seedCells must be the number of cells in its seed/],
     [{ entries: [lasting({ seedCells: 2.5 })] }, /seedCells must be/],
     [{ entries: [entry({ seedCells: 1000 })] }, /unknown field, "seedCells"/],
@@ -181,6 +187,7 @@ test('a Methuselah entry gives its seed cells, and they must be its result file\
   const text = await methuselahResult();
   assert.equal(checkEntry(lasting(), text), null);
   assert.match(checkEntry(lasting({ seedCells: 12 }), text), /seedCells isn't its result file's seed, 13 cells/);
+  assert.match(checkEntry(lasting({ rules: { birth: [5, 7], survival: [0, 1, 7] } }), text), /rules aren't its result file's, \{"birth":\[5,7,8\],"survival":\[0,1,7\]\}/);
   assert.match(checkEntry(lasting({ score: { generations: 4, period: 2 } }), text), /score isn't its result file's/);
 });
 

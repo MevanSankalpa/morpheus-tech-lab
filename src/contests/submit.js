@@ -12,7 +12,7 @@
 //
 // No DOM: the tests run it in Node.
 
-import { scoreText } from './format.js';
+import { scoreText, rulesText, n } from './format.js';
 
 /** Where entries go, for every contest. */
 export const SUBMIT_ADDRESS = 'lab@morpheustech.net';
@@ -20,9 +20,13 @@ export const SUBMIT_ADDRESS = 'lab@morpheustech.net';
 /** The line an entrant keeps to appear in the Hall of Fame. Without it, an entry isn't listed. */
 export const HALL_OF_FAME_LINE = 'Hall of Fame: yes, show my name, picture, score, browser and date.';
 
-/** The subject: the contest and the score, `[Speed] 412 generations`. */
-export function emailSubject(contest, score) {
-  return `[${contest.title}] ${scoreText(contest, score)}`;
+/**
+ * The subject: the contest and the score, `[Speed] 412 generations`, `[Methuselah] settled at
+ * generation 1,234: period 2`.
+ * @param {string} [ending] - the result's, which says more about a Methuselah score
+ */
+export function emailSubject(contest, score, ending) {
+  return `[${contest.title}] ${scoreText(contest, score, ending)}`;
 }
 
 /**
@@ -34,23 +38,36 @@ export function emailSubject(contest, score) {
  * @param {{name: string, version: string} | null} entry.browser - as detected, or null
  * @param {string} entry.hash - the result's hash
  * @param {string} entry.fileName - the result file the visitor attaches
+ * @param {string} [entry.ending] - the result's ending
+ * @param {{rules: object, seed: number[][]}} [entry.run] - the result's run: a Methuselah entry's
+ *   rules and seed are stated too
  */
-export function emailBody({ contest, score, browser, hash, fileName }) {
+export function emailBody({ contest, score, browser, hash, fileName, ending, run }) {
   const lines = [
     `My entry for ${contest.title} (${contest.id}).`,
     '',
-    `Score: ${scoreText(contest, score)}${contest.kind === 'speed' && score.ms !== null ? ' (the ceiling, so the time ranks it)' : ''}`,
+    `Score: ${scoreText(contest, score, ending)}${contest.kind === 'speed' && score.ms !== null ? ' (the ceiling, so the time ranks it)' : ''}`,
+  ];
+  if (contest.kind === 'methuselah' && run) {
+    lines.push(`Rules: ${rulesText(run.rules)}`, `Seed: ${n(run.seed.length)} cell${run.seed.length === 1 ? '' : 's'}`);
+  }
+  lines.push(
     `Result file: ${fileName} (attached)`,
     `Hash: ${hash}`,
     '',
     'Name to show: ',
     `Browser and version: ${browser ? `${browser.name} ${browser.version}` : ''}`,
-  ];
+  );
   if (contest.kind === 'speed') lines.push('Hardware (optional): ');
   lines.push(
     '',
     'Keep the next line to appear in the Hall of Fame, or delete it to opt out: the entry is still verified, but not listed.',
     HALL_OF_FAME_LINE,
+  );
+  if (contest.kind === 'methuselah') {
+    lines.push("Methuselah's Hall of Fame also shows the entry's rules and its seed's cell count, from the result file.");
+  }
+  lines.push(
     '',
     'Picture (optional): attach a PNG or JPEG, square, at most 1 MB. It must be yours to use, show no other people, and break nothing in the code of conduct. The lab resizes it to 128 x 128 and strips its metadata, and may decline a picture or a name.',
     '',

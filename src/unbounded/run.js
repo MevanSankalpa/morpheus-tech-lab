@@ -23,7 +23,8 @@
 //
 // Messages to the run:
 //   {type: 'start', world: {rules, chunkSize?, slabBytes?, limits?, arena?}, seed: Int32Array,
-//    run: {kind: 'timed', seconds} | {kind: 'open', paused?, rate?, settle?, keyframeBytes?, keyframeEvery?}
+//    run: {kind: 'timed', seconds}
+//       | {kind: 'open', paused?, rate?, settle?, history?, keyframeBytes?, keyframeEvery?}
 //       | {kind: 'replay', paused?, rate?, check?: {run, hash}, keyframeBytes?, keyframeEvery?},
 //    generations?, from?}
 //     from: the seed is generation `from` of an earlier run, and the count goes on from there
@@ -36,12 +37,15 @@
 //     replay: `generations` is the result's generation, where it ends ('generation-limit'),
 //     and is required; it starts from the seed. With `check`, the result's run and hash, the
 //     cells there are hashed under the run and compared with the hash ('replayed')
+//     history: keep the live cells of every generation, for a chart of the whole run (a
+//     Discovery contest's); it needs `generations`, and starts from generation 0
 //   {type: 'pause'} {type: 'resume'} {type: 'step'}   open-ended runs and replays only
 //   {type: 'rate', rate}                                the same; null for flat out
 //   {type: 'seek', id, generation}                      replays only, even once ended: go to that
 //     generation (up to the replay's last), then carry on as before (an ended replay pauses)
 //   {type: 'stop'}
 //   {type: 'cycle', id, budget}                         after 'repeat': every generation of the cycle
+//   {type: 'history', id}                               a run with `history`: its live cells so far
 //   {type: 'snapshot', id, budget?, slice?: {axis, index}, stats?: true}
 //     cells, or chunks past `budget` live cells; with a slice, only those in the plane where
 //     coordinate `axis` (0, 1, 2) equals `index`; with stats, the statistics of the same moment
@@ -51,6 +55,8 @@
 // Messages from the run:
 //   {type: 'state', state: 'running' | 'paused' | 'seeking' | 'ended', reason?, cycle?, stats}
 //   {type: 'cycle', id, from, period, frames: Int32Array[] | null}   null past `budget` cells
+//   {type: 'history', id, live: Uint32Array}           the live cells of generations 0 to the run's
+//     generation now (a settled run's goes back to where its cycle began); the buffer is transferred
 //   {type: 'stats', stats}                              at most every STATS_INTERVAL_MS
 //   {type: 'snapshot', id, generation, live, chunkSize, slice?, stats?, cells?: Int32Array, chunks?: Int32Array}
 //     cells as x, y, z triples, or chunks as x, y, z, live quadruples (World.chunkList()); the
@@ -146,6 +152,7 @@ export class Run {
       case 'stop': return this.live() && this.end('stopped');
       case 'snapshot': return this.snapshot(message.id, message.budget, message.slice, message.stats);
       case 'cycle': return this.cycle(message.id, message.budget);
+      case 'history': return this.sendHistory(message.id);
       case 'result': return this.result(message);
       case 'seek': return this.seek(message.id, message.generation);
       default: throw new RunError(`Unknown message ${JSON.stringify(message?.type)}.`);
@@ -168,6 +175,10 @@ export class Run {
     if (replay) checkReplay(run, generations, from);
     const settle = !timed && !replay && Boolean(run.settle);
     if (replay || settle) checkKeyframes(run);
+    const history = !timed && !replay && Boolean(run.history);
+    if (history && (generations === Infinity || from !== 0)) {
+      throw new RunError('A run keeps its history only with its generations, from generation 0.');
+    }
 
     const world = new World({ ...options, fingerprint: settle });
     world.setCells(triples(seed));
@@ -189,6 +200,9 @@ export class Run {
       world: options, budget: generations, keyframeBytes: run.keyframeBytes, keyframeEvery: run.keyframeEvery,
     }) : null;
     this.generations = generations;
+    // The live cells of each generation, from 0: at most 4 bytes a generation
+    this.history = history ? new Uint32Array(generations + 1) : null;
+    if (history) this.history[0] = world.liveCells;
     this.livePeak = world.liveCells;
     this.runningMs = 0;
     this.runningSince = null;
@@ -252,6 +266,7 @@ export class Run {
     if (this.replay) this.keep();
     const live = this.world.liveCells;
     if (live > this.livePeak) this.livePeak = live;
+    if (this.history) this.history[this.world.generation] = live;
     if (this.rate) this.dueAt = Math.max(this.dueAt + 1000 / this.rate, this.now());
     if (this.settle && this.settled()) return true;
     if (this.world.generation >= this.generations) {
@@ -308,6 +323,13 @@ export class Run {
       world.generation = generation;
     }
     this.post({ type: 'cycle', id, from, period, frames }, frames ? frames.map((f) => f.buffer) : []);
+  }
+
+  /** The live cells of every generation so far, from 0 (a run with `history`). */
+  sendHistory(id) {
+    if (!this.history) throw new RunError('This run keeps no history.');
+    const live = this.history.slice(0, this.world.generation + 1);
+    this.post({ type: 'history', id, live }, [live.buffer]);
   }
 
   pause() {

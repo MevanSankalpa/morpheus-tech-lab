@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// What the Contests panel says and draws (#77): the countdown, the chart, scores, endings,
-// file names and statistics.
+// What the Contests panel says and draws (#77, #94): the countdown, the charts, scores, endings,
+// file names, statistics, and a Discovery entry's seed as a picture.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { contestById } from '../../src/unbounded/contests.js';
 import {
   countdownText, niceScale, chartLayout, CHART_MARGIN, speedHero, speedScoreText, speedEndingText, resultFileName, statsRows,
-  secondsText, boardScore,
+  secondsText, boardScore, methuselahScoreText, scoreText, methuselahHero, methuselahEndingText, arenaText, budgetText,
+  seedPicture, sentence,
   rulesText, bytesText, extentText, verdictTitle, closingText, watchGenerationText, selfVerifiedText,
 } from '../../src/contests/format.js';
 
 const SPEED = contestById('speed-1');
+const METHUSELAH = contestById('methuselah-1');
 
 test('the countdown runs from the full length to 0.0, rounding down', () => {
   assert.equal(countdownText(6, 0), '6.0');
@@ -50,7 +52,7 @@ test("the chart puts time across and generations up, so a run climbs", () => {
   assert.deepEqual(chart.end, { x: plot.right, y: xy.at(-1)[1], label: '412' });
   assert.ok(chart.area.startsWith(`M${plot.left},${plot.bottom} L`) && chart.area.endsWith(`L${plot.right},${plot.bottom} Z`));
   const near = chart.nearest(chart.xTicks[2].at + 3);
-  assert.deepEqual([near.seconds, near.generation], [2, 210]);
+  assert.deepEqual([near.at, near.value], [2, 210]);
   assert.equal(chartLayout([], { seconds: 6, width: 560, height: 260 }).end, null);
 });
 
@@ -131,4 +133,94 @@ test('Watch shows where it is, and what its replay found at the result\'s genera
     verdict: 'not-checked',
     text: 'Not checked. The replay stopped at generation 300, before generation 412: the browser refused it more memory.',
   });
+});
+
+// ---- Methuselah (#94) ----
+
+test("a Discovery run's chart puts generations across and live cells up, on clean scales that fit the run", () => {
+  const points = [[0, 13], [1, 40], [2, 95], [3, 160], [1234, 22]];
+  const chart = chartLayout(points, { width: 560, height: 260 });
+  const { plot } = chart;
+  assert.deepEqual(chart.xTicks.map((t) => t.label), ['0', '500', '1,000', '1,500']);
+  assert.equal(chart.xTicks[0].at, plot.left);
+  assert.equal(chart.xTicks.at(-1).at, plot.right);
+  assert.deepEqual(chart.yTicks.map((t) => t.label), ['0', '50', '100', '150', '200']);
+  assert.deepEqual(chart.end, { x: +(plot.left + (1234 / 1500) * (plot.right - plot.left)).toFixed(1), y: chart.end.y, label: '22' });
+  const near = chart.nearest(plot.right);
+  assert.deepEqual([near.at, near.value], [1234, 22]);
+  // Before the run has gone anywhere, the scales still make sense
+  assert.deepEqual(chartLayout([[0, 13]], { width: 560, height: 260 }).xTicks.map((t) => t.label), ['0', '1', '2', '3', '4', '5']);
+});
+
+test("Methuselah's score, in words: what it settled into, and where", () => {
+  const still = { generations: 1234, period: 1 };
+  const cycle = { generations: 1234, period: 2 };
+  assert.equal(methuselahScoreText(still, 'repeat'), 'settled at generation 1,234: a still life');
+  assert.equal(methuselahScoreText(cycle, 'repeat'), 'settled at generation 1,234: period 2');
+  assert.equal(methuselahScoreText(still, 'died'), 'died at generation 1,234');
+  // Without the ending, a period-1 score is still a settling: a death is the empty world's still life
+  assert.equal(methuselahScoreText(still), 'settled at generation 1,234');
+  assert.equal(methuselahScoreText(cycle), 'settled at generation 1,234: period 2');
+  assert.equal(scoreText(METHUSELAH, cycle, 'repeat'), 'settled at generation 1,234: period 2');
+  assert.equal(scoreText(SPEED, { generations: 412, ms: null }, 'deadline'), '412 generations');
+  assert.equal(sentence('died at generation 4'), 'Died at generation 4');
+
+  assert.deepEqual(methuselahHero(still, 'repeat'), { value: '1,234', unit: 'generations, until it settled into a still life' });
+  assert.deepEqual(methuselahHero(cycle, 'repeat'), { value: '1,234', unit: 'generations, until it settled into a cycle of period 2' });
+  assert.deepEqual(methuselahHero({ generations: 1, period: 1 }, 'died'), { value: '1', unit: 'generation, until every cell had died' });
+  assert.deepEqual(methuselahHero({ generations: 0, period: 1 }, 'repeat'), { value: '0', unit: 'generations, until it settled into a still life' });
+
+  // The Hall of Fame: the generations rank it; its period, rules and seed cells follow
+  const entry = { rules: { birth: [5, 7, 8], survival: [1, 4] }, seedCells: 13 };
+  assert.deepEqual(boardScore(METHUSELAH, cycle, entry), { main: '1,234 generations', detail: 'period 2 · B5,7-8/S1,4 · 13 seed cells' });
+  assert.deepEqual(boardScore(METHUSELAH, still, { ...entry, seedCells: 1 }), { main: '1,234 generations', detail: 'B5,7-8/S1,4 · 1 seed cell' });
+  // A result's file name has its score
+  assert.equal(resultFileName(METHUSELAH, still), 'methuselah-1-1234.json');
+});
+
+test('how a Methuselah run ended: its score, or why it has none', () => {
+  const at = (generation, live = 5) => ({ stats: { generation, live } });
+  assert.equal(methuselahEndingText('died', METHUSELAH, at(1234, 0)),
+    'Died at generation 1,234: no live cells remain. The empty world is a still life, so a death scores the generation the last cell died.');
+  assert.match(methuselahEndingText('repeat', METHUSELAH, { ...at(1234), cycle: { from: 1234, period: 1 } }), /^Settled at generation 1,234: a still life\./);
+  assert.match(methuselahEndingText('repeat', METHUSELAH, { ...at(1234), cycle: { from: 1234, period: 2 } }), /^Settled at generation 1,234: period 2\. From there its cells repeat every 2 generations, in place/);
+  // The edge and the budget say why there is no score; the budget points to Contained chaos
+  const edge = methuselahEndingText('arena-edge', METHUSELAH, at(37));
+  assert.match(edge, /^Reached the edge at generation 37: .* outside the 64³ arena, so it has no score/);
+  assert.match(edge, /sends something flying off/);
+  const budget = methuselahEndingText('generation-limit', METHUSELAH, at(10_000));
+  assert.match(budget, /^Still unsettled at generation 10,000, the budget, so it has no score\. .* may suit Contained chaos/);
+  // A death at the budget's last generation doesn't score either, and says why
+  assert.match(methuselahEndingText('generation-limit', METHUSELAH, at(10_000, 0)), /died at generation 10,000, the budget's last, so it has no score: .* closes a generation later, past the budget/);
+  for (const reason of ['stopped', 'memory-limit', 'out-of-memory', 'error']) {
+    assert.match(methuselahEndingText(reason, METHUSELAH, at(50)), /no score/, reason);
+  }
+  assert.equal(arenaText(METHUSELAH.fixes.arena), '64³');
+  assert.equal(arenaText({ min: [0, 0, 0], max: [63, 31, 15] }), '64 × 32 × 16');
+  assert.equal(budgetText(1234, 10_000), '1,234 / 10,000');
+});
+
+test('a seed is drawn as cubes in its box, back to front, leaving out those its neighbours hide', () => {
+  const box = METHUSELAH.fixes.seedBox;
+  const one = seedPicture([[0, 0, 0]], box);
+  assert.equal(one.cubes.length, 1);
+  assert.ok(one.width > 0 && one.height > 0);
+  // Every point lies in the picture
+  const inside = (points) => points.split(' ').every((p) => {
+    const [x, y] = p.split(',').map(Number);
+    return x >= 0 && x <= one.width && y >= 0 && y <= one.height;
+  });
+  assert.ok(inside(one.outline) && inside(one.cubes[0].top) && inside(one.cubes[0].left) && inside(one.cubes[0].right));
+  assert.equal(one.outline.split(' ').length, 6);
+
+  // A full box draws only what can be seen: the cubes with a free side towards the viewer
+  const full = [];
+  for (let z = -5; z <= 4; z++) for (let y = -5; y <= 4; y++) for (let x = -5; x <= 4; x++) full.push([x, y, z]);
+  const shell = seedPicture(full, box);
+  assert.equal(shell.cubes.length, 1000 - 9 ** 3);
+  assert.deepEqual(seedPicture(full, box).outline, one.outline, 'the box is the same whatever the seed');
+
+  // Back to front: a cube in front of another (further along x, y or z) is drawn after it
+  const pair = seedPicture([[1, 0, 0], [0, 0, 0]], box);
+  assert.deepEqual(pair.cubes.map((c) => c.top), [seedPicture([[0, 0, 0]], box).cubes[0].top, seedPicture([[1, 0, 0]], box).cubes[0].top]);
 });

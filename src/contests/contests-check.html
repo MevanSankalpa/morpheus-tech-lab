@@ -5,7 +5,9 @@
   through the Contests mode (#77) in a frame holding the lab, and marks each check ✔ or ✖: choosing
   the mode, the list, Speed's page, two real 6-second runs (one to the end, one stopped), Export,
   Submit by email (#79), Verify a result on the exported file, an edited copy and a file that
-  isn't a result, a staged Hall of Fame (#79), and leaving the mode. It changes only the lab in its frame; reload to run it again. The list under
+  isn't a result, a staged Hall of Fame (#79), Methuselah (#94: its page, Design a seed in Explore and back, Load seed… and its
+  refusals, runs that die, reach the edge and are stopped, Export, Verify, Watch, Submit and its
+  Hall of Fame), and leaving the mode. It changes only the lab in its frame; reload to run it again. The list under
   the results is what to check by eye.
 -->
 <html lang="en">
@@ -33,7 +35,7 @@
 </head>
 <body>
   <h1>The Contests mode (#77)</h1>
-  <p>Runs on its own when the page opens, in the frame below; takes about 40 seconds, two of them Speed runs. Keep this tab in front. <button id="again" type="button">Run again</button></p>
+  <p>Runs on its own when the page opens, in the frame below; takes about a minute, two of them Speed runs. Keep this tab in front. <button id="again" type="button">Run again</button></p>
   <div id="summary">Running…</div>
   <div class="layout">
     <iframe id="lab" title="The lab" width="1280" height="800"></iframe>
@@ -55,6 +57,9 @@
     <li>Submit by email, in Chrome, Firefox and Safari with a mail app set up: the file downloads and a new email opens to lab@morpheustech.net, with the subject and the text filled in, line breaks kept.</li>
     <li>The Copy buttons beside the address, the subject and the text each put it on the clipboard; pasted into a webmail compose window, the text keeps its lines.</li>
     <li>The Submit section and the Hall of Fame (staged by the check above, or with real entries) read well at full width and at phone width: long names end in an ellipsis, and Watch stays on the row.</li>
+    <li>Methuselah's page: the seed's picture reads as cubes in a box, in Methuselah's violet, for one cell, a small design and a full 10³ box; the entry, the four endings and the facts read well at full width and at phone width.</li>
+    <li>A long Methuselah run (Explore's Spreading noise preset, saved with Save seed and loaded here): the ring fills towards 10,000, the live-cells chart grows and rescales, and Stop answers at once. A run that settles late shows the whole history on its results card.</li>
+    <li>Export a Methuselah result, then <code>node scripts/verify.mjs methuselah-1-N.json</code>: verified, "settled at generation N (period P)" or "died at generation N".</li>
   </ul>
   <script type="module">
     const frame = document.getElementById('lab');
@@ -124,9 +129,8 @@
       press('shapeConfirm');
       await sleep(1200);
     }
-    /** Hands the panel's hidden file input a file, as choosing one would. */
-    function chooseFile(name, contents) {
-      const input = el('contests-verify-file');
+    /** Hands one of the panel's hidden file inputs a file, as choosing one would. */
+    function chooseFile(name, contents, input = el('contests-verify-file')) {
       const transfer = new win.DataTransfer();
       transfer.items.add(new win.File([contents], name, { type: 'application/json' }));
       input.files = transfer.files;
@@ -208,8 +212,9 @@
       ok(verifyBox.top > tilesBox.bottom && Math.abs(verifyBox.width - tilesBox.width) <= 2 && verifyBox.height < 80, `It is a bar across the panel, under the cards (${Math.round(verifyBox.width)} × ${Math.round(verifyBox.height)} px)`);
       ok(el('contests-verify').closest('.contests-judge')?.textContent.includes('For every branch'), 'under its own heading, For every branch');
       const coming = el('contests-panel').querySelectorAll('.contests-tile--coming');
-      ok(coming.length === 2 && panelText().includes('Methuselah') && panelText().includes('Contained chaos'), 'Methuselah and Contained chaos are listed as coming');
-      ok([...el('contests-panel').querySelectorAll('a')].map((a) => a.textContent).join(' ') === '#41 #42', 'They link #41 and #42');
+      ok(coming.length === 1 && coming[0].textContent.includes('Contained chaos'), 'Contained chaos is listed as coming');
+      ok([...el('contests-panel').querySelectorAll('a')].map((a) => a.textContent).join(' ') === '#42', 'It links #42');
+      ok(visible('contests-open-methuselah-1') && el('contests-open-methuselah-1').textContent.includes('Open'), 'Methuselah has a card to open, no longer coming');
 
       section("Speed's page");
       press('contests-open-speed-1');
@@ -263,7 +268,10 @@
         || (/^\d\.\d{3}$/.test(text('contests-score')) && text('contests-score-unit') === 'seconds to reach the ceiling of 1,000 generations'),
       `It leads with what ranks the score ("${text('contests-score')}", "${text('contests-score-unit')}")`);
       ok(parseFloat(win.getComputedStyle(el('contests-score')).fontSize) >= 56, `in large type (${win.getComputedStyle(el('contests-score')).fontSize})`);
-      ok(chart()?.querySelector('.contests-chart-line') && chart().querySelector('details table'), 'The results card keeps the chart, with its data as a table');
+      // The table is built when it is opened: a Methuselah run's has a row a generation
+      const tableBox = chart()?.querySelector('details');
+      if (tableBox) tableBox.open = true;
+      ok(chart()?.querySelector('.contests-chart-line') && await until(() => chart().querySelector('details table'), 2000), 'The results card keeps the chart, with its data as a table, built when opened');
       const times = [...chart().querySelectorAll('details tbody tr td:first-child')].map((td) => Number(td.textContent));
       ok(times.length > 2 && times.every((t) => t <= 6), `No point in the table is past 6 seconds (the last at ${times.at(-1)} s)`);
       ok(panelText().includes('The 6 seconds ran out.') || panelText().includes('reached the ceiling'), 'It says how the run ended');
@@ -496,6 +504,166 @@
       ok(text('contest-hud-status') === 'Ready', 'The HUD says ready again');
       board.entries.length = 0;
       win.fetch = realFetch;
+
+      section("Methuselah's page");
+      // Seed files, as Explore's Save seed writes them; the cells are #93's test patterns
+      const seedFile = (rules, cells) => JSON.stringify({ format: 'morpheus-tech-lab/explore-seed', version: 1, rules, cells });
+      const DIES = { rules: { birth: [5, 7, 8], survival: [1, 4] }, cells: [[0, 0, 0], [2, 0, 0], [2, 2, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [2, 1, 1], [2, 0, 2], [0, 1, 2], [2, 1, 2], [2, 2, 2]] };
+      const SHIP = { rules: { birth: [4], survival: [6] }, cells: [[1, 0, 0], [0, 1, 0], [2, 1, 0], [0, 0, 1], [2, 0, 1], [0, 1, 1], [2, 1, 1], [0, 2, 1], [1, 2, 1], [0, 0, 2], [2, 0, 2], [0, 1, 2], [1, 1, 2], [2, 1, 2], [0, 2, 2], [1, 2, 2], [2, 2, 2]] };
+      const loadSeed = async (name, contents) => {
+        chooseFile(name, contents, el('contests-seed-file'));
+        await sleep(400);
+      };
+      press('contests-back');
+      press('contests-open-methuselah-1');
+      ok(text('contests-panel-title') === 'Methuselah', 'Open shows Methuselah');
+      const mAreas = [...el('contests-panel').querySelectorAll('.contests-section-title')].map((t) => t.textContent);
+      ok(mAreas.join(' / ') === 'Your entry / What the contest fixes / How a run ends / Hall of Fame / How it runs / Fair play', `Its details are in titled areas (${mAreas.join(' / ')})`);
+      ok(el('contests-panel').querySelector('.contests-page-head').style.getPropertyValue('--contest-color') === '#b39cff', "It wears Methuselah's colour");
+      ok(visible('contests-entry-none') && el('contests-run').disabled, 'With no entry yet, it says how to bring one, and Run waits');
+      ok(doc.activeElement?.id === 'contests-load-seed', 'Load seed… has the focus');
+      const facts = [...el('contests-panel').querySelectorAll('.contests-fact')].map((f) => f.textContent);
+      ok(facts.length === 4 && ['64³', '10³', '10,000 generations', '9,999'].every((v, i) => facts[i].includes(v)), `It gives the arena, the seed box, the budget and the top score (${facts.map((f) => f.slice(0, 24)).join(' | ')})`);
+      ok(panelText().includes('scores nothing'), 'and that a pattern unsettled at 10,000 scores nothing');
+      ok(text('contests-strict').includes("stricter methuselah than classic Life's") && text('contests-strict').includes('settle inside the arena') && text('contests-strict').includes('flies off'), 'It says this is stricter than classic Life');
+      const endings = [...(el('contests-endings')?.querySelectorAll('tbody tr') ?? [])].map((r) => r.firstChild.textContent);
+      ok(endings.join(' ') === 'Death Repeat Edge Budget', `It lists the four endings (${endings.join(', ')})`);
+      ok(panelText().includes('same score') && panelText().includes('a few minutes'), 'It says the score is the same on any machine, and a run can take a few minutes');
+      ok(visible('contests-hof-empty'), 'Its Hall of Fame is empty');
+
+      section('Design a seed in Explore');
+      ok(visible('contests-design-seed'), 'The entry offers Design a seed in Explore');
+      press('contests-design-seed');
+      await sleep(1500);
+      ok(doc.body.classList.contains('mode-explore') && !doc.body.classList.contains('mode-contests'), 'It leaves Contests for Explore');
+      ok(visible('seed-editor') && doc.body.classList.contains('seed-editor-open'), 'with the seed editor open');
+      ok(text('seed-editor-note').startsWith('For Methuselah: the seed must lie in this 10³ box.') && text('seed-editor-note').includes('Contest banner'), `Its note says how to come back ("${text('seed-editor-note').slice(0, 60)}…")`);
+      ok(state.explore.arena === 64 && /Explore's arena is (now on, at )?64³, as Methuselah's/.test(text('seed-editor-note')), `Explore's arena is the contest's, 64³, and the note says so (arena ${state.explore.arena})`);
+      el('seed-editor').querySelector('[data-action="cancel"]').click();
+      await sleep(300);
+      ok(!visible('seed-editor') && el('contests-banner').getAttribute('aria-pressed') === 'false', 'Cancel closes the editor, in Explore');
+      await openContests();
+      ok(doc.body.classList.contains('mode-contests') && text('contests-panel-title') === 'Methuselah', 'The banner brings it back to Methuselah\'s page, not the list');
+      press('contests-back');
+      ok(text('contests-panel-title') === 'The Contest', 'Back goes to the list, as before');
+      press('contests-open-methuselah-1');
+
+      section('Load seed…');
+      await loadSeed('outside.json', seedFile(DIES.rules, [[0, 0, 0], [5, 0, 0], [6, 1, 1]]));
+      ok(visible('contests-entry-refused') && /outside the seed box/.test(text('contests-entry-refused')) && /2 of its 3 cells are outside/.test(text('contests-entry-refused')), `A seed outside the box is refused, saying so ("${text('contests-entry-refused')}")`);
+      ok(el('contests-run').disabled, 'and Run still waits');
+      await loadSeed('b0.json', seedFile({ birth: [0, 4], survival: [] }, [[0, 0, 0]]));
+      ok(/B0/.test(text('contests-entry-refused')), `A B0 rule is refused ("${text('contests-entry-refused').slice(0, 80)}…")`);
+      await loadSeed('empty.json', seedFile(DIES.rules, []));
+      ok(/empty/.test(text('contests-entry-refused')), `An empty seed is refused ("${text('contests-entry-refused')}")`);
+      await loadSeed(fileName, file);
+      ok(/result file, not a seed file/.test(text('contests-entry-refused')), `A result file is refused, pointing to Verify a result ("${text('contests-entry-refused')}")`);
+      await loadSeed('b1.json', seedFile({ birth: [1, 5], survival: [2] }, [[0, 0, 0]]));
+      ok(!visible('contests-entry-refused') && visible('contests-entry-warning') && /B1/.test(text('contests-entry-warning')) && !el('contests-run').disabled, `A B1 rule is loaded, with a warning before Run ("${text('contests-entry-warning').slice(0, 60)}…")`);
+      const full = [];
+      for (let z = -5; z <= 4; z++) for (let y = -5; y <= 4; y++) for (let x = -5; x <= 4; x++) full.push([x, y, z]);
+      await loadSeed('full.json', seedFile(DIES.rules, full));
+      ok(text('contests-entry-0') === '1,000 cells', 'A fully live 10³ seed is accepted');
+      const cubes = () => el('contests-seed-picture')?.querySelectorAll('.contests-seed-top').length ?? 0;
+      ok(cubes() === 1000 - 729, `Its picture draws only the cubes that can be seen (${cubes()})`);
+      await loadSeed('dies.json', seedFile(DIES.rules, DIES.cells));
+      ok(text('contests-entry-0') === '11 cells' && text('contests-entry-1') === 'B5,7-8/S1,4' && text('contests-entry-2') === 'dies.json', `The entry shows its cells, rules and file (${text('contests-entry-0')}, ${text('contests-entry-1')}, ${text('contests-entry-2')})`);
+      ok(cubes() === 11 && el('contests-seed-picture').getBoundingClientRect().width > 80, `and the seed's picture, a cube a cell (${cubes()})`);
+      ok(!visible('contests-entry-warning') && !visible('contests-entry-refused'), 'with no warning');
+      ok(!el('contests-run').disabled && doc.activeElement?.id === 'contests-run', 'Run is ready, with the focus');
+      ok(text('contests-panel-status') === 'Loaded dies.json.', 'The status says it loaded');
+
+      section('A Methuselah run that dies');
+      press('contests-run');
+      ok(await until(() => visible('contests-score'), 15000), 'The results card shows');
+      ok(text('contests-score') === '10' && text('contests-score-unit') === 'generations, until every cell had died', `It leads with the score ("${text('contests-score')}", "${text('contests-score-unit')}")`);
+      ok(text('contests-ending').startsWith('Died at generation 10: no live cells remain.'), `It says how it ended ("${text('contests-ending').slice(0, 50)}…")`);
+      ok(text('contests-result-entry-0') === '11 cells' && text('contests-result-entry-1') === 'B5,7-8/S1,4', 'It gives the seed\'s cells and the rules');
+      const mChart = () => el('contests-panel').querySelector('.contests-chart');
+      ok(await until(() => (mChart().querySelector('.contests-chart-line')?.getAttribute('points') ?? '').split(' ').length === 11, 3000), 'Its chart has every generation, 0 to 10');
+      const mTitles = [...mChart().querySelectorAll('.contests-chart-axis-title')].map((t) => t.textContent);
+      ok(mTitles.join(', ') === 'Generation, Live cells', `with live cells by generation (${mTitles.join(', ')})`);
+      ok(await until(() => /^sha256:[0-9a-f]{64}$/.test(text('contests-hash')), 15000) && !el('contests-export').disabled, 'The hash comes from the Worker, and Export is ready');
+      ok(text('contest-hud-status') === 'Finished' && text('contest-hud-generation') === '10', 'The HUD says finished, at generation 10');
+      ok(!panelText().includes('self-reported') && panelText().includes('same ending and the same score'), 'It says the score is the same on any machine, not self-reported');
+      exported = null;
+      press('contests-export');
+      await until(() => exported, 3000);
+      ok(text('contests-panel-status').includes('methuselah-1-10.json'), `Export names it for the contest and the score ("${text('contests-panel-status')}")`);
+      const mFile = exported ? await exported.text() : '{}';
+      const mData = JSON.parse(mFile);
+      ok(mData.run?.contest === 'methuselah-1' && mData.ending === 'died' && mData.generation === 10 && JSON.stringify(mData.score) === '{"generations":10,"period":1}', 'The file is a methuselah-1 result, died at 10, with its score');
+      const sorted = DIES.cells.slice().sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+      ok(JSON.stringify(mData.run?.seed) === JSON.stringify(sorted) && JSON.stringify(mData.run?.rules) === JSON.stringify(DIES.rules), 'Its seed and rules are exactly the entry\'s');
+      const mLink = new URL(el('contests-submit-email').href);
+      const mBody = mLink.searchParams.get('body') ?? '';
+      ok(mLink.searchParams.get('subject') === '[Methuselah] died at generation 10', `Submit by email's subject gives the score ("${mLink.searchParams.get('subject')}")`);
+      ok(mBody.includes('Rules: B5,7-8/S1,4') && mBody.includes('Seed: 11 cells') && !mBody.includes('Hardware') && !mBody.includes('self-reported'), 'and its text the rules and the seed, with nothing on timing');
+      setSpeed(10);
+      press('contests-watch-run');
+      await sleep(300);
+      ok(visible('contests-watch') && Number(el('contests-watch-scrub').max) === 10 && text('contests-watch-title') === 'Methuselah: died at generation 10', `Watch plays it to generation 10 (${text('contests-watch-title')})`);
+      ok(await until(() => text('contests-watch-verified').startsWith('Self-verified'), 30000), 'and self-verifies it');
+      press('contests-watch-close');
+      await sleep(300);
+      chooseFile('methuselah-1-10.json', mFile);
+      ok(await until(() => visible('contests-verdict'), 30000) && text('contests-verdict') === 'Verified', `Verify a result verifies it ("${text('contests-verdict-message')}")`);
+      const verdictRows = [...el('contests-panel').querySelectorAll('.contests-facts dt')].map((dt) => `${dt.textContent}: ${dt.nextSibling.textContent}`);
+      ok(verdictRows.includes('Score: Died at generation 10') && verdictRows.includes('Rules: B5,7-8/S1,4') && verdictRows.includes('Seed: 11 cells'), `with its score, rules and seed (${verdictRows.join('; ')})`);
+      ok(panelText().includes('Back to Methuselah'), 'and leads back to Methuselah');
+      // The score's generations and the file's generation, never the budget's (limits.generations, 10000)
+      const mEdited = mFile.replace('"generations": 10,', '"generations": 11,').replace('"generation": 10,', '"generation": 11,');
+      ok(mEdited !== mFile && JSON.parse(mEdited).run.limits.generations === 10000, 'The edit changes the score and generation only');
+      chooseFile('edited.json', mEdited);
+      ok(await until(() => visible('contests-verdict') && text('contests-verdict') === "Doesn't match", 30000) && /dies at generation 10/.test(text('contests-verdict-message')),
+        `A hand-edited copy, claiming a later death, doesn't match, by its replay ("${text('contests-verdict-message')}")`);
+
+      section('A Methuselah run that reaches the edge, and one stopped');
+      press('contests-back');
+      ok(text('contests-panel-title') === 'Methuselah' && text('contests-entry-2') === 'dies.json', 'Back on Methuselah, the entry is still there');
+      await loadSeed('ship.json', seedFile(SHIP.rules, SHIP.cells));
+      press('contests-run');
+      ok(await until(() => text('contests-panel-title') === 'Methuselah: no score', 15000), 'A ship reaches the edge, with no score');
+      ok(text('contests-ending').startsWith('Reached the edge at generation') && text('contests-ending').includes('64³ arena'), `It says why ("${text('contests-ending').slice(0, 70)}…")`);
+      ok(!el('contests-export') && text('contest-hud-status') === 'No score', 'There is nothing to export, and the HUD says no score');
+      const edgePoints = (mChart().querySelector('.contests-chart-line')?.getAttribute('points') ?? '').split(' ').length;
+      ok(edgePoints === Number(text('contest-hud-generation').replace(/,/g, '')) + 1, `Its chart has every generation (${edgePoints} points)`);
+      press('contests-again');
+      const noise = [];
+      for (let z = -5; z <= 4; z++) for (let y = -5; y <= 4; y++) for (let x = -5; x <= 4; x++) if (((x * 7 + y * 13 + z * 31) & 3) === 0) noise.push([x, y, z]);
+      await loadSeed('growing.json', seedFile({ birth: [5, 11, 12], survival: [0, 1, 4, 5, 10, 12, 13, 14] }, noise));
+      press('contests-run');
+      ok(visible('contests-stop') && visible('contests-countdown') && text('contests-budget') === 'of 10,000 generations', 'During the run: the generation, out of 10,000, and Stop');
+      press('contests-stop');
+      ok(await until(() => text('contests-panel-title') === 'Methuselah: no score', 5000) && panelText().includes('Stopped by hand'), 'Stop ends it without a score, and says so');
+      ok(text('contest-hud-status') === 'Stopped', 'The HUD says stopped');
+
+      section("Methuselah's Hall of Fame");
+      const mStaged = [
+        { contest: 'methuselah-1', name: 'Check, this run', picture: null, score: mData.score, rules: DIES.rules, seedCells: 11, browser: mData.details.browser, date: '2026-11-19', result: 'hall-of-fame/results/check-methuselah.json' },
+        { contest: 'methuselah-1', name: 'Check, leaner', picture: null, score: { generations: 10, period: 1 }, rules: { birth: [4], survival: [9] }, seedCells: 5, browser: null, date: '2026-11-20', result: 'hall-of-fame/results/check-lean.json' },
+        { contest: 'methuselah-1', name: 'Check, longer', picture: null, score: { generations: 400, period: 3 }, rules: { birth: [4], survival: [6] }, seedCells: 900, browser: null, date: '2026-11-21', result: 'hall-of-fame/results/check-long.json' },
+      ];
+      board.entries.push(...win.JSON.parse(JSON.stringify(mStaged)));
+      win.fetch = (url, ...rest) => (String(url).endsWith('/hall-of-fame/results/check-methuselah.json')
+        ? Promise.resolve(new win.Response(mFile))
+        : realFetch.call(win, url, ...rest));
+      press('contests-again'); // Run again: back to Methuselah's page
+      ok(text('contests-panel-title') === 'Methuselah', 'Run again goes back to Methuselah\'s page');
+      const mRows = [...(el('contests-hof')?.children ?? [])];
+      const mShown = mRows.map((r) => cell(r, 'name')?.textContent);
+      ok(mShown.join(' | ') === 'Check, longer | Check, leaner | Check, this run', `Ranked by generations, then fewer seed cells, before the date (${mShown.join(' | ')})`);
+      const mScore = (i) => [cell(mRows[i], 'score-main')?.textContent, cell(mRows[i], 'score-detail')?.textContent].join(' / ');
+      ok(mScore(0) === '400 generations / period 3 · B4/S6 · 900 seed cells' && mScore(2) === '10 generations / B5,7-8/S1,4 · 11 seed cells', `Each score has its rules and seed cells beside it ("${mScore(0)}")`);
+      mRows[2].querySelector('button').click();
+      ok(await until(() => visible('contests-watch'), 5000) && text('contests-watch-title') === 'Hall of Fame: Check, this run, settled at generation 10' && Number(el('contests-watch-scrub').max) === 10, `Watch plays an entry from the seed to its h (${text('contests-watch-title')})`);
+      press('contests-watch-close');
+      await sleep(300);
+      board.entries.length = 0;
+      win.fetch = realFetch;
+      setSpeed(2.6);
+      press('contests-back');
+      press('contests-open-speed-1');
 
       section('Stopping a run');
       press('contests-run');
