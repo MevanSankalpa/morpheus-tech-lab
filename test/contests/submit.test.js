@@ -76,3 +76,38 @@ test('the mailto: link opens the email, addressed, with the subject and text', (
   // Short enough for the mail apps with the tightest limits on a link's length
   assert.ok(link.length <= 2000, `${link.length} characters`);
 });
+
+// ---- Methuselah (#94) ----
+
+const METHUSELAH = contestById('methuselah-1');
+const RULES = { birth: [5, 7, 8], survival: [1, 4] };
+const lasting = (over = {}) => entry({
+  contest: METHUSELAH,
+  score: { generations: 1234, period: 2 },
+  ending: 'repeat',
+  run: { rules: RULES, seed: [[0, 0, 0], [1, 0, 0], [2, 0, 0]] },
+  fileName: 'methuselah-1-1234.json',
+  ...over,
+});
+
+test("a Methuselah entry's email states its score as it settled, its rules and its seed", () => {
+  assert.equal(emailSubject(METHUSELAH, { generations: 1234, period: 2 }, 'repeat'), '[Methuselah] settled at generation 1,234: period 2');
+  assert.equal(emailSubject(METHUSELAH, { generations: 1234, period: 1 }, 'repeat'), '[Methuselah] settled at generation 1,234: a still life');
+  assert.equal(emailSubject(METHUSELAH, { generations: 1234, period: 1 }, 'died'), '[Methuselah] died at generation 1,234');
+  const lines = emailBody(lasting()).split('\n');
+  assert.ok(lines.includes('My entry for Methuselah (methuselah-1).'));
+  assert.ok(lines.includes('Score: settled at generation 1,234: period 2'));
+  assert.ok(lines.includes('Rules: B5,7-8/S1,4'));
+  assert.ok(lines.includes('Seed: 3 cells'));
+  assert.ok(lines.includes('Result file: methuselah-1-1234.json (attached)'));
+  assert.ok(lines.includes(HALL_OF_FAME_LINE));
+  assert.ok(lines.some((line) => /Methuselah's Hall of Fame also shows the entry's rules and its seed's cell count/.test(line)));
+  // Nothing about hardware or timing: the score depends on the seed and rules alone
+  assert.ok(!lines.includes('Hardware (optional): '));
+  assert.doesNotMatch(emailBody(lasting()), /self-reported/);
+  // The promises are the same as for Speed
+  assert.match(emailBody(lasting()), /Your email address is used only to reply about this entry\./);
+  assert.match(emailBody(lasting()), /The lab's repo is public/);
+  const body = emailBody(lasting());
+  assert.ok(mailtoLink(emailSubject(METHUSELAH, lasting().score, 'repeat'), body).length <= 2000);
+});

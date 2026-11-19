@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // What the Contests panel says and draws, worked out apart from the page so the tests run it in
-// Node: the countdown, the chart of generations over time, a score in words, how a run ended,
-// a result's file name, and the statistics as the panel lists them.
+// Node: the countdown, the charts (Speed's generations over time, a Discovery run's live cells by
+// generation), a score in words, how a run ended, a result's file name, the statistics as the
+// panel lists them, and a Discovery entry's seed as a small picture.
 
 /** Thousands separators, the same in every browser. */
 export const n = (value) => Math.round(value).toLocaleString('en');
@@ -56,11 +57,13 @@ export function niceScale(max) {
 export const CHART_MARGIN = Object.freeze({ top: 14, right: 48, bottom: 42, left: 60 });
 
 /**
- * The layout of the run's chart: generations completed (y) over the run's time (x), so a faster
- * machine climbs more steeply. x runs over the contest's seconds; y over a clean scale that
- * fits the generations so far, rescaled as the run climbs.
- * @param {[number, number][]} points - [seconds, generation], from 0, in time order
- * @param {{seconds: number, width: number, height: number}} size
+ * The layout of a run's chart. Speed's: generations completed (y) over the run's time (x), so a
+ * faster machine climbs more steeply, with x over the contest's seconds. A Discovery run's: live
+ * cells (y) by generation (x), with x over a clean scale that fits the generations so far. y runs
+ * over a clean scale that fits the values so far; both rescale as the run goes on.
+ * @param {[number, number][]} points - [x, y], from x = 0, in order
+ * @param {{seconds?: number, width: number, height: number}} size - with `seconds`, x is time
+ *   and runs over them, a tick a second; without, x fits the points
  */
 export function chartLayout(points, { seconds, width, height }) {
   const m = CHART_MARGIN;
@@ -68,11 +71,12 @@ export function chartLayout(points, { seconds, width, height }) {
   const plotWidth = plot.right - plot.left;
   const plotHeight = plot.bottom - plot.top;
   const { top, step } = niceScale(Math.max(0, ...points.map(([, g]) => g)));
-  const x = (t) => plot.left + (Math.min(Math.max(t, 0), seconds) / seconds) * plotWidth;
+  const xScale = seconds !== undefined ? { top: seconds, step: 1 } : niceScale(Math.max(0, ...points.map(([t]) => t)));
+  const x = (t) => plot.left + (Math.min(Math.max(t, 0), xScale.top) / xScale.top) * plotWidth;
   const y = (g) => plot.bottom - (g / top) * plotHeight;
   const fixed = (v) => +v.toFixed(1);
   const xTicks = [];
-  for (let t = 0; t <= seconds; t++) xTicks.push({ value: t, label: String(t), at: fixed(x(t)) });
+  for (let t = 0; t <= xScale.top; t += xScale.step) xTicks.push({ value: t, label: n(t), at: fixed(x(t)) });
   const yTicks = [];
   for (let g = 0; g <= top; g += step) yTicks.push({ value: g, label: n(g), at: fixed(y(g)) });
   const xy = points.map(([t, g]) => [fixed(x(t)), fixed(y(g))]);
@@ -92,7 +96,7 @@ export function chartLayout(points, { seconds, width, height }) {
         const d = Math.abs(qx - px);
         if (d <= distance) { best = i; distance = d; }
       });
-      return best < 0 ? null : { index: best, x: xy[best][0], y: xy[best][1], seconds: points[best][0], generation: points[best][1] };
+      return best < 0 ? null : { index: best, x: xy[best][0], y: xy[best][1], at: points[best][0], value: points[best][1] };
     },
   };
 }
@@ -115,9 +119,41 @@ export function speedScoreText(score) {
   return score.ms === null ? generations : `${generations} in ${secondsText(score.ms)}`;
 }
 
-/** A score in words, by its contest's kind: Speed's as speedScoreText() writes it. */
-export function scoreText(contest, score) {
-  return contest.kind === 'speed' ? speedScoreText(score) : JSON.stringify(score);
+/**
+ * A Methuselah score in words: "settled at generation 1,234: a still life", "settled at
+ * generation 1,234: period 2", or "died at generation 1,234". Without the ending (the Hall of
+ * Fame keeps only the score), a period-1 score is "settled at generation 1,234": a death is the
+ * empty world's still life, so it settled too.
+ * @param {{generations: number, period: number}} score
+ * @param {'died' | 'repeat'} [ending]
+ */
+export function methuselahScoreText(score, ending) {
+  const at = `generation ${n(score.generations)}`;
+  if (ending === 'died') return `died at ${at}`;
+  if (score.period !== 1) return `settled at ${at}: period ${n(score.period)}`;
+  return ending === 'repeat' ? `settled at ${at}: a still life` : `settled at ${at}`;
+}
+
+/** A score in words, by its contest's kind; a Methuselah score says more with its ending. */
+export function scoreText(contest, score, ending) {
+  if (contest.kind === 'speed') return speedScoreText(score);
+  if (contest.kind === 'methuselah') return methuselahScoreText(score, ending);
+  return JSON.stringify(score);
+}
+
+/** Capitalised, for a sentence of its own. */
+export const sentence = (text) => `${text[0].toUpperCase()}${text.slice(1)}`;
+
+/**
+ * A Methuselah score as the results card leads with it: the generations it took to settle, and
+ * what it settled into.
+ * @returns {{value: string, unit: string}}
+ */
+export function methuselahHero(score, ending) {
+  const unit = score.generations === 1 ? 'generation' : 'generations';
+  if (ending === 'died') return { value: n(score.generations), unit: `${unit}, until every cell had died` };
+  const into = score.period === 1 ? 'a still life' : `a cycle of period ${n(score.period)}`;
+  return { value: n(score.generations), unit: `${unit}, until it settled into ${into}` };
 }
 
 /**
@@ -135,14 +171,36 @@ export function speedHero(score, contest) {
 
 /**
  * A score as the Hall of Fame shows it: what ranks it first, then the rest. At Speed's ceiling,
- * the time leads, since every entry there has the same generations.
+ * the time leads, since every entry there has the same generations. Methuselah's generations lead,
+ * with the entry's rules and seed cells beside them: the rules are half the entry, and fewer
+ * cells break a tie.
+ * @param {object} [entry] - the Hall of Fame's entry, for a Methuselah score's rules and cells
  * @returns {{main: string, detail: string}}
  */
-export function boardScore(contest, score) {
+export function boardScore(contest, score, entry = {}) {
+  if (contest.kind === 'methuselah') {
+    const detail = [
+      score.period === 1 ? null : `period ${n(score.period)}`,
+      entry.rules ? rulesText(entry.rules) : null,
+      entry.seedCells ? `${n(entry.seedCells)} seed cell${entry.seedCells === 1 ? '' : 's'}` : null,
+    ].filter(Boolean).join(' · ');
+    return { main: `${n(score.generations)} generation${score.generations === 1 ? '' : 's'}`, detail };
+  }
   if (contest.kind !== 'speed') return { main: JSON.stringify(score), detail: '' };
   return score.ms === null
     ? { main: speedScoreText(score), detail: `in ${contest.seconds} seconds` }
     : { main: secondsText(score.ms), detail: `${n(score.generations)} generations, the ceiling` };
+}
+
+/** How a run ended by the visitor or the machine, the same for every contest: never a score. */
+function machineEndingText(reason) {
+  switch (reason) {
+    case 'stopped': return 'Stopped by hand, so it has no score.';
+    case 'memory-limit': return "Stopped at the engine's memory limit, so it has no score.";
+    case 'out-of-memory': return 'Stopped: the browser refused the engine more memory, so it has no score.';
+    case 'error': return 'Stopped by an error in the engine, so it has no score.';
+    default: return `Ended (${reason}), so it has no score.`;
+  }
 }
 
 /** How a Speed run ended, for the results card. */
@@ -150,11 +208,40 @@ export function speedEndingText(reason, contest) {
   switch (reason) {
     case 'deadline': return `The ${contest.seconds} seconds ran out.`;
     case 'generation-limit': return `It reached the ceiling, generation ${n(contest.ceiling)}, before the ${contest.seconds} seconds ran out, so its time counts too.`;
-    case 'stopped': return 'Stopped by hand, so it has no score.';
-    case 'memory-limit': return "Stopped at the engine's memory limit, so it has no score.";
-    case 'out-of-memory': return 'Stopped: the browser refused the engine more memory, so it has no score.';
-    case 'error': return 'Stopped by an error in the engine, so it has no score.';
-    default: return `Ended (${reason}), so it has no score.`;
+    default: return machineEndingText(reason);
+  }
+}
+
+/** An arena's size, `64³`, for a cube; `64 × 32 × 16` otherwise. */
+export function arenaText(arena) {
+  const sides = arena.max.map((hi, a) => hi - arena.min[a] + 1);
+  return sides.every((side) => side === sides[0]) ? `${n(sides[0])}³` : sides.map(n).join(' × ');
+}
+
+/**
+ * How a Methuselah run ended, for the results card: what it settled into and its score, or why
+ * it has none.
+ * @param {string} reason - the run's end reason
+ * @param {import('../unbounded/contests.js').Contest} contest
+ * @param {{stats: {generation: number, live: number}, cycle?: {period: number} | null}} end
+ */
+export function methuselahEndingText(reason, contest, { stats, cycle }) {
+  const at = `generation ${n(stats.generation)}`;
+  const budget = n(contest.budget);
+  switch (reason) {
+    case 'died':
+      return `Died at ${at}: no live cells remain. The empty world is a still life, so a death scores the generation the last cell died.`;
+    case 'repeat':
+      return cycle?.period > 1
+        ? `Settled at ${at}: period ${n(cycle.period)}. From there its cells repeat every ${n(cycle.period)} generations, in place, so it scores where the cycle began.`
+        : `Settled at ${at}: a still life. From there its cells stay the same, in place.`;
+    case 'arena-edge':
+      return `Reached the edge at ${at}: the next generation would bring a cell to life outside the ${arenaText(contest.fixes.arena)} arena, so it has no score. Only a pattern that settles in place inside the arena scores, and one that keeps growing, or sends something flying off, ends here.`;
+    case 'generation-limit':
+      return stats.live === 0
+        ? `It died at generation ${budget}, the budget's last, so it has no score: a death is a cycle of period 1, which closes a generation later, past the budget.`
+        : `Still unsettled at generation ${budget}, the budget, so it has no score. A pattern that never settles and never escapes may suit Contained chaos (#42).`;
+    default: return machineEndingText(reason);
   }
 }
 
@@ -192,6 +279,13 @@ export function bytesText(bytes) {
 export function extentText(extent) {
   if (!extent) return '–';
   return extent.max.map((hi, a) => n(hi - extent.min[a] + 1)).join(' × ');
+}
+
+/**
+ * A Discovery run's progress: the generation, out of the budget, `1,234 / 10,000`.
+ */
+export function budgetText(generation, budget) {
+  return `${n(generation)} / ${n(budget)}`;
 }
 
 /**
@@ -259,4 +353,56 @@ export function selfVerifiedText(replayed, generation) {
   return replayed.matches === false
     ? { verdict: 'mismatch', text: `Not verified. ${stopped}, so this isn't the run's result.` }
     : { verdict: 'not-checked', text: `Not checked. ${stopped}.` };
+}
+
+// ---- A Discovery entry's seed, as a small picture ----
+
+const COS30 = Math.sqrt(3) / 2;
+
+/**
+ * A seed drawn as cubes in its seed box, seen from above one corner (isometric), for the
+ * contest's page. Cubes come back to front, so the later ones cover the earlier; a cube hidden
+ * on all three of its visible sides by its neighbours is left out, so a full 10³ box draws only
+ * its shell.
+ * @param {number[][]} cells - [x, y, z], all inside the box
+ * @param {{min: number[], max: number[]}} box - the seed box
+ * @param {{unit?: number, pad?: number}} [options] - a cell's edge, and the margin, in pixels
+ * @returns {{width: number, height: number, cubes: {top: string, right: string, left: string}[],
+ *   outline: string, edges: string}} SVG points for each cube's three faces, the box's outline,
+ *   and the box's three edges nearest the viewer, as a path
+ */
+export function seedPicture(cells, box, { unit = 9, pad = 4 } = {}) {
+  // Screen x across, y down; world y is up. The viewer looks along (−1, −1, −1)
+  const sx = (x, z) => (x - z) * COS30 * unit;
+  const sy = (x, y, z) => ((x + z) / 2 - y) * unit;
+  const lo = box.min;
+  const hi = box.max.map((v) => v + 1);
+  const corners = [];
+  for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) corners.push([x, y, z]);
+  const xs = corners.map(([x, , z]) => sx(x, z));
+  const ys = corners.map(([x, y, z]) => sy(x, y, z));
+  const left = Math.min(...xs) - pad;
+  const top = Math.min(...ys) - pad;
+  const at = (x, y, z) => `${+(sx(x, z) - left).toFixed(1)},${+(sy(x, y, z) - top).toFixed(1)}`;
+  const face = (points) => points.map((p) => at(...p)).join(' ');
+
+  const live = new Set(cells.map((c) => c.join(',')));
+  const covered = ([x, y, z]) => live.has(`${x + 1},${y},${z}`) && live.has(`${x},${y + 1},${z}`) && live.has(`${x},${y},${z + 1}`);
+  const cubes = cells
+    .filter((cell) => !covered(cell))
+    .sort((a, b) => (a[0] + a[1] + a[2]) - (b[0] + b[1] + b[2]) || a[1] - b[1] || a[0] - b[0])
+    .map(([x, y, z]) => ({
+      top: face([[x, y + 1, z], [x + 1, y + 1, z], [x + 1, y + 1, z + 1], [x, y + 1, z + 1]]),
+      right: face([[x + 1, y, z], [x + 1, y + 1, z], [x + 1, y + 1, z + 1], [x + 1, y, z + 1]]),
+      left: face([[x, y, z + 1], [x + 1, y, z + 1], [x + 1, y + 1, z + 1], [x, y + 1, z + 1]]),
+    }));
+  const [x0, y0, z0] = lo;
+  const [x1, y1, z1] = hi;
+  return {
+    width: Math.ceil(Math.max(...xs) - left + pad),
+    height: Math.ceil(Math.max(...ys) - top + pad),
+    cubes,
+    outline: face([[x0, y1, z0], [x1, y1, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [x0, y1, z1]]),
+    edges: `M${at(x1, y1, z1)} L${at(x0, y1, z1)} M${at(x1, y1, z1)} L${at(x1, y1, z0)} M${at(x1, y1, z1)} L${at(x1, y0, z1)}`,
+  };
 }

@@ -8,7 +8,8 @@
 // public/hall-of-fame/, or null for the lab's logo), the score, the browser, the date the entry
 // arrived, and its result file, under public/hall-of-fame/results/, which Watch replays and
 // scripts/verify.mjs re-verifies. Paths are as the site serves them, without `public/`. A
-// Methuselah entry also gives its seed's cells (`seedCells`), which break a tie in its score.
+// Methuselah entry also gives its rules, shown beside its score, and its seed's cells
+// (`seedCells`), which break a tie in its score.
 //
 // `npm test` reads every entry's result file through checkEntry(): it must read as a result,
 // pass checkContest(), and agree with its entry. The panel reads the data with readHallOfFame()
@@ -32,7 +33,7 @@ export const RESULT_PATH = /^hall-of-fame\/results\/[a-z0-9][a-z0-9-]*\.json$/;
 
 const FIELDS = ['contest', 'name', 'picture', 'score', 'browser', 'date', 'result'];
 /** The fields an entry has for its kind of contest, beside FIELDS. */
-const KIND_FIELDS = { methuselah: ['seedCells'] };
+const KIND_FIELDS = { methuselah: ['rules', 'seedCells'] };
 
 /** How each kind of contest orders two entries, best first, before the date. */
 const RANKS = {
@@ -86,6 +87,13 @@ function checkEntryShape(entry, at) {
     if (!ok) throw new HallOfFameError(`${at}.browser must be null or {name, version}, as in its result file.`);
   }
   if (!isDay(date)) throw new HallOfFameError(`${at}.date must be the day the entry arrived, as YYYY-MM-DD.`);
+  if ('rules' in entry) {
+    const { rules } = entry;
+    const counts = (list) => Array.isArray(list) && list.every((c, i) => Number.isSafeInteger(c) && c >= 0 && c <= 26 && (i === 0 || c > list[i - 1]));
+    const ok = isPlainObject(rules) && canonicalJson(Object.keys(rules).sort()) === '["birth","survival"]'
+      && counts(rules.birth) && counts(rules.survival);
+    if (!ok) throw new HallOfFameError(`${at}.rules must be {birth, survival}, as in its result file.`);
+  }
   if ('seedCells' in entry && !(Number.isSafeInteger(entry.seedCells) && entry.seedCells >= 1)) {
     throw new HallOfFameError(`${at}.seedCells must be the number of cells in its seed, as in its result file.`);
   }
@@ -134,8 +142,8 @@ export function rankEntries(entries, contest) {
 
 /**
  * Checks an entry against its result file, without a replay: the file reads as a result, passes
- * checkContest(), and agrees with the entry's contest, score, browser and, for Methuselah, seed
- * cells. scripts/verify.mjs replays the files.
+ * checkContest(), and agrees with the entry's contest, score, browser and, for Methuselah, rules
+ * and seed cells. scripts/verify.mjs replays the files.
  * @param {object} entry - from readHallOfFame()
  * @param {string} text - its result file's contents
  * @returns {string | null} what is wrong, or null
@@ -158,6 +166,9 @@ export function checkEntry(entry, text) {
   }
   if (canonicalJson(result.details.browser) !== canonicalJson(entry.browser)) {
     return `The entry's browser isn't its result file's, ${canonicalJson(result.details.browser)}.`;
+  }
+  if ('rules' in entry && canonicalJson(entry.rules) !== canonicalJson(result.run.rules)) {
+    return `The entry's rules aren't its result file's, ${canonicalJson(result.run.rules)}.`;
   }
   if ('seedCells' in entry && entry.seedCells !== result.run.seed.length) {
     return `The entry's seedCells isn't its result file's seed, ${result.run.seed.length} cells.`;

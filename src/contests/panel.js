@@ -8,46 +8,54 @@
 // and brings it back on Close.
 //
 // Text from a result file comes from strangers, so the panel only ever sets textContent: nothing
-// from a file is parsed as HTML. What it says is worked out in format.js, and a run is
-// speed.js's SpeedRun.
+// from a file is parsed as HTML. What it says is worked out in format.js. A Speed run is
+// speed.js's SpeedRun, and a Methuselah run discovery.js's DiscoveryRun (#94), with the entry the
+// visitor brought: a seed and its rules, from Load seed… (or, with #95, from Explore).
 
-import { CONTESTS } from '../unbounded/contests.js';
+import { CONTESTS, contestById, runFor, methuselahWarnings } from '../unbounded/contests.js';
 import { MAX_RESULT_BYTES, readResult, ResultError } from '../unbounded/canonical.js';
 import hallOfFameData from '../unbounded/hall-of-fame.json';
 import labLogo from '../assets/images/morpheus-tech.png';
 import { detectBrowser } from '../browser.js';
 import { writeJsonFile, download } from '../explore/explore.js';
+import { parseSeedFile } from '../explore/seed.js';
 import { SpeedRun, verifyInWorker } from './speed.js';
+import { DiscoveryRun } from './discovery.js';
 import { openWatch, closeWatch } from './watch.js';
 import {
   n, rulesText, countdownText, chartLayout, speedHero, speedScoreText, speedEndingText, resultFileName,
-  statsRows, verdictTitle, closingText, scoreText, boardScore,
+  statsRows, verdictTitle, closingText, scoreText, boardScore, methuselahHero, methuselahEndingText,
+  arenaText, budgetText, seedPicture, sentence,
 } from './format.js';
 import { SUBMIT_ADDRESS, emailSubject, emailBody, mailtoLink } from './submit.js';
 import { HALL_OF_FAME_TOP, readHallOfFame, rankEntries, dayText } from './hallOfFame.js';
 import { LOOKS, logo, verifyGlyph } from './looks.js';
 
 const ISSUES = 'https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/issues/';
-/**
- * The kinds of contest this page can run. Methuselah is defined in contests.js (#93) and verifies,
- * but its page comes with #94; until then it stays in COMING.
- */
-const ON_PAGE = ['speed'];
+/** The kinds of contest this page can run. */
+const ON_PAGE = ['speed', 'methuselah'];
 /** The contests still to come, shown in the list without an Open button. */
 const COMING = [
-  { kind: 'methuselah', title: 'Methuselah', about: 'The longest-lived pattern that settles inside an arena', issue: 41 },
   { kind: 'contained-chaos', title: 'Contained chaos', about: 'A pattern that never settles and never escapes', issue: 42 },
 ];
 const SELF_REPORTED = 'The time is measured by your own browser, on your own machine. Replaying a result proves '
   + 'that its generation is right, but not how long it took, so the Speed board is self-reported.';
+const SAME_EVERYWHERE = 'Your score depends only on the seed and the rules, never on time or the machine: anyone '
+  + 'replaying the result file, in the lab or with scripts/verify.mjs, gets the same ending and the same score.';
+const STRICT = "This is a stricter methuselah than classic Life's: the whole pattern must settle inside the arena, "
+  + 'and anything that flies off ends the run unscored.';
 
 const panel = {
   open: false,
   contest: null,
-  run: null, // the SpeedRun on screen, until the panel moves on
-  startedAt: 0, // when the Worker started the run, on the page's clock, for the countdown
+  run: null, // the SpeedRun or DiscoveryRun on screen, until the panel moves on
+  startedAt: 0, // when the Worker started a Speed run, on the page's clock, for the countdown
   verify: null, // the check in progress: {cancel}
   view: null, // 'list', 'contest', 'running', 'results', 'verifying', 'verdict'
+  // Each Discovery contest's entry, by contest id: {rules, seed, source}, checked by runFor().
+  // It stays while the page is open, so Run again runs it again
+  entries: new Map(),
+  refused: null, // why the last seed file loaded was refused: {contest, message}
 };
 
 const el = (id) => document.getElementById(id);
@@ -133,6 +141,12 @@ export function openPanel() {
     input.value = ''; // so choosing the same file again still counts as a change
     if (file) verifyFile(file);
   };
+  const seedInput = el('contests-seed-file');
+  seedInput.onchange = () => {
+    const file = seedInput.files?.[0];
+    seedInput.value = '';
+    if (file && panel.contest) loadSeedFile(panel.contest, file);
+  };
   showList();
 }
 
@@ -152,7 +166,7 @@ export function closePanel() {
  * empties over the run's seconds; the Worker's own clock decides the score.
  */
 export function panelFrame(now) {
-  if (panel.view !== 'running' || !panel.startedAt) return;
+  if (panel.view !== 'running' || !panel.startedAt || !(panel.run instanceof SpeedRun)) return;
   const elapsed = now - panel.startedAt;
   const value = el('contests-countdown');
   if (value) value.textContent = countdownText(panel.run.seconds, elapsed);
@@ -234,13 +248,8 @@ function factTile(label, value, about) {
     h('span', { className: 'contests-fact-about', text: about }));
 }
 
-function showContest(contest) {
-  endRun();
-  panel.contest = contest;
-  hud(contest.title, 'Ready', '–');
-  const { fixes } = contest;
-  const { birth, survival } = fixes.rules;
-  const range = (list) => (list.length > 1 ? `${list[0]}–${list[list.length - 1]}` : String(list[0]));
+/** The big Run button that leads a contest's page. */
+function runButton(contest, sub, { disabled = false } = {}) {
   const run = h('button', {
     className: 'contests-run-button',
     onclick: () => startRun(contest),
@@ -249,7 +258,13 @@ function showContest(contest) {
   h('span', { className: 'contests-run-icon', attrs: { 'aria-hidden': 'true' } }),
   h('span', { className: 'contests-run-text' },
     h('span', { className: 'contests-run-label', text: `Run ${contest.title}` }),
-    h('span', { className: 'contests-run-sub', text: `${contest.seconds} seconds, on your machine` })));
+    h('span', { className: 'contests-run-sub', text: sub })));
+  run.disabled = disabled;
+  return run;
+}
+
+/** A contest's page's head: its logo, what it measures, and when entries close. */
+function pageHead(contest) {
   const header = h('div', { className: 'contests-page-head' },
     logo(contest.kind, 64, 'contests-page-logo'),
     h('div', {},
@@ -257,8 +272,23 @@ function showContest(contest) {
       h('p', { className: 'contests-page-summary', text: `${contest.summary}.` }),
       h('p', { className: 'contests-closes', text: closingText([contest]) })));
   header.style.setProperty('--contest-color', LOOKS[contest.kind].color);
+  return header;
+}
+
+function showContest(contest) {
+  endRun();
+  panel.contest = contest;
+  hud(contest.title, 'Ready', '–');
+  if (contest.kind === 'methuselah') {
+    showMethuselah(contest);
+    return;
+  }
+  const { fixes } = contest;
+  const { birth, survival } = fixes.rules;
+  const range = (list) => (list.length > 1 ? `${list[0]}–${list[list.length - 1]}` : String(list[0]));
+  const run = runButton(contest, `${contest.seconds} seconds, on your machine`);
   show('contest', contest.title, [
-    header,
+    pageHead(contest),
     run,
     section('What everyone runs',
       h('div', { className: 'contests-facts-grid' },
@@ -276,6 +306,163 @@ function showContest(contest) {
       button('Back', showList, { id: 'contests-back' })),
   ]);
   run.focus({ preventScroll: true });
+}
+
+// ---- Methuselah's page: the entry, and what the contest fixes ----
+
+/**
+ * Methuselah's page: the entry it will run (its seed, drawn, and its rules) with Load seed…, Run,
+ * what the contest fixes, how a run ends and what scores, the Hall of Fame, and how it runs.
+ */
+function showMethuselah(contest) {
+  const entry = panel.entries.get(contest.id) ?? null;
+  const { fixes } = contest;
+  const side = (box) => box.max[0] - box.min[0] + 1;
+  const run = runButton(contest, entry
+    ? `Up to ${n(contest.budget)} generations, on your machine: it can take a few minutes`
+    : 'Load a seed first', { disabled: !entry });
+  show('contest', contest.title, [
+    pageHead(contest),
+    entrySection(contest, entry),
+    run,
+    section('What the contest fixes',
+      h('div', { className: 'contests-facts-grid' },
+        factTile('Arena', arenaText(fixes.arena), `Cells ${fixes.arena.min[0]} to ${fixes.arena.max[0]} on each axis. The cells never see its walls: it only decides when a run is over`),
+        factTile('Seed box', `${side(fixes.seedBox)}³`, `Your seed: 1 to ${n(side(fixes.seedBox) ** 3)} cells, all within cells ${fixes.seedBox.min[0]} to ${fixes.seedBox.max[0]} on each axis, never shifted`),
+        factTile('Budget', `${n(contest.budget)} generations`, `A pattern still unsettled at generation ${n(contest.budget)} scores nothing`),
+        factTile('Top score', n(contest.budget - 1), `A run scores once its final state or cycle closes, by generation ${n(contest.budget)}`))),
+    section('How a run ends', endingsTable(contest),
+      h('p', { className: 'contests-note', text: STRICT, attrs: { id: 'contests-strict' } })),
+    hallOfFame(contest),
+    section('How it runs',
+      h('p', { text: `On the CPU, in a background thread (a Web Worker), with chunks of ${contest.chunkSize}³ cells, and nothing drawn while it runs. A run can take a few minutes. A repeat is confirmed cell for cell before it ends a run. Equal scores rank by fewer seed cells, then the earlier submission.` })),
+    section('Fair play',
+      h('p', { className: 'contests-note', text: SAME_EVERYWHERE })),
+    h('div', { className: 'contests-actions' },
+      verifyButton(),
+      button('Back', showList, { id: 'contests-back' })),
+  ]);
+  (entry ? run : el('contests-load-seed'))?.focus({ preventScroll: true });
+}
+
+/** The four endings of a Methuselah run, and which score. */
+function endingsTable(contest) {
+  const budget = n(contest.budget);
+  const rows = [
+    ['Death', 'No live cells remain, by generation ' + n(contest.budget - 1), 'The generation the last cell died'],
+    ['Repeat', 'The cells equal, in place, those of an earlier generation h, by generation ' + budget, 'h, where the final cycle began'],
+    ['Edge', 'A step would bring a cell to life outside the arena', 'None'],
+    ['Budget', `Generation ${budget} is reached unsettled`, 'None: the pattern may suit Contained chaos'],
+  ];
+  return h('table', { className: 'contests-endings', attrs: { id: 'contests-endings' } },
+    h('thead', {}, h('tr', {}, h('th', { text: 'Ending' }), h('th', { text: 'When' }), h('th', { text: 'Score' }))),
+    h('tbody', {}, ...rows.map(([name, when, score]) => h('tr', {},
+      h('th', { text: name, attrs: { scope: 'row' } }), h('td', { text: when }), h('td', { text: score })))));
+}
+
+/**
+ * The entry: its seed, drawn in the seed box with its cell count, and its rules, where they came
+ * from, a warning for rules that can't score, and Load seed…; or, with none yet, how to bring one.
+ */
+function entrySection(contest, entry) {
+  const load = button(entry ? 'Load another seed…' : 'Load seed…', () => el('contests-seed-file').click(), { main: !entry, id: 'contests-load-seed' });
+  const refused = panel.refused?.contest === contest.id ? h('p', {
+    className: 'contests-refused', text: panel.refused.message, attrs: { id: 'contests-entry-refused', role: 'alert' },
+  }) : null;
+  if (!entry) {
+    return section('Your entry',
+      h('p', { text: 'A seed and its rules. Design them in Explore, with the seed editor for the seed, then save them with Save seed in the Seed box, or the seed editor\'s Export, and load the file here.', attrs: { id: 'contests-entry-none' } }),
+      refused,
+      h('div', { className: 'contests-actions' }, load));
+  }
+  const cells = entry.seed.length;
+  const warnings = methuselahWarnings(entry.rules);
+  return section('Your entry',
+    h('div', { className: 'contests-entry' },
+      seedSvg(entry.seed, contest.fixes.seedBox),
+      h('div', { className: 'contests-entry-facts' },
+        facts([
+          ['Seed', `${n(cells)} cell${cells === 1 ? '' : 's'}`],
+          ['Rules', rulesText(entry.rules)],
+          ['From', entry.source],
+        ], 'contests-entry'))),
+    ...warnings.map((text) => h('p', { className: 'contests-warning', text, attrs: { id: 'contests-entry-warning', role: 'note' } })),
+    refused,
+    h('div', { className: 'contests-actions' }, load));
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** The seed as cubes in its seed box (format.js's seedPicture()), in the contest's colour. */
+function seedSvg(seed, box) {
+  const picture = seedPicture(seed, box);
+  const make = (tag, attrs) => {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, String(value));
+    return node;
+  };
+  const svg = make('svg', {
+    class: 'contests-seed-picture', viewBox: `0 0 ${picture.width} ${picture.height}`,
+    width: picture.width, height: picture.height, role: 'img',
+    'aria-label': `The seed: ${n(seed.length)} live cells in the seed box`, id: 'contests-seed-picture',
+  });
+  svg.append(make('polygon', { class: 'contests-seed-box', points: picture.outline }));
+  for (const cube of picture.cubes) {
+    svg.append(
+      make('polygon', { class: 'contests-seed-top', points: cube.top }),
+      make('polygon', { class: 'contests-seed-right', points: cube.right }),
+      make('polygon', { class: 'contests-seed-left', points: cube.left }));
+  }
+  svg.append(make('path', { class: 'contests-seed-edges', d: picture.edges }));
+  return svg;
+}
+
+/**
+ * Makes an entry the contest's, if it can run there: runFor() refuses a B0 rule, an empty seed
+ * or a cell outside the seed box, with the reason. Seeds are never shifted.
+ * @returns {string | null} why it was refused, or null
+ */
+function setEntry(contest, { rules, cells }, source) {
+  const seed = [];
+  for (let i = 0; i < cells.length; i += 3) seed.push([cells[i], cells[i + 1], cells[i + 2]]);
+  let run;
+  try {
+    run = runFor(contest, { rules, seed });
+  } catch (err) {
+    if (!(err instanceof ResultError)) throw err;
+    const outside = outsideCount(seed, contest.fixes.seedBox);
+    return outside > 1 ? `${err.message} ${n(outside)} of its ${n(seed.length)} cells are outside it.` : err.message;
+  }
+  panel.entries.set(contest.id, { rules: run.rules, seed: run.seed, source });
+  return null;
+}
+
+function outsideCount(seed, box) {
+  return seed.filter((cell) => cell.some((c, a) => c < box.min[a] || c > box.max[a])).length;
+}
+
+/** Load seed…: reads a seed file as untrusted data, and makes it the entry, or says why not. */
+async function loadSeedFile(contest, file) {
+  const view = panel.view;
+  let refusal = null;
+  // A seed file holds at most a million cells, about 30 MB written out
+  if (file.size > 64 * 1024 * 1024) {
+    refusal = "The file is larger than 64 MB, so it isn't a seed file. It wasn't read.";
+  } else {
+    try {
+      const text = await file.text();
+      const seed = parseSeedFile(text);
+      refusal = setEntry(contest, seed, file.name);
+    } catch (err) {
+      refusal = /"format"\s*:\s*"morpheus-tech-lab\/result"/.test(await file.slice(0, 4096).text().catch(() => ''))
+        ? 'This is a result file, not a seed file. Check one with Verify a result; load a seed saved with Save seed, or the seed editor\'s Export.'
+        : err?.message ?? String(err);
+    }
+  }
+  if (panel.contest !== contest || panel.view !== view || !panel.open) return; // the panel has moved on
+  panel.refused = refusal ? { contest: contest.id, message: `Not loaded: ${refusal}` } : null;
+  showContest(contest);
+  if (!refusal) status(`Loaded ${file.name}.`);
 }
 
 // ---- The Hall of Fame ----
@@ -330,13 +517,16 @@ function hallOfFameRow(entry, place, contest) {
     h('span', { className: 'contests-hof-who' },
       h('span', { className: 'contests-hof-name', text: entry.name }),
       h('span', { className: 'contests-hof-meta', text: `${browser} · ${dayText(entry.date)}` })),
-    hallOfFameScore(contest, entry.score),
+    hallOfFameScore(contest, entry),
     watch);
 }
 
-/** An entry's score: what ranks it, then the rest; at Speed's ceiling, the time leads. */
-function hallOfFameScore(contest, score) {
-  const { main, detail } = boardScore(contest, score);
+/**
+ * An entry's score: what ranks it, then the rest; at Speed's ceiling, the time leads, and
+ * Methuselah's rules and seed cells follow its generations.
+ */
+function hallOfFameScore(contest, entry) {
+  const { main, detail } = boardScore(contest, entry.score, entry);
   return h('span', { className: 'contests-hof-score' },
     h('span', { className: 'contests-hof-score-main', text: main }),
     detail ? h('span', { className: 'contests-hof-score-detail', text: detail }) : null);
@@ -377,20 +567,51 @@ function svgNode(tag, attrs = {}, text) {
 }
 
 /**
- * A line chart of the generations completed over the run's seconds, drawn at the width it is
- * given on the page, with axes, their titles, a value at the line's end, and a crosshair that
- * reads out the nearest point on hover. With `table`, a table of the same points follows it.
+ * What a contest's chart shows. Speed's: the generations completed over its seconds. A Discovery
+ * run's: the live cells by generation.
+ */
+function chartSpec(contest) {
+  if (contest.kind === 'speed') {
+    return {
+      seconds: contest.seconds,
+      label: 'Generations completed over the run',
+      title: 'Generations completed',
+      subtitle: `over the ${contest.seconds} seconds: the steeper the line, the faster the machine`,
+      xTitle: 'Time (seconds)',
+      yTitle: 'Generations',
+      readout: (p) => `${p.at.toFixed(2)} s · ${n(p.value)} generations`,
+      columns: ['Time (s)', 'Generations'],
+      row: ([t, g]) => [t.toFixed(2), n(g)],
+    };
+  }
+  return {
+    label: 'Live cells by generation',
+    title: 'Live cells',
+    subtitle: 'by generation: how the pattern grew, and where it settled',
+    xTitle: 'Generation',
+    yTitle: 'Live cells',
+    readout: (p) => `generation ${n(p.at)} · ${n(p.value)} live cells`,
+    columns: ['Generation', 'Live cells'],
+    row: ([g, live]) => [n(g), n(live)],
+  };
+}
+
+/**
+ * A line chart of a run (chartSpec()), drawn at the width it is given on the page, with axes,
+ * their titles, a value at the line's end, and a crosshair that reads out the nearest point on
+ * hover. With `table`, a table of the same points follows it, built when it is opened.
  * @returns {{node: HTMLElement, update: (points: [number, number][]) => void}}
  */
-function createChart(seconds, { table = false } = {}) {
-  const svg = svgNode('svg', { class: 'contests-chart-svg', role: 'img', 'aria-label': 'Generations completed over the run' });
+function createChart(spec, { table = false } = {}) {
+  const { seconds } = spec;
+  const svg = svgNode('svg', { class: 'contests-chart-svg', role: 'img', 'aria-label': spec.label });
   const readout = h('div', { className: 'contests-chart-readout', attrs: { 'aria-hidden': 'true' } });
   readout.hidden = true;
   const tableBox = table ? h('details', { className: 'contests-chart-table' }, h('summary', { text: 'Show the data as a table' })) : null;
   const node = h('figure', { className: 'contests-chart' },
     h('figcaption', { className: 'contests-chart-caption' },
-      h('span', { className: 'contests-chart-title', text: 'Generations completed' }),
-      h('span', { className: 'contests-chart-subtitle', text: `over the ${seconds} seconds: the steeper the line, the faster the machine` })),
+      h('span', { className: 'contests-chart-title', text: spec.title }),
+      h('span', { className: 'contests-chart-subtitle', text: spec.subtitle })),
     h('div', { className: 'contests-chart-plot' }, svg, readout),
     tableBox);
   let layout = null;
@@ -414,11 +635,11 @@ function createChart(seconds, { table = false } = {}) {
       parts.push(svgNode('text', { class: 'contests-chart-tick', x: tick.at, y: plot.bottom + 16, 'text-anchor': 'middle' }, tick.label));
     }
     parts.push(svgNode('line', { class: 'contests-chart-axis', x1: plot.left, x2: plot.right, y1: plot.bottom, y2: plot.bottom }));
-    parts.push(svgNode('text', { class: 'contests-chart-axis-title', x: (plot.left + plot.right) / 2, y: height - 4, 'text-anchor': 'middle' }, 'Time (seconds)'));
+    parts.push(svgNode('text', { class: 'contests-chart-axis-title', x: (plot.left + plot.right) / 2, y: height - 4, 'text-anchor': 'middle' }, spec.xTitle));
     parts.push(svgNode('text', {
       class: 'contests-chart-axis-title', x: 0, y: 0, 'text-anchor': 'middle',
       transform: `translate(14 ${(plot.top + plot.bottom) / 2}) rotate(-90)`,
-    }, 'Generations'));
+    }, spec.yTitle));
     if (layout.end) {
       parts.push(svgNode('path', { class: 'contests-chart-area', d: layout.area }));
       parts.push(svgNode('polyline', { class: 'contests-chart-line', points: layout.line }));
@@ -443,7 +664,7 @@ function createChart(seconds, { table = false } = {}) {
     dot.setAttribute('cx', point.x);
     dot.setAttribute('cy', point.y);
     dot.setAttribute('visibility', 'visible');
-    readout.textContent = `${point.seconds.toFixed(2)} s · ${n(point.generation)} generations`;
+    readout.textContent = spec.readout(point);
     readout.hidden = false;
     const scale = box.width / svg.viewBox.baseVal.width;
     readout.style.left = `${Math.min(point.x * scale + 10, box.width - readout.offsetWidth - 4)}px`;
@@ -465,18 +686,26 @@ function createChart(seconds, { table = false } = {}) {
     }).observe(node);
   }
 
+  // The table is built when it is first opened, and again once the points have changed: a
+  // Discovery run has a row for each of up to 10,001 generations
+  let tabled = null;
+  function fillTable() {
+    if (!tableBox?.open || tabled === latest) return;
+    tabled = latest;
+    tableBox.querySelector('table')?.remove();
+    const rows = latest.map((point) => h('tr', {}, ...spec.row(point).map((text) => h('td', { text }))));
+    tableBox.append(h('table', {},
+      h('thead', {}, h('tr', {}, ...spec.columns.map((text) => h('th', { text })))),
+      h('tbody', {}, ...rows)));
+  }
+  tableBox?.addEventListener('toggle', fillTable);
+
   return {
     node,
     update(points) {
       latest = points.slice();
       draw();
-      if (tableBox) {
-        tableBox.querySelector('table')?.remove();
-        const rows = latest.map(([t, g]) => h('tr', {}, h('td', { text: t.toFixed(2) }), h('td', { text: n(g) })));
-        tableBox.append(h('table', {},
-          h('thead', {}, h('tr', {}, h('th', { text: 'Time (s)' }), h('th', { text: 'Generations' }))),
-          h('tbody', {}, ...rows)));
-      }
+      fillTable();
     },
   };
 }
@@ -491,8 +720,12 @@ function statsGrid(rows, idPrefix) {
 // ---- The run ----
 
 function startRun(contest) {
+  if (contest.kind === 'methuselah') {
+    startDiscovery(contest);
+    return;
+  }
   endRun();
-  const chart = createChart(contest.seconds);
+  const chart = createChart(chartSpec(contest));
   const run = new SpeedRun(contest, {
     onStart: () => {
       if (panel.run !== run) return;
@@ -525,6 +758,63 @@ function startRun(contest) {
   run.start();
 }
 
+/**
+ * A Discovery run: a ring that fills as the generations go by, out of the budget, the
+ * statistics, a chart of the live cells by generation, and Stop. Nothing is drawn in 3D.
+ */
+function startDiscovery(contest) {
+  const entry = panel.entries.get(contest.id);
+  if (!entry) return;
+  endRun();
+  const chart = createChart(chartSpec(contest));
+  let run;
+  try {
+    run = new DiscoveryRun(contest, { rules: entry.rules, seed: entry.seed }, {
+      onStart: () => panel.run === run && hud(undefined, 'Running'),
+      onStats: (stats) => panel.run === run && showDiscoveryStats(run, stats, chart),
+      onEnd: (end) => panel.run === run && showResults(run, end),
+      onError: (message) => panel.run === run && status(`The engine says: ${message}`),
+    });
+  } catch (err) {
+    status(`It can't run: ${err.message}`);
+    return;
+  }
+  panel.run = run;
+  const ring = svgNode('svg', { class: 'contests-clock-ring', viewBox: '0 0 160 160', 'aria-hidden': 'true' });
+  ring.append(
+    svgNode('circle', { class: 'contests-clock-track', cx: 80, cy: 80, r: 72 }),
+    svgNode('circle', { class: 'contests-clock-arc', cx: 80, cy: 80, r: 72, pathLength: 100, id: 'contests-clock-arc', style: 'stroke-dashoffset: 100' }));
+  ring.style.setProperty('--contest-color', LOOKS[contest.kind].color);
+  show('running', `${contest.title}: running`, [
+    h('div', { className: 'contests-run-top' },
+      h('div', { className: 'contests-clock contests-clock--budget', attrs: { role: 'group', 'aria-label': 'Generation, out of the budget' } },
+        ring,
+        h('div', { className: 'contests-clock-face' },
+          h('span', { className: 'contests-countdown-value contests-countdown-value--small', text: '0', attrs: { id: 'contests-countdown' } }),
+          h('span', { className: 'contests-clock-unit', text: `of ${n(run.budget)} generations`, attrs: { id: 'contests-budget' } }))),
+      statsGrid(statsRows(emptyStats()), 'contests-stat')),
+    chart.node,
+    h('p', { className: 'contests-note', text: `Running ${rulesText(entry.rules)} from ${n(entry.seed.length)} seed cells until the pattern settles, reaches the edge of the arena, or reaches generation ${n(run.budget)}. Stop ends it without a score.` }),
+    h('div', { className: 'contests-actions' }, button('Stop', () => run.stop(), { id: 'contests-stop' })),
+  ]);
+  chart.update(run.points);
+  hud(contest.title, 'Starting', '0');
+  run.start();
+}
+
+function showDiscoveryStats(run, stats, chart) {
+  statsRows(stats).forEach(([, value], i) => {
+    const cell = el(`contests-stat-${i}`);
+    if (cell) cell.textContent = value;
+  });
+  const value = el('contests-countdown');
+  if (value) value.textContent = n(stats.generation);
+  const arc = el('contests-clock-arc');
+  if (arc) arc.style.strokeDashoffset = String(100 - Math.min(100, (stats.generation / run.budget) * 100));
+  chart.update(run.points);
+  hud(undefined, undefined, budgetText(stats.generation, run.budget));
+}
+
 function emptyStats() {
   return { generation: 0, rate: 0, live: 0, livePeak: 0, chunks: 0, memoryBytes: 0, extent: null };
 }
@@ -540,18 +830,32 @@ function showStats(stats, chart) {
 
 // ---- The results card ----
 
-async function showResults(run, { stats, reason, score }) {
+async function showResults(run, end) {
+  const { stats, reason, score } = end;
   const { contest } = run;
+  const speed = contest.kind === 'speed';
   panel.startedAt = 0;
-  hud(contest.title, score ? 'Finished' : 'Stopped', n(stats.generation));
+  hud(contest.title, score ? 'Finished' : reason === 'stopped' || speed ? 'Stopped' : 'No score', n(stats.generation));
   const again = button('Run again', () => showContest(contest), { main: !score, id: 'contests-again' });
   const back = button('Back to the contest', showList, { id: 'contests-back' });
-  const chart = createChart(contest.seconds, { table: true });
+  const chart = createChart(chartSpec(contest), { table: true });
+  const endingText = speed ? speedEndingText(reason, contest) : methuselahEndingText(reason, contest, end);
+  const entryFacts = speed ? null : facts([
+    ['Seed', `${n(run.run.seed.length)} cell${run.run.seed.length === 1 ? '' : 's'}`],
+    ['Rules', rulesText(run.run.rules)],
+  ], 'contests-result-entry');
+  // A Discovery run's chart: every generation's live cells, which the Worker kept
+  const history = speed ? Promise.resolve() : run.loadHistory().then(() => {
+    if (panel.run === run) chart.update(run.points);
+  }).catch(() => {}); // the statistics' points stay
   if (!score) {
+    await history;
     run.close();
+    if (panel.run !== run) return;
     show('results', `${contest.title}: no score`, [
-      h('p', { text: speedEndingText(reason, contest) }),
+      h('p', { className: 'contests-ending', text: endingText, attrs: { id: 'contests-ending' } }),
       chart.node,
+      entryFacts,
       statsGrid(statsRows(stats)),
       h('div', { className: 'contests-actions' }, again, back),
     ]);
@@ -568,7 +872,8 @@ async function showResults(run, { stats, reason, score }) {
     text: `Watch plays the run back in 3D, replayed from its seed, and checks the replay's hash at generation ${n(stats.generation)} against this one.`,
     attrs: { id: 'contests-self-verified', 'data-verdict': 'pending' },
   });
-  const hero = speedHero(score, contest);
+  const hero = speed ? speedHero(score, contest) : methuselahHero(score, reason);
+  const scoreWords = scoreText(contest, score, reason);
   const meta = h('span', { className: 'contests-hero-meta', text: 'Detecting the browser…', attrs: { id: 'contests-hero-meta' } });
   const hash = h('span', { className: 'contests-hash', text: `Hashing generation ${n(stats.generation)}…`, attrs: { id: 'contests-hash' } });
   const copy = button('Copy', null, { id: 'contests-copy-hash' });
@@ -577,19 +882,20 @@ async function showResults(run, { stats, reason, score }) {
     h('h3', { className: 'contests-section-title', text: 'Enter it', attrs: { id: 'contests-submit-title' } }),
     h('p', { className: 'contests-note', text: 'Submit by email is ready once the result file is made.' }));
   show('results', `${contest.title}: your result`, [
-    h('div', { className: 'contests-hero', attrs: { role: 'group', 'aria-label': `Your score: ${speedScoreText(score)}` } },
+    h('div', { className: 'contests-hero', attrs: { role: 'group', 'aria-label': `Your score: ${scoreWords}` } },
       h('span', { className: 'contests-hero-kicker' }, logo(contest.kind, 22, 'contests-hero-logo'), document.createTextNode(`${contest.title} · your score`)),
       h('span', { className: 'contests-hero-value', text: hero.value, attrs: { id: 'contests-score' } }),
       h('span', { className: 'contests-hero-unit', text: hero.unit, attrs: { id: 'contests-score-unit' } }),
       meta),
     chart.node,
-    h('p', { className: 'contests-ending', text: speedEndingText(reason, contest) }),
+    h('p', { className: 'contests-ending', text: endingText, attrs: { id: 'contests-ending' } }),
+    entryFacts,
     statsGrid(statsRows(stats)),
     h('div', { className: 'contests-hash-box' },
       h('span', { className: 'contests-hash-label', text: "The result's hash" }),
       h('div', { className: 'contests-hash-row' }, hash, copy)),
     verified,
-    h('p', { className: 'contests-note', text: SELF_REPORTED }),
+    h('p', { className: 'contests-note', text: speed ? SELF_REPORTED : SAME_EVERYWHERE }),
     h('div', { className: 'contests-actions' }, exportButton, watchButton, again, back),
     submitBox,
   ]);
@@ -597,6 +903,7 @@ async function showResults(run, { stats, reason, score }) {
 
   let made;
   try {
+    await history;
     const detected = await detectBrowser();
     if (panel.run !== run) return;
     const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -615,11 +922,12 @@ async function showResults(run, { stats, reason, score }) {
   copy.onclick = () => copyText(made.result.hash, 'hash');
   submitBox.replaceChildren(submitBox.firstChild, ...submitParts({
     contest, score, browser: made.result.details.browser, hash: made.result.hash, text: made.text,
+    ending: reason, run: made.result.run,
   }));
   exportButton.disabled = false;
   exportButton.onclick = () => exportResult(contest, score, made.text);
   watchButton.disabled = false;
-  watchButton.onclick = () => watchResult(made.result, `${contest.title}: ${speedScoreText(score)}`, watchButton, verified);
+  watchButton.onclick = () => watchResult(made.result, `${contest.title}: ${scoreWords}`, watchButton, verified);
   // Export is what comes next, unless the visitor has moved on to another button meanwhile
   if (!el('contests-panel').contains(document.activeElement) || document.activeElement === again) {
     exportButton.focus({ preventScroll: true });
@@ -653,10 +961,10 @@ async function copyText(text, what) {
  * The link is a plain mailto: link, so the browser opens the mail app as it would for any other;
  * clicking it downloads the file first, in the same click.
  */
-function submitParts({ contest, score, browser, hash, text }) {
+function submitParts({ contest, score, browser, hash, text, ending, run }) {
   const fileName = resultFileName(contest, score);
-  const subject = emailSubject(contest, score);
-  const body = emailBody({ contest, score, browser, hash, fileName });
+  const subject = emailSubject(contest, score, ending);
+  const body = emailBody({ contest, score, browser, hash, fileName, ending, run });
   const link = h('a', {
     className: 'glass-button contests-button contests-submit-button',
     text: 'Submit by email',
@@ -761,10 +1069,16 @@ function showVerdict(name, answer, back, text) {
   if (answer.generation !== null && answer.generation !== undefined) rows.push(['Generation', n(answer.generation)]);
   if (answer.ending) rows.push(['Ended', answer.ending]);
   if (answer.score) {
-    rows.push(['Score', 'generations' in answer.score && 'ms' in answer.score
-      ? `${speedScoreText(answer.score)} (the time is self-reported)`
-      : JSON.stringify(answer.score)]);
+    const contest = answer.contest ? contestById(answer.contest) : undefined;
+    const known = contest && (contest.kind === 'speed'
+      ? 'generations' in answer.score && 'ms' in answer.score
+      : 'generations' in answer.score && 'period' in answer.score);
+    rows.push(['Score', !known ? JSON.stringify(answer.score)
+      : contest.kind === 'speed' ? `${speedScoreText(answer.score)} (the time is self-reported)`
+        : sentence(scoreText(contest, answer.score, answer.ending))]);
   }
+  if (answer.rules) rows.push(['Rules', rulesText(answer.rules)]);
+  if (answer.seedCells) rows.push(['Seed', `${n(answer.seedCells)} cell${answer.seedCells === 1 ? '' : 's'}`]);
   // Watch reads the file again, on this thread: readResult() checks it as untrusted data
   const readable = text !== undefined && ['verified', 'mismatch', 'not-checked'].includes(answer.verdict);
   const line = readable ? h('p', {

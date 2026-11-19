@@ -46,7 +46,8 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          against convolve3D() (dense.test.js);
                          browser.test.js checks telling the browser; contests/ checks a Speed run and Verify a
                          result… on worker_threads (verifyNodeWorker.js stands in for verify.worker.js) and
-                         the panel's text (format.test.js), Watch's included, the email's text (submit.test.js)
+                         a Methuselah run on worker_threads (discovery.test.js),
+                         the panel's text (format.test.js), Watch's and Methuselah's included, the email's text (submit.test.js)
                          and the Hall of Fame, hall-of-fame.json against its result files (hallOfFame.test.js);
                          explore/ checks
                          Explore's seeds, presets, seed files, saves, settings (setup.test.js), camera framing
@@ -79,7 +80,8 @@ src/
   unbounded/rules.js     validateRules() (refuses B0) and the rule lookup table
   unbounded/reference.js ReferenceWorld: a deliberately simple Set-of-strings engine the tests check world.js against
   unbounded/run.js       Run: the run loop (timed and open-ended runs, and replays with keyframes and seek;
-                         pause, step, stop, settling through settle.js), statistics, snapshots, an ended run's
+                         pause, step, stop, settling through settle.js), statistics, snapshots, every
+                         generation's live cells for a run with `history` (a Discovery run's chart), an ended run's
                          result file (the `result` message), and a replay's hash at its generation (`replayed`)
   unbounded/settle.js    Settler: the settle detector (#41). Ends a run when its pattern dies or repeats in place:
                          the fingerprint proposes a repeat, a rebuilt generation confirms it cell for cell; the
@@ -104,13 +106,17 @@ src/
   unbounded/driver.js    EngineDriver: the page's side of a run; starts a fresh Worker per run and relays its messages
   contests/              The Contests mode (#77): the contests on the page
   contests/contests.js   isContests(), startContests() and stopContests(): an empty scene, the panel, nothing drawn
-  contests/panel.js      The panel in the middle of the screen: the list (the kinds in ON_PAGE; Methuselah's page
-                         is #94), a contest's page with its Hall of Fame,
-                         the run (countdown, statistics, a chart of generations over time), the results card
+  contests/panel.js      The panel in the middle of the screen: the list (the kinds in ON_PAGE), a contest's page
+                         with its Hall of Fame; Methuselah's with its entry (#94), Load seed… and its refusals,
+                         the run (Speed: countdown, statistics, a chart of generations over time; a Discovery run:
+                         the generation out of the budget, statistics, a chart of live cells), the results card
                          with Export result and Submit by email, Verify a result, and the
                          HUD's Contest section. Sets only textContent
   contests/speed.js      SpeedRun: one Speed run in a Worker, its score and its result file made in the Worker;
                          verifyInWorker() (no DOM; tested in Node with worker_threads)
+  contests/discovery.js  DiscoveryRun (#94): one Discovery run (Methuselah's) in a Worker, in its contest's arena:
+                         a settling run with every generation's live cells kept, its score from how it ended,
+                         and its result file made in the Worker (no DOM; tested in Node with worker_threads)
   contests/watch.js      Watch (#78): a result played back in 3D in place of the panel, replayed in a Worker
                          (run.js's replay kind), with ExploreView, the control bar, a scrub bar, Close, and
                          whether the replay's hash at the result's generation matched
@@ -119,13 +125,15 @@ src/
   contests/submit.js     Submit by email (#79): the address, the subject, the email's text (the lab's promise to an
                          entrant) and the mailto: link (no DOM; tested in Node)
   contests/hallOfFame.js The Hall of Fame (#79): readHallOfFame() (the data's shape; a Methuselah entry also has
-                         seedCells), rankEntries() (as the contest ranks, then date, then arrival), checkEntry()
+                         rules and seedCells), rankEntries() (as the contest ranks, then date, then arrival), checkEntry()
                          (an entry against its result file) (no DOM; tested in Node)
   contests/format.js     What the panel says and draws: countdown, the chart's layout (chartLayout()), scores,
-                         endings, statistics, and what Watch found (selfVerifiedText()) (tested in Node)
+                         endings (Speed's and Methuselah's), statistics, a Discovery seed's picture
+                         (seedPicture()), and what Watch found (selfVerifiedText()) (tested in Node)
   contests/contests-check.html Not bundled: a dev page (/src/contests/contests-check.html under `npm run dev`) that
                          clicks through the Contests mode in a frame holding the lab, two real Speed runs,
-                         Submit by email and a staged Hall of Fame included, marking each check ✔ or ✖, and
+                         Submit by email and a staged Hall of Fame included, and Methuselah's page, Load seed…
+                         and its runs, marking each check ✔ or ✖, and
                          lists what to check by hand
   explore/               The Explore mode: the unbounded engine on the page (#37)
   explore/explore.js     Starts and drives the run, the control bar's commands in Explore, the HUD box and notices,

@@ -457,6 +457,42 @@ test('commands a run won\'t act on are refused, and the run carries on', () => {
   assert.equal(f.ended().reason, 'deadline');
 });
 
+test('a run with history keeps every generation\'s live cells, from 0 to where it ended', () => {
+  // Straight through: the live cells of every generation, as the reference counts them
+  const f = fakeRun();
+  f.start({ run: { kind: 'open', history: true }, generations: 12 });
+  f.until();
+  f.run.receive({ type: 'history', id: 3 });
+  const [message] = f.of('history');
+  assert.equal(message.id, 3);
+  assert.ok(message.live instanceof Uint32Array);
+  assert.deepEqual(message.transfer, [message.live.buffer]);
+  assert.deepEqual(Array.from(message.live), Array.from({ length: 13 }, (_, g) => straight(g).length));
+
+  // A settled run's goes back to where its cycle began, as its generation does
+  const settled = fakeRun();
+  settled.start({ run: { kind: 'open', settle: true, history: true }, world: { ...WORLD, rules: OSCILLATOR.rules }, seed: OSCILLATOR.seed, generations: 100 });
+  settled.until();
+  settled.run.receive({ type: 'history', id: 1 });
+  const reference = new ReferenceWorld(OSCILLATOR.rules, OSCILLATOR.seed);
+  const live = [reference.cells().length];
+  for (let g = 1; g <= 9; g++) {
+    reference.step();
+    live.push(reference.cells().length);
+  }
+  assert.deepEqual(Array.from(settled.of('history')[0].live), live);
+
+  // Only with its generations, from 0; and a run without history has none to give
+  const bad = fakeRun();
+  bad.start({ run: { kind: 'open', history: true } });
+  assert.match(bad.of('error')[0].message, /history only with its generations/);
+  const none = fakeRun();
+  none.start({ run: { kind: 'open' }, generations: 2 });
+  none.until();
+  none.run.receive({ type: 'history', id: 1 });
+  assert.match(none.of('error')[0].message, /keeps no history/);
+});
+
 test('a bad start is refused without starting', () => {
   const f = fakeRun();
   f.start({ run: { kind: 'open' }, world: { rules: { birth: [0, 4], survival: [4] } } });

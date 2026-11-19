@@ -556,6 +556,9 @@
     <p id="contests-panel-status" class="contests-panel-status" role="status" aria-live="polite"></p>
   </section>
   <input type="file" id="contests-verify-file" accept=".json,application/json" hidden>
+  <!-- Load seed… on a Discovery contest's page (#94): a seed file from Explore's Save seed or the
+       seed editor's Export -->
+  <input type="file" id="contests-seed-file" accept=".json,application/json" hidden>
   <!-- Watch (src/contests/watch.js, #78): a result played back in 3D, in place of the panel. The
        control bar plays, pauses, steps and sets the speed; this bar, above it, scrubs to any
        generation up to the result's, says whether the replay matched, and closes -->
@@ -3842,6 +3845,100 @@
   .contests-chart-table td {
     padding: 2px 12px 2px 0;
     text-align: right;
+  }
+  /* A Discovery run's table has a row a generation: it scrolls */
+  .contests-chart-table[open] {
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  /* A Discovery contest's entry (#94): the seed, drawn in its box, beside its facts */
+  .contests-entry {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 18px;
+    margin: 0 0 4px;
+  }
+  .contests-entry .contests-facts {
+    margin: 0;
+  }
+  .contests-seed-picture {
+    flex: none;
+    max-width: 100%;
+    height: auto;
+    padding: 6px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.25);
+  }
+  .contests-seed-box {
+    fill: rgba(179, 156, 255, 0.06);
+    stroke: rgba(179, 156, 255, 0.35);
+    stroke-width: 1;
+  }
+  .contests-seed-edges {
+    fill: none;
+    stroke: rgba(179, 156, 255, 0.25);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+  .contests-seed-top { fill: #d6caff; }
+  .contests-seed-right { fill: #9c84f0; }
+  .contests-seed-left { fill: #7a63cc; }
+  .contests-seed-picture polygon:not(.contests-seed-box) {
+    stroke: rgba(20, 12, 50, 0.55);
+    stroke-width: 0.5;
+  }
+  .contests-warning,
+  .contests-refused {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .contests-warning {
+    border-left: 3px solid rgba(240, 190, 80, 0.9);
+    background: rgba(240, 190, 80, 0.12);
+  }
+  .contests-refused {
+    border-left: 3px solid rgba(255, 110, 110, 0.9);
+    background: rgba(255, 110, 110, 0.12);
+  }
+  .contests-run-button[disabled] {
+    opacity: 0.45;
+    cursor: default;
+    transform: none;
+    filter: none;
+  }
+  /* How a Methuselah run ends: four rows */
+  .contests-endings {
+    width: 100%;
+    margin: 0 0 10px;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .contests-endings th,
+  .contests-endings td {
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left;
+    vertical-align: top;
+  }
+  .contests-endings thead th {
+    color: rgba(200, 220, 255, 0.7);
+    font-size: 11px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+  .contests-endings tbody th {
+    color: #fff;
+    white-space: nowrap;
+  }
+  /* A Discovery run's ring fills over its budget, in the contest's colour */
+  .contests-clock--budget .contests-clock-arc {
+    stroke: var(--contest-color, #b39cff);
+  }
+  .contests-countdown-value--small {
+    font-size: 30px;
   }
   /* The statistics: small figures, secondary to the clock and the score */
   .contests-stats {

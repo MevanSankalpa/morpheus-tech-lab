@@ -200,6 +200,24 @@ file and checks it in its own Worker (`verify.worker.js`, running `verifyResult(
 only `textContent`, so nothing from a file is read as HTML. Leaving the mode closes the panel and
 terminates its Workers.
 
+**Methuselah's page** (#94). `panel.js` gives Methuselah its own page: the entry, what the contest
+fixes, its four endings, the Hall of Fame and how it runs. The entry is a seed and its rules,
+kept per contest while the panel is open. **Load seed…** reads a seed file (`seed.js`'s
+`parseSeedFile()`, as untrusted data) and passes it through `runFor()`, which refuses a B0 rule,
+an empty seed or a cell outside the seed box with the reason, shown before Run; a B1 rule gets
+`methuselahWarnings()`'s warning. The seed is drawn as cubes in the seed box, seen from above a
+corner, with hidden cubes left out (`format.js`'s `seedPicture()`, tested in Node). A run is
+`discovery.js`'s `DiscoveryRun`: an open-ended settling run in a Worker, in the contest's arena,
+with its chunk size and its budget as the generation limit, and `history`, so the Worker keeps
+every generation's live cells (`run.js`'s `history` message, 4 bytes a generation). Nothing
+depends on time. The run panel shows a ring that fills over the budget, the statistics and a chart
+of live cells by generation (`chartLayout()` without `seconds`: both axes fit the data), from the
+statistics while it runs and from the whole history once it ends. `DiscoveryRun` scores the run
+from its end reason, generation and cycle (`methuselahScore()`), and has the Worker make the
+result file, as `SpeedRun` does. The card's and the email's words come from `format.js`
+(`methuselahScoreText()`, `methuselahHero()`, `methuselahEndingText()`) and `submit.js`, which
+adds the rules and the seed's cells. Contained chaos (#42) adds its kind to `DiscoveryRun`.
+
 **Watch** (`watch.js`, #78) plays a result back in 3D: from the results card, or from a file Verify
 a result has read (`readResult()` again, on the page). It hides the panel and starts a *replay* in a
 Worker (`run.js`'s `replay` kind): an open-ended run from the result's seed that ends at the
@@ -230,17 +248,19 @@ self-reported timing); CONTRIBUTING.md's "Contest entries" is the maintainers' s
 **Hall of Fame** is data: `src/unbounded/hall-of-fame.json`, `{"entries": [...]}`, each entry
 with its contest, chosen name, picture (a path under `public/hall-of-fame/`, or null), score,
 browser, the date it arrived, and its result file under `public/hall-of-fame/results/`, and a
-Methuselah entry its seed's cell count (`seedCells`), which breaks a tie in its score; paths
+Methuselah entry its rules, shown beside its score, and its seed's cell count (`seedCells`), which
+breaks a tie in its score; paths
 are as the site serves them, without `public/`. `hallOfFame.js` reads it (`readHallOfFame()`,
 shape only), ranks a contest's entries (`rankEntries()`: the contest's order, `compareSpeed()`
 for Speed, `compareMethuselah()` for Methuselah, then the earlier date, then the file's order,
 which is arrival order), and checks an entry against its file (`checkEntry()`: it reads as a
-result, passes `checkContest()`, and has the entry's contest, score, browser and seed cells), which `npm test` runs on every entry without replaying;
+result, passes `checkContest()`, and has the entry's contest, score, browser, rules and seed cells), which `npm test` runs on every entry without replaying;
 `scripts/verify.mjs` replays them. Each contest's page shows its top 10, the lab's logo standing
 in for a missing picture, each score led by what ranks it (`format.js`'s `boardScore()`): at
 Speed's ceiling every entry has 1,000 generations, so the time leads, to the millisecond the score
 holds (`secondsText()`), as on the results card (`speedHero()`), since two places would show
-times that rank apart as equal; and Watch fetches an entry's result file from the site and reads it
+times that rank apart as equal, and Methuselah's generations lead, with its period, rules and seed
+cells after them; and Watch fetches an entry's result file from the site and reads it
 through `readResult()` like any other.
 
 **Benchmarks**: `scripts/bench.mjs` (#39) measures the engine in Node (chunk sizes, seeds, rules,

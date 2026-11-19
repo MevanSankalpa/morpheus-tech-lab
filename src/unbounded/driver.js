@@ -43,7 +43,8 @@ export class EngineDriver {
    * @param {object} config.world - World options: {rules, chunkSize?, slabBytes?, limits?, arena?}
    * @param {Int32Array} config.seed - live cells as x, y, z triples. It is transferred: the
    *   page's copy is emptied.
-   * @param {{kind: 'timed', seconds: number} | {kind: 'open', paused?: boolean, rate?: number}
+   * @param {{kind: 'timed', seconds: number} | {kind: 'open', paused?: boolean, rate?: number,
+   *   settle?: boolean, history?: boolean}
    *   | {kind: 'replay', paused?: boolean, rate?: number, check?: {run: object, hash: string},
    *   keyframeBytes?: number, keyframeEvery?: number}} config.run
    * @param {number} [config.generations] - end the run after this many generations; a replay's
@@ -126,6 +127,19 @@ export class EngineDriver {
   }
 
   /**
+   * A run started with `history`: the live cells of each generation so far, from generation 0.
+   * @returns {Promise<{live: Uint32Array}>}
+   */
+  history() {
+    if (!this.worker) return Promise.reject(new Error('There is no run.'));
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+      this.send({ type: 'history', id });
+    });
+  }
+
+  /**
    * After the run has ended: its result file, made in the Worker from its last complete
    * generation (run.js), so the page never holds the cells.
    * @param {object} options
@@ -180,6 +194,7 @@ export class EngineDriver {
         return this.onReplayed(replayed);
       }
       case 'cycle':
+      case 'history':
       case 'snapshot':
         return this.settle(message.id, (p) => {
           const { type, id, ...snapshot } = message;
