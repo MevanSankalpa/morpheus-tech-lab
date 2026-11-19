@@ -317,7 +317,7 @@
         el('explore-seed-file').dispatchEvent(new win.Event('change'));
       };
       press('explore-change-seed');
-      ok(visible('explore-use-in-contest') && text('explore-contest-status').includes('tiny.json, 3 cells') && text('explore-contest-status').includes('B5/S4-5') && text('explore-contest-status').includes('into Methuselah'),
+      ok(visible('explore-use-in-contest') && text('explore-contest-status').includes('tiny.json, 3 cells') && text('explore-contest-status').includes('B5 / S4-5') && text('explore-contest-status').includes('into Methuselah'),
         `The Seed popover offers Use in a contest, for the seed in use and its rules ("${text('explore-contest-status').slice(0, 70)}…")`);
       press('explore-source-file');
       seedFile('wide.json', [[0, 0, 0], [9, 0, 0], [0, -7, 0]]);
