@@ -419,6 +419,50 @@ export function changeArena(setup, on, sideText, { own = false } = {}) {
 }
 
 /**
+ * Explore's seed in use and its rules as a Discovery contest's entry (#95), for Use in a contest:
+ * the starting cells exactly as they are, never shifted, or why they can't be an entry. A seed
+ * with any cell outside the contest's seed box is refused, saying which; so is an empty one, and a
+ * saved generation, which isn't a starting seed. Explore never takes a B0 rule, and the contest's
+ * page checks the entry again (runFor()).
+ * @param {object} setup
+ * @param {{title: string, fixes: {seedBox: {min: number[], max: number[]}, arena: {min: number[], max: number[]}}}} contest
+ * @returns {{entry: {rules: object, cells: Int32Array, source: string, note: string | null}}
+ *   | {reason: string}} the entry, with where it came from and, if Explore's arena isn't the
+ *   contest's, a note saying so; or why not
+ */
+export function contestEntry(setup, contest) {
+  const { seed } = setup;
+  const n = (x) => x.toLocaleString('en');
+  const box = contest.fixes.seedBox;
+  const boxText = `the ${box.max[0] - box.min[0] + 1}³ seed box, cells ${box.min[0]} to ${box.max[0]} on each axis`;
+  if (seed.kind === 'saved') {
+    return { reason: `A saved generation carries on from generation ${n(seed.from)}, so it isn't a seed to start a contest from. Load its run's seed file, or design a seed, instead.` };
+  }
+  const { cells } = seed;
+  const count = cells.length / 3;
+  if (!count) return { reason: `The seed has no live cells: a ${contest.title} entry needs at least one, in ${boxText}.` };
+  const outside = [];
+  let outsideCount = 0;
+  for (let i = 0; i < cells.length; i += 3) {
+    const cell = [cells[i], cells[i + 1], cells[i + 2]];
+    if (cell.some((c, a) => c < box.min[a] || c > box.max[a])) {
+      outsideCount++;
+      if (outside.length < 3) outside.push(`[${cell.join(', ')}]`);
+    }
+  }
+  if (outsideCount) {
+    const which = outsideCount === 1 ? `Its cell ${outside[0]} lies` : `${n(outsideCount)} of its ${n(count)} cells lie`;
+    const such = outsideCount > 1 ? `, such as ${outside.join(outsideCount > 2 ? ', ' : ' and ')}` : '';
+    return { reason: `${which} outside ${boxText}${such}. Seeds are never shifted: make it fit with a smaller shape, or Design….` };
+  }
+  const side = contest.fixes.arena.max[0] - contest.fixes.arena.min[0] + 1;
+  const arena = arenaOf(setup);
+  const note = arena === side ? null
+    : `${contest.title} runs in its own ${side}³ arena, and Explore's ${arena ? `was ${n(arena)}³` : 'was off'}, so a run here may end differently from one in Explore.`;
+  return { entry: { rules: rulesOf(setup), cells: Int32Array.from(cells), source: `Explore: ${seedLabel(seed)}`, note } };
+}
+
+/**
  * Explore's arena set to a contest's (#94), for designing an entry: with the same arena, a run in
  * Explore settles, or reaches the edge, where the contest's run would. A saved generation keeps
  * its own arena, so it is left as it is, and the note says so.

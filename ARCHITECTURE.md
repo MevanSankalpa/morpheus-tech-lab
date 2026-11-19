@@ -200,6 +200,14 @@ file and checks it in its own Worker (`verify.worker.js`, running `verifyResult(
 only `textContent`, so nothing from a file is read as HTML. Leaving the mode closes the panel and
 terminates its Workers.
 
+**Use in a contest** (#95). Explore's Seed popover takes the seed in use and its rules into
+Methuselah: `setup.js`'s `contestEntry()` makes the entry from the setup's cells exactly as they
+are, or refuses it (a cell outside the seed box, naming them; an empty seed; a saved generation),
+with a note when Explore's arena isn't the contest's. `hud.js` hands the entry to `controls.js`
+(`initHud()`'s `useInContest`), whose `enterContests({entry})` opens Contests; `startContests()`
+passes it to `openPanel()`, which checks it again with `runFor()`, as a loaded file is, and opens
+the contest's page with it as the entry, Run focused. Explore stays the mode to go back to.
+
 **Methuselah's page** (#94). `panel.js` gives Methuselah its own page: the entry, what the contest
 fixes, its four endings, the Hall of Fame and how it runs. The entry is a seed and its rules,
 kept per contest while the panel is open. **Load seed…** reads a seed file (`seed.js`'s

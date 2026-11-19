@@ -10,10 +10,10 @@ import {
   initialSetup, makeShape, presetSeed, fileSeed, changeSeed, changeRules, changeArena, changeMemory,
   ownRules, configOf, boxesOf, lockOf, rulesOf, arenaOf, startOf, restartNote, seedLabel, SHAPES,
   DEFAULT_RULES, DEFAULT_MEMORY_MB, DEFAULT_ARENA, deathCounts, designOf, presetCopy, designFile, useDesign,
-  contestArena,
+  contestArena, contestEntry,
 } from '../../src/explore/setup.js';
 import { shapeSeed, toSeedFile, SeedError, arenaBox } from '../../src/explore/seed.js';
-import { contestById } from '../../src/unbounded/contests.js';
+import { contestById, runFor } from '../../src/unbounded/contests.js';
 import { readSeedOrSave, generationSave } from '../../src/explore/save.js';
 import { PRESETS, presetById } from '../../src/explore/presets.js';
 import { cubeOfSide, octahedronShape } from '../../src/shapeGenerators.js';
@@ -389,4 +389,71 @@ test("a contest's arena for designing an entry: on at its side, already so, or l
   const kept = contestArena(saved, 64, 'Methuselah');
   assert.equal(kept.setup, saved);
   assert.match(kept.note, /stays the saved generation's, so a run of it here may not end as Methuselah's would/);
+});
+
+// ---- Use in a contest (#95) ----
+
+const METHUSELAH = contestById('methuselah-1');
+const sortedTriples = (flat) => {
+  const cells = [];
+  for (let i = 0; i < flat.length; i += 3) cells.push([flat[i], flat[i + 1], flat[i + 2]]);
+  return cells.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+};
+
+/** The entry Use in a contest makes, and the run Methuselah makes of it: its seed must be the same cells. */
+function entered(setup) {
+  const found = contestEntry(setup, METHUSELAH);
+  assert.equal(found.reason, undefined, found.reason);
+  const { entry } = found;
+  const run = runFor(METHUSELAH, { rules: entry.rules, seed: sortedTriples(entry.cells) });
+  assert.deepEqual(run.seed, sortedTriples(setup.seed.cells), 'the seed goes in exactly as it is, never shifted');
+  assert.deepEqual(run.rules, rulesOf(setup));
+  return entry;
+}
+
+test('Use in a contest: the seed in use and its rules, from a shape, a preset, a design or a seed file', async () => {
+  // A shape: the 10³ cube fills the seed box, all 1,000 cells
+  const shape = entered(start());
+  assert.equal(shape.cells.length / 3, 1000);
+  assert.equal(shape.source, 'Explore: Cube, size 10, density 1');
+  // A preset, with its own rules
+  const preset = entered(changeSeed(start(), presetSeed('cube10')));
+  assert.deepEqual(preset.rules, CUBE10.rules);
+  assert.equal(preset.source, `Explore: ${CUBE10.name}`);
+  // A design, under the Rules box's rules
+  const designed = useDesign(changeRules(start(), '5', '4-6'), Int32Array.from([0, 0, 0, 1, 0, 0, -5, -5, -5, 4, 4, 4]), B5);
+  const design = entered(designed);
+  assert.deepEqual(design.rules, B5);
+  assert.equal(design.source, 'Explore: Design: 4 cells');
+  // A seed file, its rules in the Rules box
+  const file = entered(await withSeedFile(start()));
+  assert.deepEqual(file.rules, B5);
+  assert.equal(file.source, 'Explore: Seed file: mine.json');
+  // The entry is a copy: the setup's cells stay as they are
+  shape.cells[0] = 99;
+  assert.notEqual(start().seed.cells[0], 99);
+});
+
+test('Use in a contest refuses a seed outside the box, saying which cells; an empty seed; and a saved generation', async () => {
+  const one = contestEntry(useDesign(start(), Int32Array.from([0, 0, 0]), B5), METHUSELAH);
+  assert.ok(one.entry);
+  const outside = (cells) => contestEntry(changeSeed(start(), fileSeed('wide.json', { kind: 'seed', rules: B5, cells: Int32Array.from(cells) })), METHUSELAH);
+  assert.equal(outside([0, 0, 0, 5, 0, 0]).reason,
+    'Its cell [5, 0, 0] lies outside the 10³ seed box, cells -5 to 4 on each axis. Seeds are never shifted: make it fit with a smaller shape, or Design….');
+  assert.match(outside([0, 0, 0, 5, 0, 0, 0, -6, 0]).reason, /^2 of its 3 cells lie outside the 10³ seed box, cells -5 to 4 on each axis, such as \[5, 0, 0\] and \[0, -6, 0\]\./);
+  assert.match(outside([5, 0, 0, 6, 0, 0, 7, 0, 0, 8, 0, 0]).reason, /^4 of its 4 cells lie outside .*, such as \[5, 0, 0\], \[6, 0, 0\], \[7, 0, 0\]\./);
+  // A cube wider than the box: its cells are refused, never shifted into it
+  const wide = changeSeed(start(), makeShape('cube', { size: 12, density: 1 }));
+  assert.match(contestEntry(wide, METHUSELAH).reason, /cells lie outside the 10³ seed box/);
+  // A saved generation isn't a starting seed
+  assert.match(contestEntry(changeSeed(start(), await savedGeneration(64)), METHUSELAH).reason, /^A saved generation carries on from generation 412, so it isn't a seed to start a contest from\./);
+  // An empty seed: Explore itself refuses one, so build it as a setup would hold it
+  assert.match(contestEntry({ ...start(), seed: { kind: 'design', cells: new Int32Array(0) } }, METHUSELAH).reason, /^The seed has no live cells/);
+});
+
+test("Use in a contest says when Explore's arena isn't the contest's, which runs in its own", () => {
+  const off = changeArena(start(), false, 64);
+  assert.equal(contestEntry(off, METHUSELAH).entry.note, "Methuselah runs in its own 64³ arena, and Explore's was off, so a run here may end differently from one in Explore.");
+  assert.match(contestEntry(changeArena(start(), true, 100), METHUSELAH).entry.note, /Explore's was 100³/);
+  assert.equal(contestEntry(changeArena(start(), true, 64), METHUSELAH).entry.note, null);
 });

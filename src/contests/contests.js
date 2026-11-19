@@ -27,8 +27,10 @@ export function isContests() {
  * @param {(contest: {note: string, arena: number, title: string}) => void} [options.designInExplore]
  *   - leaves for Explore with the contest's arena and the seed editor open (controls.js), for a
  *   Discovery contest's page
+ * @param {object} [options.entry] - Explore's Use in a contest (#95): opens on its contest's page
+ *   with this entry, {contestId, rules, cells, source, note}
  */
-export function startContests({ designInExplore } = {}) {
+export function startContests({ designInExplore, entry } = {}) {
   stopContests();
   state.reset();
   state.autoRotateActive = false;
@@ -38,7 +40,7 @@ export function startContests({ designInExplore } = {}) {
   active = true;
   document.body.classList.add('mode-contests');
   banner(true);
-  openPanel({ designInExplore });
+  openPanel({ designInExplore, entry });
   document.getElementById('loading-overlay')?.classList.add('hidden');
 }
 
