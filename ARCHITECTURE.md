@@ -205,7 +205,10 @@ fixes, its four endings, the Hall of Fame and how it runs. The entry is a seed a
 kept per contest while the panel is open. **Load seed…** reads a seed file (`seed.js`'s
 `parseSeedFile()`, as untrusted data) and passes it through `runFor()`, which refuses a B0 rule,
 an empty seed or a cell outside the seed box with the reason, shown before Run; a B1 rule gets
-`methuselahWarnings()`'s warning. The seed is drawn as cubes in the seed box, seen from above a
+`methuselahWarnings()`'s warning. **Design a seed in Explore** calls back into `controls.js`
+(`designInExplore()`, handed to `startContests()`), which starts Explore and opens the seed editor
+(`hud.js`'s `openSeedEditor()`) with a note on the contest; the panel remembers the contest, so the
+banner comes back to its page. The seed is drawn as cubes in the seed box, seen from above a
 corner, with hidden cubes left out (`format.js`'s `seedPicture()`, tested in Node). A run is
 `discovery.js`'s `DiscoveryRun`: an open-ended settling run in a Worker, in the contest's arena,
 with its chunk size and its budget as the generation limit, and `history`, so the Worker keeps

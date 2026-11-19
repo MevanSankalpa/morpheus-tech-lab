@@ -319,15 +319,24 @@ function designStatus() {
 }
 
 // Design…: the editor on the seed in use, if it fits the seed box, under the Rules box's rules
-function openDesign() {
+function openDesign({ note = null } = {}) {
   const opened = designOf(state.explore);
   const lock = lockOf(state.explore);
   openFromPopover({
     places: opened.places,
     rules: opened.rules,
     rulesFrom: lock ? `${lock.name}, as the Rules box shows them` : 'the Rules box',
-    note: opened.reason && `${opened.reason} The editor opens on an empty box; the seed in use is unchanged.`,
+    note: [opened.reason && `${opened.reason} The editor opens on an empty box; the seed in use is unchanged.`, note]
+      .filter(Boolean).join(' ') || null,
   });
+}
+
+/**
+ * Opens the seed editor as Design… does, once Explore is running: for a Discovery contest's
+ * page (#94), which sends the visitor here to design an entry. `note` goes at the editor's head.
+ */
+export function openSeedEditor({ note = null } = {}) {
+  openDesign({ note });
 }
 
 // Edit a copy…: the editor on the chosen preset's cells, which bring its rules, unlocked on Use

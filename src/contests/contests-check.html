@@ -5,7 +5,7 @@
   through the Contests mode (#77) in a frame holding the lab, and marks each check ✔ or ✖: choosing
   the mode, the list, Speed's page, two real 6-second runs (one to the end, one stopped), Export,
   Submit by email (#79), Verify a result on the exported file, an edited copy and a file that
-  isn't a result, a staged Hall of Fame (#79), Methuselah (#94: its page, Load seed… and its
+  isn't a result, a staged Hall of Fame (#79), Methuselah (#94: its page, Design a seed in Explore and back, Load seed… and its
   refusals, runs that die, reach the edge and are stopped, Export, Verify, Watch, Submit and its
   Hall of Fame), and leaving the mode. It changes only the lab in its frame; reload to run it again. The list under
   the results is what to check by eye.
@@ -530,6 +530,22 @@
       ok(endings.join(' ') === 'Death Repeat Edge Budget', `It lists the four endings (${endings.join(', ')})`);
       ok(panelText().includes('same score') && panelText().includes('a few minutes'), 'It says the score is the same on any machine, and a run can take a few minutes');
       ok(visible('contests-hof-empty'), 'Its Hall of Fame is empty');
+
+      section('Design a seed in Explore');
+      ok(visible('contests-design-seed'), 'The entry offers Design a seed in Explore');
+      press('contests-design-seed');
+      await sleep(1500);
+      ok(doc.body.classList.contains('mode-explore') && !doc.body.classList.contains('mode-contests'), 'It leaves Contests for Explore');
+      ok(visible('seed-editor') && doc.body.classList.contains('seed-editor-open'), 'with the seed editor open');
+      ok(text('seed-editor-note').startsWith('For Methuselah: the seed must lie in this 10³ box.') && text('seed-editor-note').includes('Contest banner'), `Its note says how to come back ("${text('seed-editor-note').slice(0, 60)}…")`);
+      el('seed-editor').querySelector('[data-action="cancel"]').click();
+      await sleep(300);
+      ok(!visible('seed-editor') && el('contests-banner').getAttribute('aria-pressed') === 'false', 'Cancel closes the editor, in Explore');
+      await openContests();
+      ok(doc.body.classList.contains('mode-contests') && text('contests-panel-title') === 'Methuselah', 'The banner brings it back to Methuselah\'s page, not the list');
+      press('contests-back');
+      ok(text('contests-panel-title') === 'The Contest', 'Back goes to the list, as before');
+      press('contests-open-methuselah-1');
 
       section('Load seed…');
       await loadSeed('outside.json', seedFile(DIES.rules, [[0, 0, 0], [5, 0, 0], [6, 1, 1]]));

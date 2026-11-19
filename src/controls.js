@@ -3,7 +3,7 @@ import { initSimulation, updatePoints } from "./simulationModel.js";
 import * as THREE from 'three';
 import { initComputeControl, updateComputeControl } from "./gpu/computeControl.js";
 import { isExplore, stopExplore, togglePlay, stepOnce, restart, exploreViewChanged, toggleSave, confirmSave, closeSave } from "./explore/explore.js";
-import { initHud, startFromSetup, settingsNote } from "./explore/hud.js";
+import { initHud, startFromSetup, settingsNote, openSeedEditor } from "./explore/hud.js";
 import { isContests, startContests, stopContests, isWatching, closeWatch, watchTogglePlay, watchStep, watchViewChanged } from "./contests/contests.js";
 import { CONTESTS } from "./unbounded/contests.js";
 import { closingText } from "./contests/format.js";
@@ -1793,7 +1793,19 @@ function enterContests() {
   stopExplore(); // its Worker and view go
   resetControlsUI();
   initControls(); // the title and the GPU toggle follow the mode
-  startContests();
+  startContests({ designInExplore });
+}
+
+/**
+ * From a Discovery contest's page (#94): Explore, with the seed editor open on its seed, to
+ * design an entry. The banner then brings the visitor back to Contests, and the panel to the
+ * contest's page.
+ */
+function designInExplore(note) {
+  beforeContests = null;
+  state.simulationMode = 'explore';
+  restartExplore();
+  openSeedEditor({ note });
 }
 
 /**

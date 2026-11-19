@@ -56,6 +56,8 @@ const panel = {
   // It stays while the page is open, so Run again runs it again
   entries: new Map(),
   refused: null, // why the last seed file loaded was refused: {contest, message}
+  designInExplore: null, // leaves for Explore's seed editor (controls.js), from the mode's start
+  resume: null, // the contest the visitor left to design an entry in, to come back to
 };
 
 const el = (id) => document.getElementById(id);
@@ -131,9 +133,16 @@ function hud(name, state, generation) {
 
 // ---- Opening and closing ----
 
-/** Shows the panel, on the list of contests. */
-export function openPanel() {
+/**
+ * Shows the panel, on the list of contests, or back on the contest the visitor left for Explore
+ * to design an entry.
+ * @param {object} [options]
+ * @param {(note: string) => void} [options.designInExplore] - leaves for Explore with the seed
+ *   editor open
+ */
+export function openPanel({ designInExplore = null } = {}) {
   panel.open = true;
+  panel.designInExplore = designInExplore;
   el('contests-panel').hidden = false;
   const input = el('contests-verify-file');
   input.onchange = () => {
@@ -147,7 +156,10 @@ export function openPanel() {
     seedInput.value = '';
     if (file && panel.contest) loadSeedFile(panel.contest, file);
   };
-  showList();
+  const resume = panel.resume;
+  panel.resume = null;
+  if (resume) showContest(resume);
+  else showList();
 }
 
 /** Hides the panel, ending any run or check: for leaving the mode. */
@@ -366,14 +378,15 @@ function endingsTable(contest) {
  */
 function entrySection(contest, entry) {
   const load = button(entry ? 'Load another seed…' : 'Load seed…', () => el('contests-seed-file').click(), { main: !entry, id: 'contests-load-seed' });
+  const design = panel.designInExplore ? button('Design a seed in Explore', () => designSeed(contest), { id: 'contests-design-seed' }) : null;
   const refused = panel.refused?.contest === contest.id ? h('p', {
     className: 'contests-refused', text: panel.refused.message, attrs: { id: 'contests-entry-refused', role: 'alert' },
   }) : null;
   if (!entry) {
     return section('Your entry',
-      h('p', { text: 'A seed and its rules. Design them in Explore, with the seed editor for the seed, then save them with Save seed in the Seed box, or the seed editor\'s Export, and load the file here.', attrs: { id: 'contests-entry-none' } }),
+      h('p', { text: 'A seed and its rules. Design a seed in Explore opens Explore\'s seed editor: place the cells, set the rules in Explore\'s Rules box, and Export the design as a seed file (or Save seed from the Seed box). The Contest banner brings you back here, to Load seed….', attrs: { id: 'contests-entry-none' } }),
       refused,
-      h('div', { className: 'contests-actions' }, load));
+      h('div', { className: 'contests-actions' }, load, design));
   }
   const cells = entry.seed.length;
   const warnings = methuselahWarnings(entry.rules);
@@ -388,7 +401,18 @@ function entrySection(contest, entry) {
         ], 'contests-entry'))),
     ...warnings.map((text) => h('p', { className: 'contests-warning', text, attrs: { id: 'contests-entry-warning', role: 'note' } })),
     refused,
-    h('div', { className: 'contests-actions' }, load));
+    h('div', { className: 'contests-actions' }, load, design));
+}
+
+/**
+ * Design a seed in Explore: leaves Contests for Explore with the seed editor open on Explore's
+ * seed, and comes back to this contest's page with the banner.
+ */
+function designSeed(contest) {
+  const design = panel.designInExplore;
+  if (!design) return;
+  panel.resume = contest;
+  design(`For ${contest.title}: the seed must lie in this 10³ box. Export saves it, with the Rules box's rules, as a seed file; then the Contest banner takes you back to ${contest.title}, to Load seed….`);
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

@@ -20,8 +20,14 @@ export function isContests() {
   return state.simulationMode === 'contests';
 }
 
-/** Starts the mode in a fresh, empty scene, with the panel on the list of contests. */
-export function startContests() {
+/**
+ * Starts the mode in a fresh, empty scene, with the panel on the list of contests, or on the
+ * contest the visitor left to design an entry.
+ * @param {object} [options]
+ * @param {(note: string) => void} [options.designInExplore] - leaves for Explore with the seed
+ *   editor open (controls.js), for a Discovery contest's page
+ */
+export function startContests({ designInExplore } = {}) {
   stopContests();
   state.reset();
   state.autoRotateActive = false;
@@ -31,7 +37,7 @@ export function startContests() {
   active = true;
   document.body.classList.add('mode-contests');
   banner(true);
-  openPanel();
+  openPanel({ designInExplore });
   document.getElementById('loading-overlay')?.classList.add('hidden');
 }
 

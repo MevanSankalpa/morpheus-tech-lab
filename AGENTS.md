@@ -149,8 +149,8 @@ src/
                          arena and the memory limit; what each HUD box shows, what is locked, each popover's
                          change or the reason it is refused, and the config startExplore() takes (tested in Node)
   explore/hud.js         The gears in the Seed, Rules and Limits boxes' titles and their popovers, whose Apply changes
-                         `state.explore` and restarts the run; startFromSetup(); and folding every HUD box to its
-                         title, in every mode
+                         `state.explore` and restarts the run; startFromSetup(); openSeedEditor() (Design… from
+                         a contest's page); and folding every HUD box to its title, in every mode
   explore/popover.js     One HUD popover open at a time, beside its box: Esc, a click or focus outside closes it,
                          and focus goes back to its button. The save popover opens through it too
   explore/hud-check.html Not bundled: a dev page (/src/explore/hud-check.html under `npm run dev`) that clicks
