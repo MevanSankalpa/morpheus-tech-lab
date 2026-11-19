@@ -92,7 +92,7 @@ export function showBoxes() {
     lock.hidden = !boxes.lock;
     lock.textContent = boxes.lock ?? '';
   }
-  setText('explore-arena', boxes.arena ? `${n(boxes.arena)}³${boxes.arenaLocked ? ', saved' : ''}` : 'off');
+  setText('explore-arena', boxes.arena ? `${n(boxes.arena)}³${boxes.arenaLocked ? ', saved' : ''}${boxes.ships ? ', ships leave' : ''}` : 'off');
   setText('explore-memory-limit', `${n(boxes.memoryMB)} MB`);
 }
 
@@ -502,18 +502,23 @@ function showRulesLock() {
   placeOpenPopover();
 }
 
-// ---- Limits: the arena and the memory limit ----
+// ---- Limits: the arena, whether ships leave at its edge, and the memory limit ----
 
 // Use your own rules, pressed in the open popover and not yet applied. A saved generation locks
-// its arena; the memory limit is never locked, as it isn't part of the run.
+// its arena, and with it Ships leave at the edge; the memory limit is never locked, as it isn't
+// part of the run.
 let limitsOwn = false;
 
 function wireLimits() {
   const on = document.getElementById('explore-arena-on');
   const side = document.getElementById('explore-arena-side');
+  const ships = document.getElementById('explore-ships-on');
   const memory = document.getElementById('explore-memory-input');
-  if (!on || !side || !memory) return;
-  on.onchange = () => { side.disabled = !on.checked || isArenaLocked(); };
+  if (!on || !side || !ships || !memory) return;
+  on.onchange = () => {
+    side.disabled = !on.checked || isArenaLocked();
+    ships.disabled = side.disabled;
+  };
   document.getElementById('explore-arena-own').onclick = () => {
     limitsOwn = true;
     showLimitsLock();
@@ -524,10 +529,12 @@ function wireLimits() {
     const arena = arenaOf(state.explore);
     on.checked = arena !== null;
     side.value = `${arena ?? state.explore.arenaSize}`;
+    ships.checked = Boolean(state.explore.ships);
     memory.value = `${state.explore.memoryMB}`;
     showLimitsLock();
   }, () => {
-    const setup = isArenaLocked() ? state.explore : changeArena(state.explore, on.checked, side.value, { own: limitsOwn });
+    const setup = isArenaLocked() ? state.explore
+      : changeArena(state.explore, on.checked, side.value, { own: limitsOwn, ships: ships.checked });
     return changeMemory(setup, memory.value);
   });
 }
@@ -542,6 +549,7 @@ function showLimitsLock() {
   const on = document.getElementById('explore-arena-on');
   on.disabled = locked;
   document.getElementById('explore-arena-side').disabled = locked || !on.checked;
+  document.getElementById('explore-ships-on').disabled = locked || !on.checked;
   setText('explore-limits-note', restartNote(limitsOwn ? 0 : startOf(state.explore)));
   placeOpenPopover();
 }

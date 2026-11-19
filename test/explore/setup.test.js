@@ -252,7 +252,7 @@ test('each box shows its source\'s text', async () => {
   const cube = boxesOf(start());
   assert.deepEqual(cube, {
     seed: 'Cube, size 10, density 1', cells: 1000, rules: DEFAULT_RULES, lock: null,
-    arena: null, arenaLocked: false, memoryMB: 1024,
+    arena: null, arenaLocked: false, ships: false, memoryMB: 1024,
   });
   const preset = boxesOf(changeSeed(start(), presetSeed('cube10')));
   assert.equal(preset.seed, 'Cube10');

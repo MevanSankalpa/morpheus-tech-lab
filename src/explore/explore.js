@@ -12,7 +12,9 @@ import { initSpace } from '../space.js';
 import { EngineDriver } from '../unbounded/driver.js';
 import { ExploreView, RENDER_BUDGET } from './view.js';
 import { arenaBox, MAX_FILE_CELLS } from './seed.js';
-import { generationSave, seedSave, savedEnding, generationFileName, SEED_FILE_NAME } from './save.js';
+import { generationSave, seedSave, savedEnding, generationFileName, shipsLeftReason, SEED_FILE_NAME } from './save.js';
+import { SHIP_PERIOD, worldOf } from './setup.js';
+import { headingText } from '../contests/format.js';
 import { detectBrowser } from '../browser.js';
 import { openPopover, closePopover, placeOpenPopover } from './popover.js';
 /** How long after the visitor lets go of the view the camera starts following again. */
@@ -30,7 +32,10 @@ const ENDINGS = {
     : `Settled at generation ${cycle.from.toLocaleString('en')}: from then on, the pattern repeats every ${cycle.period.toLocaleString('en')} generations. Its cycle keeps playing.`),
   'memory-limit': (config) => `Stopped at the memory limit (${config.memoryMB.toLocaleString('en')} MB): the next block of memory would pass it. A higher limit, from the gear in the Limits box, lets it go further.`,
   'out-of-memory': () => 'Stopped: the browser refused more memory.',
-  'arena-edge': () => 'Stopped: the pattern reached the edge of the arena.',
+  'emits': (config, stats, cycle) => `Emits from generation ${cycle.from.toLocaleString('en')}: the pattern repeats every ${cycle.period.toLocaleString('en')} generations, but ships leave the arena during each cycle, so it never settles. Its cycle keeps playing.`,
+  'arena-edge': (config) => (config.ships
+    ? `Stopped: the pattern reached the edge of the arena with something that isn't a ship of period ${SHIP_PERIOD} or less heading out.`
+    : 'Stopped: the pattern reached the edge of the arena.'),
   'coordinate-limit': () => 'Stopped: the pattern reached the edge of the space the engine can hold, half a million cells from the centre.',
   'error': () => 'Stopped by an error in the engine.',
 };
@@ -38,7 +43,8 @@ const ENDINGS = {
 const session = {
   driver: null,
   view: null,
-  config: null, // {rules, cells, memoryMB, arena, label, seed?, from?}
+  config: null, // {rules, cells, memoryMB, arena, ships, label, seed?, from?}
+  departed: 0, // with Ships leave at the edge (#103): how many ships have left so far
   status: 'idle', // 'paused', 'running' or 'ended'
   wantSnapshot: false,
   snapshotPending: false,
@@ -67,6 +73,8 @@ export function isExplore() {
  * @param {Int32Array} config.cells - the seed, as x, y, z triples
  * @param {number} config.memoryMB
  * @param {number | null} config.arena - the arena's side in cells, or null for none
+ * @param {boolean} [config.ships] - with an arena, ships leave at its edge (#103), as in Classic
+ *   Methuselah
  * @param {string} config.label - what the seed is, for the HUD
  * @param {Int32Array} [config.seed] - when `cells` is a saved generation: the run's first seed
  * @param {number} [config.from] - when `cells` is a saved generation: its generation, which the
@@ -193,18 +201,21 @@ export async function toggleSave(kind) {
   let live;
   let stats = null;
   let chunkSize = session.chunkSize;
+  let departed = 0; // ships that have left by the generation (#103)
   try {
     const cycle = session.cycle;
     if (cycle?.frames) {
       generation = cycle.from + cycle.index;
       cells = cycle.frames[cycle.index];
       live = cells.length / 3;
+      departed = session.departed; // a cycle's frames come once the run has ended
     } else {
       // The budget keeps a generation too big to save from being copied out of the Worker
       const snapshot = await driver.snapshot({ budget: MAX_FILE_CELLS, stats: true });
       ({ generation, live, chunkSize } = snapshot);
       cells = snapshot.cells ?? null;
       stats = snapshot.stats ?? null;
+      departed = stats?.departed ?? 0;
     }
   } catch (err) {
     if (session.save === save) fillSave({ what: `The generation couldn't be taken: ${err.message}` });
@@ -212,6 +223,11 @@ export async function toggleSave(kind) {
   }
   if (session.save !== save) return; // closed, or the run restarted, meanwhile
   const title = `Save generation ${n(generation)}`;
+  const shipsLeft = shipsLeftReason(departed);
+  if (shipsLeft) {
+    fillSave({ title, what: shipsLeft });
+    return;
+  }
   if (!cells) {
     fillSave({
       title,
@@ -404,7 +420,11 @@ function launch() {
   session.extent = null;
   session.cycle = null;
   session.endReason = null;
+  session.departed = 0;
   setText('explore-settled', 'no');
+  const departedLine = document.getElementById('explore-departed-line');
+  if (departedLine) departedLine.hidden = !config.ships;
+  setText('explore-departed', '0');
   note('explore-end-note', null);
   closeSave();
   setPlaying(false);
@@ -433,9 +453,7 @@ function launch() {
   });
   session.driver = driver;
   showSaveButton();
-  const world = { rules: config.rules, limits: { memory: config.memoryMB * 2 ** 20 } };
-  const arena = arenaBox(config.arena);
-  if (arena) world.arena = arena;
+  const world = worldOf(config);
   // The seed is transferred to the Worker, so it gets a copy: Restart needs the original.
   // Settling ends the run when the pattern dies or repeats.
   driver.start({ world, seed: config.cells.slice(), from: config.from ?? 0, run: { kind: 'open', paused: true, rate, settle: true } });
@@ -445,10 +463,12 @@ function endWith(driver, reason, stats, cycle) {
   const { config } = session;
   const ending = ENDINGS[reason]?.(config, stats, cycle) ?? `Stopped (${reason}).`;
   const settled = reason === 'died' || reason === 'repeat';
-  setText('bottom-state-value', reason === 'died' ? 'died' : reason === 'repeat' ? (cycle.period === 1 ? 'still' : 'cycle') : 'ended');
+  setText('bottom-state-value', reason === 'died' ? 'died' : reason === 'repeat' ? (cycle.period === 1 ? 'still' : 'cycle') : reason === 'emits' ? 'emits' : 'ended');
   setText('explore-settled', reason === 'died' ? 'died'
-    : reason === 'repeat' ? (cycle.period === 1 ? 'still life' : `every ${cycle.period.toLocaleString('en')}`) : 'no');
-  if (reason === 'repeat' && cycle.period > 1) {
+    : reason === 'repeat' ? (cycle.period === 1 ? 'still life' : `every ${cycle.period.toLocaleString('en')}`)
+      : reason === 'emits' ? `no, emits every ${cycle.period.toLocaleString('en')}` : 'no');
+  // A cycle plays on: one that repeats in place, or one that sends off ships (emits)
+  if ((reason === 'repeat' && cycle.period > 1) || reason === 'emits') {
     note('explore-end-note', ending);
     session.cycle = { ...cycle, frames: null, index: 0, nextAt: 0, redraw: true };
     // Frames for the whole cycle, if it is small enough to keep and redraw every frame
@@ -504,8 +524,23 @@ function showStats(stats) {
   const limit = session.config ? ` / ${n(session.config.memoryMB)}` : '';
   setText('explore-memory-used', `${n(Math.round(stats.memoryBytes / 2 ** 20))}${limit} MB`);
   setText('bottom-gen', n(stats.generation));
+  if (stats.departed !== undefined) showDeparted(stats);
   session.extent = stats.extent;
   fitSliceSlider();
+}
+
+/**
+ * Ships leave at the edge (#103): the Run box counts them, with where the last one went, and a
+ * note says so each time another leaves.
+ */
+function showDeparted({ departed, lastDeparture }) {
+  const last = lastDeparture ? `, last at ${lastDeparture.generation.toLocaleString('en')}, ${headingText(lastDeparture.shift)}` : '';
+  setText('explore-departed', `${departed.toLocaleString('en')}${last}`);
+  if (departed > session.departed && lastDeparture) {
+    const ships = departed - session.departed === 1 ? 'A ship' : `${(departed - session.departed).toLocaleString('en')} ships`;
+    note('explore-end-note', `${ships} left the arena at generation ${lastDeparture.generation.toLocaleString('en')}, heading ${headingText(lastDeparture.shift)}: ${departed.toLocaleString('en')} so far.`);
+  }
+  session.departed = departed;
 }
 
 // The slice slider spans the pattern's extent on the slice's axis, which grows as it does. A

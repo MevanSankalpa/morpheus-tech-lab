@@ -51,7 +51,8 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          the panel's text (format.test.js), Watch's, Methuselah's and the ships' included, the email's text (submit.test.js)
                          and the Hall of Fame, hall-of-fame.json against its result files (hallOfFame.test.js);
                          explore/ checks
-                         Explore's seeds, presets, seed files, saves, settings (setup.test.js), camera framing
+                         Explore's seeds, presets, seed files, saves, settings (setup.test.js), Ships leave at
+                         the edge (ships.test.js), camera framing
                          and the seed editor's model (editorModel.test.js)
 src/
   main.js                Boot: Explore (startExplore()) by default, or initSimulation(); then animate()
@@ -148,19 +149,21 @@ src/
                          and its runs, and a Classic Methuselah run whose ship leaves, marking each check ✔ or ✖, and
                          lists what to check by hand
   explore/               The Explore mode: the unbounded engine on the page (#37)
-  explore/explore.js     Starts and drives the run, the control bar's commands in Explore, the HUD box and notices,
-                         and the save popover
-  explore/save.js        Save this generation (a result file with the generation's cells, as a contest entry is)
-                         and Save seed, and reading either back for Load… (tested in Node)
+  explore/explore.js     Starts and drives the run, the control bar's commands in Explore, the HUD box and notices
+                         (ships leaving, #103), and the save popover
+  explore/save.js        Save this generation (a result file with the generation's cells, as a contest entry is,
+                         refused once a ship has left, #103) and Save seed, and reading either back for Load…
+                         (tested in Node)
   explore/view.js        ExploreView: the growing point cloud, chunk boxes past RENDER_BUDGET, the arena and chunk grid
   explore/framing.js     The camera distance that fits the pattern, and easing (no Three.js; tested in Node)
   explore/seed.js        Shapes lifted into the unbounded world, rule text, the seed file format, and SEED_BOX
                          (re-exported from contests.js), the 10³ seed box the editor and the Discovery contests
                          use (tested in Node)
   explore/setup.js       Explore's settings as one value, `state.explore` (#69): the seed's source, the rules, the
-                         arena and the memory limit; what each HUD box shows, what is locked, each popover's
-                         change or the reason it is refused, the config startExplore() takes, and a contest's
-                         entry from the seed in use (contestEntry(), #95) or its arena (contestArena(), #94)
+                         arena, Ships leave at the edge (#103) and the memory limit; what each HUD box shows,
+                         what is locked, each popover's change or the reason it is refused, the config
+                         startExplore() takes and the Worker's world (worldOf()), and a contest's entry from
+                         the seed in use (contestEntry(), #95) or its arena and ships (contestArena(), #94)
                          (tested in Node)
   explore/hud.js         The gears in the Seed, Rules and Limits boxes' titles and their popovers, whose Apply changes
                          `state.explore` and restarts the run; startFromSetup(); openSeedEditor() (Design… from
@@ -171,7 +174,8 @@ src/
                          and focus goes back to its button. The save popover opens through it too
   explore/hud-check.html Not bundled: a dev page (/src/explore/hud-check.html under `npm run dev`) that clicks
                          through Explore's settings in the HUD in a frame holding the lab, Use in a contest
-                         (both Methuselah contests) included, marking each check ✔ or ✖
+                         (both Methuselah contests) and Ships leave at the edge included, marking each check
+                         ✔ or ✖
   explore/editorModel.js The seed editor's model (#70): the 10³ seed box as bytes, the cursor, the selection, switching,
                          random fill, undo and redo, seeds in and out, and which axis each movement key takes from
                          the camera's directions (no DOM, no Three.js; tested in Node)

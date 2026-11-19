@@ -87,7 +87,14 @@ as an optgroup: the nine Ships (#105), found by #100's search, each record when 
 ship, with what period and shift.
 
 Explore's settings (#69) are one value, `state.explore`: the seed's source and its cells, the
-visitor's rules, the arena and the memory limit (`setup.js`, with no DOM). From it come what each
+visitor's rules, the arena, whether ships leave at its edge (`ships`, #103) and the memory limit
+(`setup.js`, with no DOM). With an arena and `ships`, `worldOf()` gives the Worker's world
+Classic Methuselah's departure rule (`SHIP_PERIOD`, 32, read from the contest), so a run lets
+ships leave, settles or ends as `emits` where the contest's would; the run's statistics count the
+ships that left and the last one (`departed`, `lastDeparture`), which the Run box and a note show.
+A saved generation carries on without the rule, as it was saved: Save this generation refuses
+once a ship has left (`save.js`'s `shipsLeftReason()`), since a result file without a contest
+can't say that ships leave, and before then the run has stepped exactly as one without it. From it come what each
 HUD box shows, what is locked (a preset's rules; a saved generation's rules and arena) and the
 config `startExplore()` takes. A change never edits it in place: each popover's Apply gives a new
 value, or the reason it is refused, checked by building that config, and restarts the run.
@@ -237,8 +244,9 @@ kept per contest while the panel is open. **Load seed…** reads a seed file (`s
 `parseSeedFile()`, as untrusted data) and passes it through `runFor()`, which refuses a B0 rule,
 an empty seed or a cell outside the seed box with the reason, shown before Run; a B1 rule gets
 `methuselahWarnings()`'s warning. **Design a seed in Explore** calls back into `controls.js`
-(`designInExplore()`, handed to `startContests()`), which sets Explore's arena to the contest's
-(`setup.js`'s `contestArena()`; a saved generation keeps its own), starts Explore and opens the
+(`designInExplore()`, handed to `startContests()`), which sets Explore's arena to the contest's,
+with ships leaving at its edge for Classic Methuselah and not for Methuselah (`setup.js`'s
+`contestArena()`; a saved generation keeps its own), starts Explore and opens the
 seed editor (`hud.js`'s `openSeedEditor()`) with a note on the contest; the panel remembers the contest, so the
 banner comes back to its page. The seed is drawn as cubes in the seed box, seen from above a
 corner, with hidden cubes left out (`format.js`'s `seedPicture()`, tested in Node). A run is

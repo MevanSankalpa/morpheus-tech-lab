@@ -488,6 +488,9 @@
               <span class="explore-field-hint">8 - 1024</span>
             </div>
             <input type="number" id="explore-arena-side" class="glass-input" min="8" max="1024" step="1" />
+            <!-- Ships leave at the edge (#103): Classic Methuselah's rule, in Explore's arena -->
+            <label class="explore-check" for="explore-ships-on"><input type="checkbox" id="explore-ships-on" /> Ships leave at the edge</label>
+            <p class="explore-popover-text explore-popover-quiet">As in Classic Methuselah: a ship of period up to 32 heading out through a wall leaves the arena, and the run goes on; anything else at the edge still ends it.</p>
             <div class="explore-popover-section">Memory limit</div>
             <div class="explore-field">
               <label class="explore-field-label" for="explore-memory-input">Limit, in MB</label>
@@ -512,6 +515,8 @@
           <div class="info-line"><span class="label">Extent</span><span id="explore-extent" class="value">–</span></div>
           <div class="info-line"><span class="label">Chunks</span><span id="explore-chunks" class="value">0</span></div>
           <div class="info-line"><span class="label">Settled</span><span id="explore-settled" class="value">no</span></div>
+          <!-- Only with Ships leave at the edge (#103): how many have left, and the last one -->
+          <div id="explore-departed-line" class="info-line" hidden><span class="label">Ships left</span><span id="explore-departed" class="value">0</span></div>
           <!-- The engine's cell memory, apart from the browser's own: what its chunks use, and what it
                has reserved, of the limit in the Limits box -->
           <div class="info-line"><span class="label">Memory in use</span><span id="explore-memory-live" class="value">0 KB</span></div>
@@ -1157,6 +1162,10 @@
     gap: 4px;              /* tighter gap for compactness */
     min-width: 180px;
     margin: 4px 0;
+  }
+  /* A line shown only sometimes, such as the Run box's Ships left (#103) */
+  #glass-info-explore .info-line[hidden] {
+    display: none;
   }
 
   #glass-info-shape .label,
