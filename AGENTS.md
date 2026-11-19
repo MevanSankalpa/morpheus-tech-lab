@@ -147,14 +147,18 @@ src/
                          use (tested in Node)
   explore/setup.js       Explore's settings as one value, `state.explore` (#69): the seed's source, the rules, the
                          arena and the memory limit; what each HUD box shows, what is locked, each popover's
-                         change or the reason it is refused, and the config startExplore() takes (tested in Node)
+                         change or the reason it is refused, the config startExplore() takes, and a contest's
+                         entry from the seed in use (contestEntry(), #95) or its arena (contestArena(), #94)
+                         (tested in Node)
   explore/hud.js         The gears in the Seed, Rules and Limits boxes' titles and their popovers, whose Apply changes
                          `state.explore` and restarts the run; startFromSetup(); openSeedEditor() (Design… from
-                         a contest's page); and folding every HUD box to its title, in every mode
+                         a contest's page); the Seed popover's Use in a contest (#95), through controls.js;
+                         and folding every HUD box to its title, in every mode
   explore/popover.js     One HUD popover open at a time, beside its box: Esc, a click or focus outside closes it,
                          and focus goes back to its button. The save popover opens through it too
   explore/hud-check.html Not bundled: a dev page (/src/explore/hud-check.html under `npm run dev`) that clicks
-                         through Explore's settings in the HUD in a frame holding the lab, marking each check ✔ or ✖
+                         through Explore's settings in the HUD in a frame holding the lab, Use in a contest
+                         included, marking each check ✔ or ✖
   explore/editorModel.js The seed editor's model (#70): the 10³ seed box as bytes, the cursor, the selection, switching,
                          random fill, undo and redo, seeds in and out, and which axis each movement key takes from
                          the camera's directions (no DOM, no Three.js; tested in Node)

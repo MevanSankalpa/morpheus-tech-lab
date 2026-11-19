@@ -419,6 +419,12 @@
               <button type="submit" class="glass-button explore-small-button">Apply</button>
               <button type="button" class="glass-button explore-small-button" data-cancel>Cancel</button>
             </div>
+            <!-- Use in a contest (#95): the seed in use and its rules, into a Discovery contest -->
+            <div class="explore-popover-contest">
+              <button type="button" id="explore-use-in-contest" class="glass-button explore-small-button">Use in a contest</button>
+              <p id="explore-contest-status" class="explore-popover-text explore-popover-quiet"></p>
+              <p id="explore-contest-error" class="explore-error" role="alert" hidden></p>
+            </div>
           </form>
         </div>
         <div id="glass-info-rules" class="glass-display glass-display--compact">
@@ -3133,6 +3139,12 @@
   }
   .explore-popover-quiet:empty {
     display: none;
+  }
+  /* Use in a contest: apart from the draft above it, since it takes the seed in use */
+  .explore-popover-contest {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
   }
   .explore-popover-locked {
     margin-bottom: 8px;

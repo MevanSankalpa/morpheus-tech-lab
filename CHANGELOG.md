@@ -113,6 +113,11 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   (`methuselah-1-1234.json`), Submit by email and Watch, or says why a run that reached the edge
   or the budget has no score. Verify a result shows a file's score, rules and seed, and the Hall
   of Fame shows each Methuselah entry's rules and seed cells beside its score (#94).
+- Explore's Seed popover has **Use in a contest**: it opens Methuselah with the seed in use and
+  its rules as the entry, ready to run, never shifted, so the result file's seed is the seed
+  designed. A seed with any cell outside the 10³ seed box is refused there, saying which cells,
+  as are an empty seed and a saved generation; and if Explore's arena isn't 64³, Methuselah's
+  page says the contest runs in its own (#95).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).

@@ -139,8 +139,10 @@ function hud(name, state, generation) {
  * @param {object} [options]
  * @param {(contest: {note: string, arena: number, title: string}) => void} [options.designInExplore]
  *   - leaves for Explore with the contest's arena and the seed editor open
+ * @param {{contestId: string, rules: object, cells: Int32Array, source: string, note: string | null}} [options.entry]
+ *   - from Explore's Use in a contest (#95): the panel opens on that contest with it as the entry
  */
-export function openPanel({ designInExplore = null } = {}) {
+export function openPanel({ designInExplore = null, entry = null } = {}) {
   panel.open = true;
   panel.designInExplore = designInExplore;
   el('contests-panel').hidden = false;
@@ -158,7 +160,14 @@ export function openPanel({ designInExplore = null } = {}) {
   };
   const resume = panel.resume;
   panel.resume = null;
-  if (resume) showContest(resume);
+  const brought = entry ? contestById(entry.contestId) : null;
+  if (brought) {
+    // Checked again, as a loaded file is: the contest's page shows any refusal before Run
+    const refusal = setEntry(brought, entry, entry.source, entry.note);
+    panel.refused = refusal ? { contest: brought.id, message: `Not used: ${refusal}` } : null;
+    showContest(brought);
+    if (!refusal) status(`Brought from Explore: ${entry.source.replace(/^Explore: /, '')}.`);
+  } else if (resume) showContest(resume);
   else showList();
 }
 
@@ -399,6 +408,7 @@ function entrySection(contest, entry) {
           ['Rules', rulesText(entry.rules)],
           ['From', entry.source],
         ], 'contests-entry'))),
+    entry.note ? h('p', { className: 'contests-note', text: entry.note, attrs: { id: 'contests-entry-arena' } }) : null,
     ...warnings.map((text) => h('p', { className: 'contests-warning', text, attrs: { id: 'contests-entry-warning', role: 'note' } })),
     refused,
     h('div', { className: 'contests-actions' }, load, design));
@@ -451,7 +461,7 @@ function seedSvg(seed, box) {
  * or a cell outside the seed box, with the reason. Seeds are never shifted.
  * @returns {string | null} why it was refused, or null
  */
-function setEntry(contest, { rules, cells }, source) {
+function setEntry(contest, { rules, cells }, source, note = null) {
   const seed = [];
   for (let i = 0; i < cells.length; i += 3) seed.push([cells[i], cells[i + 1], cells[i + 2]]);
   let run;
@@ -462,7 +472,7 @@ function setEntry(contest, { rules, cells }, source) {
     const outside = outsideCount(seed, contest.fixes.seedBox);
     return outside > 1 ? `${err.message} ${n(outside)} of its ${n(seed.length)} cells are outside it.` : err.message;
   }
-  panel.entries.set(contest.id, { rules: run.rules, seed: run.seed, source });
+  panel.entries.set(contest.id, { rules: run.rules, seed: run.seed, source, note });
   return null;
 }
 

@@ -359,7 +359,7 @@ export function initControls() {
   const saveCancel = document.getElementById("explore-save-cancel");
   if (saveCancel) saveCancel.onclick = closeSave;
   // Explore only: the gears in the HUD boxes' titles and their popovers, whose Apply restarts the run
-  initHud({ restart: restartExplore });
+  initHud({ restart: restartExplore, useInContest: (contestId, entry) => enterContests({ entry: { contestId, ...entry } }) });
 
   updateStepButtonVisibility();
 
@@ -1779,9 +1779,12 @@ const MODE_FLAGS = ['useRule30', 'useRule30_2D', 'useSineWave', 'useSandpile'];
 
 /**
  * Opens the Contests mode (src/contests/): from its banner by the company logo, or Apply in the
- * dialog when opened from Contests. It has nothing to set.
+ * dialog when opened from Contests. It has nothing to set. Explore's Use in a contest (#95) opens it
+ * on a contest's page with an entry.
+ * @param {object} [options]
+ * @param {{contestId: string, rules: object, cells: Int32Array, source: string, note: string | null}} [options.entry]
  */
-function enterContests() {
+function enterContests({ entry } = {}) {
   if (state.simulationMode !== 'contests') {
     beforeContests = { mode: state.simulationMode, flags: Object.fromEntries(MODE_FLAGS.map((f) => [f, state[f]])) };
   }
@@ -1794,7 +1797,7 @@ function enterContests() {
   stopExplore(); // its Worker and view go
   resetControlsUI();
   initControls(); // the title and the GPU toggle follow the mode
-  startContests({ designInExplore });
+  startContests({ designInExplore, entry });
 }
 
 /**

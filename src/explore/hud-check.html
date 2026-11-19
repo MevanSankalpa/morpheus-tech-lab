@@ -2,7 +2,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <!--
   Not bundled: a dev page (/src/explore/hud-check.html under `npm run dev`) that clicks through
-  Explore's settings in the HUD (#69) in a frame holding the lab, and marks each check ✔ or ✖.
+  Explore's settings in the HUD (#69) in a frame holding the lab, Use in a contest (#95) included,
+  and marks each check ✔ or ✖.
   It changes only the lab in its frame; reload to run it again. The look of the popovers is still
   checked by eye, in the lab itself.
 -->
@@ -306,6 +307,51 @@
       ok(text('explore-seed-label') === 'Seed file: tiny.json', 'The Seed box reads Seed file: tiny.json');
       ok(text('rules-birth') === '5' && text('rules-survival') === '4-5', `The file's rules went into the Rules box (B${text('rules-birth')} / S${text('rules-survival')})`);
       ok(!visible('explore-rules-lock'), 'They are not locked');
+
+      section('Use in a contest');
+      const seedFile = (name, cells) => {
+        const data = JSON.stringify({ format: 'morpheus-tech-lab/explore-seed', version: 1, rules: { birth: [5], survival: [4, 5] }, cells });
+        const transfer = new win.DataTransfer();
+        transfer.items.add(new win.File([data], name, { type: 'application/json' }));
+        el('explore-seed-file').files = transfer.files;
+        el('explore-seed-file').dispatchEvent(new win.Event('change'));
+      };
+      press('explore-change-seed');
+      ok(visible('explore-use-in-contest') && text('explore-contest-status').includes('tiny.json, 3 cells') && text('explore-contest-status').includes('B5 / S4-5') && text('explore-contest-status').includes('into Methuselah'),
+        `The Seed popover offers Use in a contest, for the seed in use and its rules ("${text('explore-contest-status').slice(0, 70)}…")`);
+      press('explore-source-file');
+      seedFile('wide.json', [[0, 0, 0], [9, 0, 0], [0, -7, 0]]);
+      await sleep(400);
+      submit('explore-seed-popover');
+      await sleep(600);
+      ok(text('explore-seed-label') === 'Seed file: wide.json', 'A seed wider than the seed box runs in Explore');
+      press('explore-change-seed');
+      press('explore-use-in-contest');
+      await sleep(300);
+      ok(visible('explore-contest-error') && /^2 of its 3 cells lie outside the 10³ seed box, cells -5 to 4 on each axis, such as \[9, 0, 0\] and \[0, -7, 0\]\./.test(text('explore-contest-error')),
+        `Use in a contest refuses it, saying which cells are outside ("${text('explore-contest-error').slice(0, 90)}…")`);
+      ok(doc.body.classList.contains('mode-explore') && isOpen('explore-seed-popover'), 'and stays in Explore, with the popover open');
+      press('explore-source-file');
+      seedFile('tiny.json', [[0, 0, 0], [1, 0, 0], [0, 1, 0]]);
+      await sleep(400);
+      submit('explore-seed-popover');
+      await sleep(600);
+      const arenaBefore = text('explore-arena');
+      press('explore-change-seed');
+      ok(!visible('explore-contest-error'), 'Reopened, the popover shows no old refusal');
+      press('explore-use-in-contest');
+      await sleep(1500);
+      ok(doc.body.classList.contains('mode-contests') && text('contests-panel-title') === 'Methuselah', 'Use in a contest opens Methuselah');
+      ok(text('contests-entry-0') === '3 cells' && text('contests-entry-1') === 'B5/S4-5' && text('contests-entry-2') === 'Explore: Seed file: tiny.json',
+        `with the seed and rules as the entry (${text('contests-entry-0')}, ${text('contests-entry-1')}, ${text('contests-entry-2')})`);
+      ok(!el('contests-run').disabled && activeId() === 'contests-run', 'ready to run: Run has the focus');
+      ok(text('contests-panel-status').startsWith('Brought from Explore'), `The status says where it came from ("${text('contests-panel-status')}")`);
+      const arenaNoted = visible('contests-entry-arena');
+      ok(arenaBefore === '64³' ? !arenaNoted : arenaNoted && text('contests-entry-arena').includes('runs in its own 64³ arena'),
+        `With Explore's arena ${arenaBefore}, the page ${arenaNoted ? 'says the contest runs in its own 64³ arena' : 'has no arena note'}`);
+      doc.body.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await sleep(1500);
+      ok(doc.body.classList.contains('mode-explore') && text('explore-seed-label') === 'Seed file: tiny.json', 'Esc goes back to Explore, with the same seed');
 
       section('The settings dialog');
       press('seedConfigButton');
