@@ -82,7 +82,9 @@ of cells, of the chunks that hold them.
 **Explore** (`src/explore/`): the mode that shows the unbounded world. Its seed is one of the
 shapes, lifted into world coordinates around the origin (`seed.js`), a preset with its own rules
 (`presets.js`), or a seed file, JSON with the rules and the cells. A preset or a seed file
-replaces the shape and the rules.
+replaces the shape and the rules. Presets may have a group, which the Preset and shape lists show
+as an optgroup: the nine Ships (#105), found by #100's search, each record when they become a
+ship, with what period and shift.
 
 Explore's settings (#69) are one value, `state.explore`: the seed's source and its cells, the
 visitor's rules, the arena and the memory limit (`setup.js`, with no DOM). From it come what each

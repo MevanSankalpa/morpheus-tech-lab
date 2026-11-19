@@ -50,8 +50,10 @@ export const SHAPES = [
   { key: 'octahedron', name: 'Octahedron' },
   { key: 'perlin', name: 'Perlin noise', noise: true },
   { key: 'worley', name: 'Worley noise', noise: true },
-  // #67: the presets' cells, under the rules in the Rules box
-  ...PRESETS.map((preset) => ({ key: `${PRESET_SHAPE}${preset.id}`, name: `${preset.name}'s cells`, preset: preset.id })),
+  // #67: the presets' cells, under the rules in the Rules box; the ships' (#105) in their group
+  ...PRESETS.map((preset) => ({
+    key: `${PRESET_SHAPE}${preset.id}`, name: `${preset.name}'s cells`, preset: preset.id, ...(preset.group && { group: preset.group }),
+  })),
 ];
 
 const MAKERS = {

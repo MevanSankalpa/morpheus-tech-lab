@@ -118,6 +118,10 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   designed. A seed with any cell outside the 10³ seed box is refused there, saying which cells,
   as are an empty seed and a saved generation; and if Explore's arena isn't 64³, Methuselah's
   page says the contest runs in its own (#95).
+- Explore's presets include nine **Ships**: small seeds that each become a ship and fly off,
+  returning to their own shape. Seven fly straight, at periods from 1 to 12, and two diagonally,
+  and each is named by its period and its speed in c, one cell a generation. Their cells are also
+  among the Custom shapes, in the same group (#105).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).

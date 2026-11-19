@@ -143,7 +143,10 @@ generation carries on from its generation. A **Preset** brings its own rules: **
 10³ cube Explore opens on under the default rules, a dense mass that keeps swelling outward; or
 **Spreading noise**, 224 cells under B7,13,14/S0,2-6,9,13,19,23,24 that look like chaotic noise
 yet keep spreading. The Speed contest
-runs Cube10.
+runs Cube10. Under **Ships**, nine small seeds each become a ship, a pattern that flies off
+returning to its own shape: straight ones of period 1 to 12 and two diagonal ones, each named by
+its period and speed in c, one cell a generation, the fastest anything can go. Each description
+says the generation it becomes a ship and where it flies; the Custom shapes list their cells too.
 
 A preset's rules are locked, so it is always the same run, and a saved generation's rules and
 arena are locked too. The Rules box says what locks them. **Use your own rules**, in the Rules or
