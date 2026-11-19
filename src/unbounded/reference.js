@@ -4,6 +4,8 @@
 // easy to trust rather than fast. It keeps the live cells in a Set of "x,y,z" strings and has no
 // chunks, slabs or limits. The tests check the chunked engine (world.js, step.js) against it.
 // Given a box to wrap in, it is a torus: each neighbour's coordinates are taken round the box.
+// Given walls, it is closed: neighbours past the box's faces don't count, and a cell on one, two or
+// three of its faces follows the face, edge or corner rule.
 
 import { validateRules } from './rules.js';
 
@@ -11,17 +13,42 @@ export class ReferenceWorld {
   /**
    * @param {{birth: number[], survival: number[]}} rules
    * @param {Iterable<number[]>} [cells] - live cells, as [x, y, z]; inside `wrap`, if given
-   * @param {{wrap?: {min: number[], max: number[]}}} [options] - wrap: the box, inclusive, whose
-   *   opposite faces are neighbours
+   * @param {{wrap?: {min: number[], max: number[]}, walls?: {box: {min: number[], max: number[]},
+   *   corner: object, edge: object, face: object}}} [options] - wrap: the box, inclusive, whose
+   *   opposite faces are neighbours; walls: the box, inclusive, closed by walls, and the rules on them
    */
-  constructor(rules, cells = [], { wrap = null } = {}) {
+  constructor(rules, cells = [], { wrap = null, walls = null } = {}) {
     const { birth, survival } = validateRules(rules);
     this.birth = new Set(birth);
     this.survival = new Set(survival);
     this.live = new Set();
     this.generation = 0;
     this.wrap = wrap;
+    this.walls = walls;
+    // The rules by how many of the walls' faces a cell lies on: 0 (inside), 1, 2 or 3
+    this.rules = [{ birth: this.birth, survival: this.survival }];
+    if (walls) {
+      for (const kind of ['face', 'edge', 'corner']) {
+        const { birth: b, survival: s } = validateRules(walls[kind]);
+        this.rules.push({ birth: new Set(b), survival: new Set(s) });
+      }
+    }
     for (const [x, y, z] of cells) this.live.add(`${x},${y},${z}`);
+  }
+
+  /** The rule for a cell: by how many of the walls' faces it lies on, or the Rules. */
+  ruleFor(x, y, z) {
+    if (!this.walls) return this.rules[0];
+    const { min, max } = this.walls.box;
+    const faces = [x, y, z].filter((c, a) => c === min[a] || c === max[a]).length;
+    return this.rules[faces];
+  }
+
+  /** Whether a cell lies past the walls, where nothing lives and nothing counts. */
+  pastWalls(x, y, z) {
+    if (!this.walls) return false;
+    const { min, max } = this.walls.box;
+    return [x, y, z].some((c, a) => c < min[a] || c > max[a]);
   }
 
   /** A coordinate on axis a, taken round the wrapping box if there is one. */
@@ -42,6 +69,7 @@ export class ReferenceWorld {
         for (let dy = -1; dy <= 1; dy++) {
           for (let dx = -1; dx <= 1; dx++) {
             if (dx === 0 && dy === 0 && dz === 0) continue;
+            if (this.pastWalls(x + dx, y + dy, z + dz)) continue;
             const neighbour = `${this.round(x + dx, 0)},${this.round(y + dy, 1)},${this.round(z + dz, 2)}`;
             counts.set(neighbour, (counts.get(neighbour) ?? 0) + 1);
           }
@@ -52,10 +80,11 @@ export class ReferenceWorld {
     const next = new Set();
     // A live cell with no live neighbour isn't in `counts`; it survives only under S0
     for (const key of this.live) {
-      if (!counts.has(key) && this.survival.has(0)) next.add(key);
+      if (!counts.has(key) && this.ruleFor(...key.split(',').map(Number)).survival.has(0)) next.add(key);
     }
     for (const [key, count] of counts) {
-      const rule = this.live.has(key) ? this.survival : this.birth;
+      const { birth, survival } = this.ruleFor(...key.split(',').map(Number));
+      const rule = this.live.has(key) ? survival : birth;
       if (rule.has(count)) next.add(key);
     }
     this.live = next;

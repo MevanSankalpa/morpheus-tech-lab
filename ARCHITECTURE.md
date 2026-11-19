@@ -74,8 +74,15 @@ checks the limits; it keeps no history. Rules are any birth and survival counts 
 An optional arena ends the run when a cell would be born outside it, or, with `wrap` (#114), is
 a torus: its opposite faces are neighbours, so a chunk its faces run through reads its border
 from across the wrap and computes only its cells inside, and nothing is born outside it.
-`ReferenceWorld` is a deliberately simple engine for the tests to check it against, wrapping or
-not; a wrapping arena of side N also gives exactly `convolve3D()`'s N³ grid with wrapping on.
+With `walls` (#119), it is closed instead: past a wall is empty, nothing is born outside, and a
+cell on one, two or three of its faces follows the face, edge or corner rule, counting only its
+real neighbours (17, 11, 7). Only the chunks its faces run through do anything different: they
+run the step's loop over their cells off the faces, then a second loop, by region, over the wall
+cells, so a world without walls runs the loop unchanged.
+`ReferenceWorld` is a deliberately simple engine for the tests to check it against, wrapping, with
+walls or neither; a wrapping arena of side N also gives exactly `convolve3D()`'s N³ grid with
+wrapping on. (`convolve3D()` can't check walls: with wrapping off it counts some neighbours past
+a wall as the wall cell, several times over.)
 A run (`run.js`) steps a world in a Web Worker (`run.worker.js`), either until a deadline (a
 timed run: only generations completed before it count) or until stopped (an open-ended run,
 which can also pause, step one generation and cap its rate). On the page, `EngineDriver`
@@ -91,8 +98,8 @@ as an optgroup: the nine Ships (#105), found by #100's search, each record when 
 ship, with what period and shift.
 
 Explore's settings (#69) are one value, `state.explore`: the seed's source and its cells, the
-visitor's rules, the arena, what happens at its edge (`edge`: `'end'`, `'ships'`, #103, or `'wrap'`,
-#115) and the memory limit (`setup.js`, with no DOM). With an arena and `'ships'`, `worldOf()` gives the Worker's world
+visitor's rules, the arena, what happens at its edge (`edge`: `'end'`, `'ships'`, #103, `'wrap'`,
+#115, or `'walls'`, #119, with the walls' rules in `walls`) and the memory limit (`setup.js`, with no DOM). With an arena and `'ships'`, `worldOf()` gives the Worker's world
 Classic Methuselah's departure rule (`SHIP_PERIOD`, 32, read from the contest), so a run lets
 ships leave, settles or ends as `emits` where the contest's would; the run's statistics count the
 ships that left and the last one (`departed`, `lastDeparture`), which the Run box and a note show.
@@ -101,7 +108,9 @@ once a ship has left (`save.js`'s `shipsLeftReason()`), since a result file with
 can't say that ships leave, and before then the run has stepped exactly as one without it. With
 an arena and `'wrap'`, the world has `wrap` (#114), a torus; the view draws its arena dashed, and
 Save this generation refuses throughout (`WRAP_SAVE_REASON`), since no result file or contest
-wraps. A saved generation's edge is always `'end'`. From it come what each
+wraps. With `'walls'`, the world has `walls` (#119), the corner, edge and face rules; the view
+draws the arena brighter, and Save this generation refuses throughout (`WALLS_SAVE_REASON`).
+A saved generation's edge is always `'end'`. From it come what each
 HUD box shows, what is locked (a preset's rules; a saved generation's rules and arena) and the
 config `startExplore()` takes. A change never edits it in place: each popover's Apply gives a new
 value, or the reason it is refused, checked by building that config, and restarts the run.

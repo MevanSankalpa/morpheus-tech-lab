@@ -38,7 +38,7 @@ function exploreRun(cfg) {
 }
 
 test('at the edge, the run ends by default; the arena can wrap, which is remembered while the arena is off', () => {
-  assert.deepEqual(EDGES, ['end', 'ships', 'wrap']);
+  assert.deepEqual(EDGES, ['end', 'ships', 'wrap', 'walls']);
   const setup = start();
   assert.equal(setup.edge, 'end');
   assert.equal(edgeOf(setup), 'end');

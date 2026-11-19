@@ -12,7 +12,7 @@ import { initSpace } from '../space.js';
 import { EngineDriver } from '../unbounded/driver.js';
 import { ExploreView, RENDER_BUDGET } from './view.js';
 import { arenaBox, MAX_FILE_CELLS } from './seed.js';
-import { generationSave, seedSave, savedEnding, generationFileName, shipsLeftReason, WRAP_SAVE_REASON, SEED_FILE_NAME } from './save.js';
+import { generationSave, seedSave, savedEnding, generationFileName, shipsLeftReason, WRAP_SAVE_REASON, WALLS_SAVE_REASON, SEED_FILE_NAME } from './save.js';
 import { SHIP_PERIOD, worldOf } from './setup.js';
 import { headingText } from '../contests/format.js';
 import { detectBrowser } from '../browser.js';
@@ -43,7 +43,7 @@ const ENDINGS = {
 const session = {
   driver: null,
   view: null,
-  config: null, // {rules, cells, memoryMB, arena, ships, wrap, label, seed?, from?}
+  config: null, // {rules, cells, memoryMB, arena, ships, wrap, walls, label, seed?, from?}
   departed: 0, // with Ships leave at the edge (#103): how many ships have left so far
   status: 'idle', // 'paused', 'running' or 'ended'
   wantSnapshot: false,
@@ -76,6 +76,7 @@ export function isExplore() {
  * @param {boolean} [config.ships] - with an arena, ships leave at its edge (#103), as in Classic
  *   Methuselah
  * @param {boolean} [config.wrap] - with an arena, it wraps around (#115): its opposite walls meet
+ * @param {object | null} [config.walls] - with an arena, its walls' corner, edge and face rules (#119)
  * @param {string} config.label - what the seed is, for the HUD
  * @param {Int32Array} [config.seed] - when `cells` is a saved generation: the run's first seed
  * @param {number} [config.from] - when `cells` is a saved generation: its generation, which the
@@ -98,7 +99,7 @@ export function startExplore(config) {
 
   session.view = new ExploreView(state.scene);
   session.config = config;
-  session.view.showArena(arenaBox(config.arena), { wrap: Boolean(config.wrap) });
+  session.view.showArena(arenaBox(config.arena), { wrap: Boolean(config.wrap), walls: Boolean(config.walls) });
   document.body.classList.add('mode-explore');
   showHud(config);
   launch();
@@ -157,7 +158,8 @@ export function exploreViewChanged() {
 //   generation's cells, so Load… can carry on from it. Opening the popover takes the generation
 //   on screen from the Worker, every live cell of it, past the view's render budget too; while a
 //   settled cycle plays, the frame on screen. Past MAX_FILE_CELLS live cells nothing is saved,
-//   and the popover says why; nor once a ship has left (#103), nor while the arena wraps (#115).
+//   and the popover says why; nor once a ship has left (#103), nor while the arena wraps (#115)
+//   or has walls (#119).
 // - Save seed: the seed the run started from, with its rules, as a seed file.
 // Save writes the file through the browser's save dialog where there is one, so the visitor
 // picks the folder, or as a download.
@@ -196,8 +198,8 @@ export async function toggleSave(kind) {
     return;
   }
 
-  if (config.wrap) {
-    fillSave({ title: 'Save this generation', what: WRAP_SAVE_REASON, hashes: [], where: '', ready: false });
+  if (config.wrap || config.walls) {
+    fillSave({ title: 'Save this generation', what: config.wrap ? WRAP_SAVE_REASON : WALLS_SAVE_REASON, hashes: [], where: '', ready: false });
     return;
   }
   fillSave({ title: 'Save this generation', what: 'Taking the generation on screen…', hashes: [], where: '', ready: false });

@@ -73,6 +73,12 @@ export function shipsLeftReason(departed) {
 export const WRAP_SAVE_REASON = "This run's arena wraps around, and a saved generation can't record that, so its replay wouldn't reach this generation: no contest wraps. Save seed still saves the seed, and its rules.";
 
 /**
+ * Why Save this generation refuses while the arena has walls (#119): as for wrapping, a result
+ * file has no way to say so, and no contest has walls.
+ */
+export const WALLS_SAVE_REASON = "This run's arena has walls, with their own corner, edge and face rules, and a saved generation can't record them, so its replay wouldn't reach this generation: no contest has walls. Save seed still saves the seed, and its rules.";
+
+/**
  * Save this generation's file.
  * @param {object} options
  * @param {object} options.config - Explore's config, as runDefinition() takes it

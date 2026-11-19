@@ -24,7 +24,7 @@ import { PRESETS, PRESET_GROUPS, presetById } from './presets.js';
 import { MAX_SHAPE_SIZE, parseCounts } from './seed.js';
 import {
   SHAPES, shapeByKey, makeShape, presetSeed, fileSeed, changeSeed, changeRules, changeArena, changeMemory,
-  configOf, boxesOf, lockOf, rulesOf, arenaOf, edgeOf, startOf, restartNote, seedLabel, deathCounts,
+  configOf, boxesOf, lockOf, rulesOf, arenaOf, edgeOf, startOf, WALL_KINDS, restartNote, seedLabel, deathCounts,
   designOf, presetCopy, useDesign, contestEntry,
 } from './setup.js';
 
@@ -92,7 +92,7 @@ export function showBoxes() {
     lock.hidden = !boxes.lock;
     lock.textContent = boxes.lock ?? '';
   }
-  const edge = { end: '', ships: ', ships leave', wrap: ', wraps' }[boxes.edge];
+  const edge = { end: '', ships: ', ships leave', wrap: ', wraps', walls: ', walls' }[boxes.edge];
   setText('explore-arena', boxes.arena ? `${n(boxes.arena)}³${boxes.arenaLocked ? ', saved' : ''}${edge}` : 'off');
   setText('explore-memory-limit', `${n(boxes.memoryMB)} MB`);
 }
@@ -520,6 +520,8 @@ function wireLimits() {
     side.disabled = !on.checked || isArenaLocked();
     edge.disabled = side.disabled;
   };
+  // The walls' rules show under Walls only (#119)
+  edge.onchange = showWallRules;
   document.getElementById('explore-arena-own').onclick = () => {
     limitsOwn = true;
     showLimitsLock();
@@ -534,13 +536,42 @@ function wireLimits() {
     // while the arena is off
     const shown = lockOf(state.explore)?.by === 'saved' ? edgeOf(state.explore) : state.explore.edge;
     for (const radio of edge.querySelectorAll('input[name="explore-edge"]')) radio.checked = radio.value === shown;
+    for (const { key } of WALL_KINDS) {
+      document.getElementById(`explore-wall-${key}-birth`).value = counts(state.explore.walls[key].birth);
+      document.getElementById(`explore-wall-${key}-survival`).value = counts(state.explore.walls[key].survival);
+    }
+    showWallRules();
     memory.value = `${state.explore.memoryMB}`;
     showLimitsLock();
   }, () => {
     const setup = isArenaLocked() ? state.explore
-      : changeArena(state.explore, on.checked, side.value, { own: limitsOwn, edge: edge.querySelector('input[name="explore-edge"]:checked')?.value });
+      : changeArena(state.explore, on.checked, side.value, { own: limitsOwn, edge: chosenEdge(), walls: chosenEdge() === 'walls' ? wallTexts() : undefined });
     return changeMemory(setup, memory.value);
   });
+}
+
+/** The choice at the arena's edge checked in the Limits popover. */
+function chosenEdge() {
+  return document.querySelector('#explore-edge input[name="explore-edge"]:checked')?.value;
+}
+
+/** The walls' rules as typed in the Limits popover, for changeArena(). */
+function wallTexts() {
+  const texts = {};
+  for (const { key } of WALL_KINDS) {
+    texts[key] = {
+      birth: document.getElementById(`explore-wall-${key}-birth`).value,
+      survival: document.getElementById(`explore-wall-${key}-survival`).value,
+    };
+  }
+  return texts;
+}
+
+function showWallRules() {
+  const rules = document.getElementById('explore-walls-rules');
+  if (!rules) return;
+  rules.hidden = chosenEdge() !== 'walls';
+  placeOpenPopover();
 }
 
 function isArenaLocked() {

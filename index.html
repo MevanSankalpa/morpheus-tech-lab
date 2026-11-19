@@ -497,6 +497,33 @@
               <p class="explore-popover-text explore-popover-quiet">As in Classic Methuselah: a ship of period up to 32 heading out through a wall leaves the arena, and the run goes on; anything else at the edge still ends it.</p>
               <label class="explore-check" for="explore-edge-wrap"><input type="radio" name="explore-edge" id="explore-edge-wrap" value="wrap" /> It wraps around</label>
               <p class="explore-popover-text explore-popover-quiet">Opposite walls meet: a pattern that crosses one comes back in through the other, and the run never reaches the edge. No contest wraps, so Save this generation is off while it does; Save seed still works.</p>
+              <!-- Walls (#119): the old Game of Life 3D mode's corner, edge and face rules -->
+              <label class="explore-check" for="explore-edge-walls"><input type="radio" name="explore-edge" id="explore-edge-walls" value="walls" /> Walls</label>
+              <p class="explore-popover-text explore-popover-quiet">The arena is closed: past its walls is empty, so a cell on a wall counts only the neighbours inside, and follows its own rules, here. Nothing is born outside, so the run never reaches the edge. No contest has walls, so Save this generation is off with them; Save seed still works.</p>
+              <div id="explore-walls-rules" class="explore-walls-rules" hidden>
+                <div class="explore-wall-kind">Corner <span class="explore-popover-quiet">(7 neighbours)</span></div>
+                <div class="explore-wall-row">
+                  <label class="explore-field-label" for="explore-wall-corner-birth">Birth</label>
+                  <input type="text" id="explore-wall-corner-birth" class="glass-input" autocomplete="off" spellcheck="false" placeholder="2,3" />
+                  <label class="explore-field-label" for="explore-wall-corner-survival">Survival</label>
+                  <input type="text" id="explore-wall-corner-survival" class="glass-input" autocomplete="off" spellcheck="false" placeholder="2-4" />
+                </div>
+                <div class="explore-wall-kind">Edge <span class="explore-popover-quiet">(11 neighbours)</span></div>
+                <div class="explore-wall-row">
+                  <label class="explore-field-label" for="explore-wall-edge-birth">Birth</label>
+                  <input type="text" id="explore-wall-edge-birth" class="glass-input" autocomplete="off" spellcheck="false" placeholder="4" />
+                  <label class="explore-field-label" for="explore-wall-edge-survival">Survival</label>
+                  <input type="text" id="explore-wall-edge-survival" class="glass-input" autocomplete="off" spellcheck="false" placeholder="2-6" />
+                </div>
+                <div class="explore-wall-kind">Face <span class="explore-popover-quiet">(17 neighbours)</span></div>
+                <div class="explore-wall-row">
+                  <label class="explore-field-label" for="explore-wall-face-birth">Birth</label>
+                  <input type="text" id="explore-wall-face-birth" class="glass-input" autocomplete="off" spellcheck="false" placeholder="6" />
+                  <label class="explore-field-label" for="explore-wall-face-survival">Survival</label>
+                  <input type="text" id="explore-wall-face-survival" class="glass-input" autocomplete="off" spellcheck="false" placeholder="3-9" />
+                </div>
+                <p class="explore-popover-text explore-popover-quiet">Counts as a list or ranges, such as 2,3 or 3-9, up to the cell's neighbours. A birth count of 0 isn't allowed; no birth count at all means no cell is ever born on that kind of wall. Every other cell follows the Rules box.</p>
+              </div>
             </fieldset>
             <div class="explore-popover-section">Memory limit</div>
             <div class="explore-field">
@@ -3249,6 +3276,26 @@
   }
   .explore-edge:disabled {
     opacity: 0.5;
+  }
+  /* The walls' corner, edge and face rules, under Walls (#119) */
+  .explore-walls-rules {
+    margin: 4px 0 0 20px;
+  }
+  .explore-wall-kind {
+    margin-top: 6px;
+    font-weight: 600;
+  }
+  .explore-wall-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    align-items: center;
+    gap: 4px 6px;
+    margin-top: 2px;
+  }
+  .explore-wall-row .glass-input {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
   /* The Rules popover's derived counts */
   .explore-rules-derived {
