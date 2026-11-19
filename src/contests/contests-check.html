@@ -233,6 +233,7 @@
       const colours = tiles.map((t) => t.style.getPropertyValue('--contest-color'));
       ok(colours[0] !== colours[1] && colours[1] === colours[2], `Speed has its own colour; the two Methuselahs share Methuselah's (${colours.join(', ')})`);
       ok(text('contests-closes') === 'Closing date to be announced', 'The list gives the closing date');
+      ok(panelText().includes('Season 1 runs on the CPU only'), 'The list says season 1 is CPU-only (#116)');
       ok(panelText().includes('One contest, in three branches') && !/\b3 contests\b|three contests/i.test(panelText()), 'It speaks of one contest in three branches');
       ok(el('contests-verify').classList.contains('contests-verify-button') && el('contests-verify').querySelector('svg.contests-verify-glyph path'), 'Verify a result has its own button, with the scales');
       const verifyBox = el('contests-verify').getBoundingClientRect();
@@ -567,7 +568,7 @@
       ok(doc.body.classList.contains('mode-explore') && !doc.body.classList.contains('mode-contests'), 'It leaves Contests for Explore');
       ok(visible('seed-editor') && doc.body.classList.contains('seed-editor-open'), 'with the seed editor open');
       ok(text('seed-editor-note').startsWith('For Methuselah: the seed must lie in this 10³ box.') && text('seed-editor-note').includes('Contest banner'), `Its note says how to come back ("${text('seed-editor-note').slice(0, 60)}…")`);
-      ok(state.explore.arena === 64 && /Explore's arena is (now on, at )?64³, as Methuselah's/.test(text('seed-editor-note')), `Explore's arena is the contest's, 64³, and the note says so (arena ${state.explore.arena})`);
+      ok(state.explore.arena === 64 && /The arena in Game of Life 3D \(unbounded\) is (now on, at )?64³, as Methuselah's/.test(text('seed-editor-note')), `Explore's arena is the contest's, 64³, and the note says so (arena ${state.explore.arena})`);
       el('seed-editor').querySelector('[data-action="cancel"]').click();
       await sleep(300);
       ok(!visible('seed-editor') && el('contests-banner').getAttribute('aria-pressed') === 'false', 'Cancel closes the editor, in Explore');
@@ -782,7 +783,7 @@
       ok(!visible('contests-panel') && !visible('glass-info-contest'), 'The panel and the Contest section are gone');
       const g = Number(text('explore-generation').replace(/,/g, ''));
       await sleep(1000);
-      ok(Number(text('explore-generation').replace(/,/g, '')) >= g && text('hud-mode-name') === 'Explore', 'Explore runs as before');
+      ok(Number(text('explore-generation').replace(/,/g, '')) >= g && text('hud-mode-name') === 'Game of Life 3D (unbounded)', 'The unbounded mode runs as before');
       ok(el('contests-banner').getAttribute('aria-pressed') === 'false', 'Back in Explore, the banner is not pressed');
       await openContests();
       press('contests-banner');
@@ -796,6 +797,7 @@
       ok(visible('contests-panel') && text('contests-panel-title') === 'The Contest', 'Back in Contests, the panel is on the list again');
       press('hud-change-mode');
       await sleep(300);
+      ok(text('mode-description').includes('Season 1 runs on the CPU only'), 'The dialog says season 1 is CPU-only');
       ok(text('mode-description').includes('Speed times how many generations') && !doc.querySelector('.mode-card.active'), 'Opened from Contests, the dialog describes it, with no other mode chosen');
       ok(!visible('sim-params-section') && text('explore-settings-note').includes('Each branch of the contest fixes its own'), 'with nothing to set');
       await apply();
@@ -804,11 +806,11 @@
       await apply();
       await sleep(1500);
       ok(!doc.body.classList.contains('mode-contests') && !visible('contests-panel'), 'Choosing Game of Life leaves Contests too');
-      ok(text('hud-mode-name') === 'Game of Life' && visible('glass-info-sim'), 'Game of Life shows its Grid section as before');
+      ok(text('hud-mode-name') === 'Game of Life 3D (bounded)' && visible('glass-info-sim'), 'The bounded mode shows its Grid section as before');
       await openContests();
       doc.body.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await sleep(2500);
-      ok(text('hud-mode-name') === 'Game of Life' && !doc.body.classList.contains('mode-contests') && visible('glass-info-sim'), 'Opened from Game of Life, Esc goes back to Game of Life');
+      ok(text('hud-mode-name') === 'Game of Life 3D (bounded)' && !doc.body.classList.contains('mode-contests') && visible('glass-info-sim'), 'Opened from the bounded mode, Esc goes back to it');
     }
 
     run()

@@ -144,12 +144,12 @@ test('Save seed saves the seed the run started from, with its rules', async () =
   const loaded = await readSeedOrSave(seedSave(CONFIG));
   assert.equal(loaded.kind, 'seed');
   assert.deepEqual(loaded.cells, SEED);
-  assert.equal(SEED_FILE_NAME, 'explore-seed.json');
+  assert.equal(SEED_FILE_NAME, 'game-of-life-3d-seed.json');
 });
 
 test('a saved generation is named for its generation', () => {
-  assert.equal(generationFileName(0), 'explore-generation-0.json');
-  assert.equal(generationFileName(1234), 'explore-generation-1234.json');
+  assert.equal(generationFileName(0), 'game-of-life-3d-generation-0.json');
+  assert.equal(generationFileName(1234), 'game-of-life-3d-generation-1234.json');
 });
 
 test('a run still going is saved as stopped there; an ended run keeps its reason', () => {

@@ -135,7 +135,7 @@
       ok(!visible('shape-density-value'), "The Seed box hides the other modes' Shape, Density and Size lines");
       ok(text('hud-panel-title') === 'Simulation', 'The HUD is one panel, titled Simulation');
       ok(el('glass-info-mode').querySelector('.hud-mode-children > .glass-display') === el('glass-info-modename'), 'Its first section is Mode');
-      ok(text('hud-mode-name') === 'Explore' && visible('hud-change-mode'), 'Mode names Explore, with its gear');
+      ok(text('hud-mode-name') === 'Game of Life 3D (unbounded)' && visible('hud-change-mode'), 'Mode names Game of Life 3D (unbounded), with its gear');
       ok(win.getComputedStyle(el('hud-panel-title')).color !== win.getComputedStyle(el('glass-info-rules').querySelector('.box-title-text')).color, "The panel's title is a different colour from its sections'");
       ok(!doc.getElementById('simulation-mode-title'), 'There is no title at the top centre');
       const boxes = ['glass-info-shape', 'glass-info-rules', 'glass-info-limits', 'glass-info-explore'];
@@ -432,10 +432,10 @@
       press('explore-use-in-contest');
       await sleep(1500);
       ok(doc.body.classList.contains('mode-contests') && text('contests-panel-title') === 'Methuselah', 'Use in a contest opens Methuselah');
-      ok(text('contests-entry-0') === '3 cells' && text('contests-entry-1') === 'B5/S4-5' && text('contests-entry-2') === 'Explore: Seed file: tiny.json',
+      ok(text('contests-entry-0') === '3 cells' && text('contests-entry-1') === 'B5/S4-5' && text('contests-entry-2') === 'Game of Life 3D (unbounded): Seed file: tiny.json',
         `with the seed and rules as the entry (${text('contests-entry-0')}, ${text('contests-entry-1')}, ${text('contests-entry-2')})`);
       ok(!el('contests-run').disabled && activeId() === 'contests-run', 'ready to run: Run has the focus');
-      ok(text('contests-panel-status').startsWith('Brought from Explore'), `The status says where it came from ("${text('contests-panel-status')}")`);
+      ok(text('contests-panel-status').startsWith('Brought from Game of Life 3D (unbounded)'), `The status says where it came from ("${text('contests-panel-status')}")`);
       const arenaNoted = visible('contests-entry-arena');
       ok(arenaBefore === '64³' ? !arenaNoted : arenaNoted && text('contests-entry-arena').includes('runs in its own 64³ arena'),
         `With Explore's arena ${arenaBefore}, the page ${arenaNoted ? 'says the contest runs in its own 64³ arena' : 'has no arena note'}`);
@@ -461,7 +461,10 @@
       section('The settings dialog');
       press('seedConfigButton');
       await sleep(300);
-      ok(visible('explore-settings-note') && text('explore-settings-note').includes('top left'), "The dialog says where Explore's settings are");
+      ok(visible('explore-settings-note') && text('explore-settings-note').includes('top left'), "The dialog says where the unbounded mode's settings are");
+      ok([...doc.querySelectorAll('.mode-card')].slice(0, 2).map((c) => c.textContent.replace(/\s+/g, ' ').trim()).join(' | ') === 'Game of Life 3D Unbounded | Game of Life 3D Bounded',
+        'The first two cards are Game of Life 3D, Unbounded then Bounded (#116)');
+      ok(text('mode-description').includes('on the CPU') && text('mode-description').includes('no GPU path yet'), 'The unbounded mode says it runs on the CPU, and why not the GPU');
       ok(!visible('seed-section') && !visible('rules-section') && !visible('sim-params-section'), 'It shows only the mode choice');
       press('shapeConfirm');
       await sleep(1000);
@@ -469,12 +472,13 @@
       press('seedConfigButton');
       await sleep(300);
       press('mode-gameOfLife');
-      ok(!visible('explore-settings-note') && visible('seed-section') && visible('rules-section'), 'Game of Life 3D shows its own settings in the dialog');
+      ok(text('mode-description').includes('GPU with WebGPU') && text('mode-description').includes('play it backwards'), 'The bounded mode says it runs on the GPU where it can, and plays backwards');
+      ok(!visible('explore-settings-note') && visible('seed-section') && visible('rules-section'), 'The bounded mode shows its own settings in the dialog');
       press('shapeConfirm');
       await sleep(4000);
       ok(!doc.body.classList.contains('mode-explore'), 'Game of Life 3D runs');
       ok(visible('shape-density-value') && !visible('explore-change-seed') && !visible('explore-change-rules') && !visible('explore-save-seed') && !visible('explore-seed-label'), 'Its boxes show the shape lines, and no Change or Save seed buttons');
-      ok(text('hud-mode-name') === 'Game of Life' && el('glass-info-mode').contains(el('glass-info-sim')) && visible('glass-info-sim'), 'Mode names Game of Life, with its own sections below');
+      ok(text('hud-mode-name') === 'Game of Life 3D (bounded)' && el('glass-info-mode').contains(el('glass-info-sim')) && visible('glass-info-sim'), 'Mode names Game of Life 3D (bounded), with its own sections below');
       ok(el('glass-info-sim').querySelector('.box-title-text').textContent === 'Grid', 'Its Generations and Size section is called Grid');
       ok(!visible('glass-info-limits') && !visible('glass-info-explore'), "Explore's Limits and Run boxes don't show");
       el('glass-info-sim').querySelector('.box-title').click();

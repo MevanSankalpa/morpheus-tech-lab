@@ -96,35 +96,35 @@ The 3D model was determined to be best represented mathematically by a three dim
 
 | Mode | What you see |
 |---|---|
-| **Game of Life 3D** | Conway's rules extended to a cube, where each cell has 26 neighbours (rules above). Edge, face and corner cells get their own rules when the grid doesn't wrap |
+| **Game of Life 3D (unbounded)** | Conway's rules in three dimensions, in a world without walls: the pattern grows as far as it likes, for as long as it runs. Pause, step, restart and set its speed; from its boxes in the HUD, choose the rules, a seed shape, a preset seed or a seed file, or design a seed cell by cell, set a memory limit, and optionally an arena, with a choice of what happens at its edge: the run ends; **Ships leave**, so ships of period up to 32 fly out as in Classic Methuselah; **It wraps around**, so opposite walls meet and a pattern that crosses one comes back in through the other; or **Walls**, closed walls whose corner, edge and face cells follow their own rules. The 2D view shows one slice, across the pattern's extent; the grid shows the 16³-cell chunks it occupies. A run stops once its pattern dies or settles into a still life or a repeating cycle, which then keeps playing. It computes on the CPU, in a background thread, keeping only the current generation, so its memory follows the live cells; it has no GPU path yet, [below](#limits) |
+| **Game of Life 3D (bounded)** | Conway's rules extended to a cube, where each cell has 26 neighbours (rules above), in a fixed grid that wraps around, or has walls whose edge, face and corner cells get their own rules. The whole run is computed before it plays, so you can scrub it and play it backwards. It computes on your GPU with WebGPU where your browser has it, and on the CPU otherwise, with the same cells either way |
 | **Rule 30** | Wolfram's elementary automaton, in 1D or 2D |
 | **Sine Wave** | A continuous wave field, a smooth visual reference |
 | **Abelian Sandpile** | One grain of sand dropped at the centre each generation; piles topple and spread into fractal patterns |
-| **Contest** | One contest on the unbounded engine, in three branches, opened from the banner by the company logo. Its panel sits in the middle of the screen. The first branch, **Speed**, times how many generations your browser computes in 6 seconds, from the same seed (Cube10) under the same rules (B9-10/S5-15) for everyone, up to a ceiling of 1,000; runs that reach the ceiling rank by the time they took, to the millisecond, and the results card and the Hall of Fame lead with it. Nothing is drawn while it runs. The results card gives the score, the statistics, your browser and the result's hash, and **Export result** saves it as a result file. **Verify a result** checks any result file by replaying it, in a background thread. **Watch**, on the results card and on a checked file's verdict, plays the run back in 3D, replayed from its seed: the control bar plays, pauses, steps and sets the speed, a scrub bar goes to any generation up to the scored one, the view settings (grid, orientation, cell size, 3D or 2D) apply as in Explore, and when the replay reaches it, its hash is compared with the result's, so the run shows as self-verified. **Submit by email** downloads the result file and opens an email to lab@morpheustech.net with the text filled in, to which you attach the file (and, if you like, a picture) by hand; the card also shows the address and text with Copy, for webmail. Each branch's page shows its **Hall of Fame**: the verified entries, best first, with each entrant's chosen name, picture, score, browser and date, and Watch. Speed's timing is self-reported: a replay proves the generation, not how long it took. The second branch, **Methuselah**, looks for the longest-lived pattern that settles in place inside a 64³ arena: your entry is a seed in the 10³ seed box and its rules, brought from Explore with **Use in a contest**, or loaded with **Load seed…** from a seed file (Explore's Save seed, or the seed editor's Export; **Design a seed in Explore** opens the seed editor and sets Explore's arena to the contest's 64³, so a run in Explore ends as the contest's would, and the Contest banner brings you back to Methuselah's page) and shown drawn as cubes, with its cell count and rules. A run goes on until the pattern dies, repeats in place, reaches the arena's edge, or reaches 10,000 generations, and can take a few minutes; it scores the generation the pattern settled at, if its final state or cycle closes within the budget, so the top score is 9,999, and reaching the edge or the budget scores nothing. This is stricter than classic Life's methuselahs: anything that flies off ends the run unscored. The score depends only on the seed and rules, so it is the same on any machine; ties go to fewer seed cells, then the earlier submission, and the Hall of Fame shows each entry's rules. The third branch, **Classic Methuselah**, is Methuselah with one rule changed: a ship may leave the arena. When part of the pattern reaches a wall and is a ship heading out, of period up to 32, the longest recognised, it is deleted and listed as a departure, and the run goes on, so a pattern that settles after sending off ships scores; anything else at the edge still ends the run, and a pattern that keeps sending off ships ends as *emits*, unscored. Its page lists its five endings, the results card and the email list the ships that left ("2 ships left, at generations 140 and 412"), and Watch marks where each left on its scrub bar. Use in a contest and Design a seed in Explore offer both Methuselah contests. |
-| **Explore** | Game of Life 3D without walls: the pattern grows as far as it likes, for as long as it runs. Pause, step, restart and set its speed; from its boxes in the HUD, choose the rules, a seed shape, a preset seed or a seed file, or design a seed cell by cell, set a memory limit, and optionally an arena, with a choice of what happens at its edge: the run ends; **Ships leave**, so ships of period up to 32 fly out as in Classic Methuselah; **It wraps around**, so opposite walls meet and a pattern that crosses one comes back in through the other; or **Walls**, closed walls whose corner, edge and face cells follow their own rules. The 2D view shows one slice, across the pattern's extent; the grid shows the 16³-cell chunks it occupies. A run stops once its pattern dies or settles into a still life or a repeating cycle, which then keeps playing. |
+| **Contest** | One contest on the unbounded engine, in three branches, opened from the banner by the company logo. Its panel sits in the middle of the screen. Season 1 runs on the CPU only, so every entrant runs the same engine. The first branch, **Speed**, times how many generations your browser computes in 6 seconds, from the same seed (Cube10) under the same rules (B9-10/S5-15) for everyone, up to a ceiling of 1,000; runs that reach the ceiling rank by the time they took, to the millisecond, and the results card and the Hall of Fame lead with it. Nothing is drawn while it runs. The results card gives the score, the statistics, your browser and the result's hash, and **Export result** saves it as a result file. **Verify a result** checks any result file by replaying it, in a background thread. **Watch**, on the results card and on a checked file's verdict, plays the run back in 3D, replayed from its seed: the control bar plays, pauses, steps and sets the speed, a scrub bar goes to any generation up to the scored one, the view settings (grid, orientation, cell size, 3D or 2D) apply as in Game of Life 3D (unbounded), and when the replay reaches it, its hash is compared with the result's, so the run shows as self-verified. **Submit by email** downloads the result file and opens an email to lab@morpheustech.net with the text filled in, to which you attach the file (and, if you like, a picture) by hand; the card also shows the address and text with Copy, for webmail. Each branch's page shows its **Hall of Fame**: the verified entries, best first, with each entrant's chosen name, picture, score, browser and date, and Watch. Speed's timing is self-reported: a replay proves the generation, not how long it took. The second branch, **Methuselah**, looks for the longest-lived pattern that settles in place inside a 64³ arena: your entry is a seed in the 10³ seed box and its rules, brought from Game of Life 3D (unbounded) with **Use in a contest**, or loaded with **Load seed…** from a seed file (the unbounded mode's Save seed, or the seed editor's Export; **Design a seed in Game of Life 3D (unbounded)** opens the seed editor and sets the unbounded mode's arena to the contest's 64³, so a run in Game of Life 3D (unbounded) ends as the contest's would, and the Contest banner brings you back to Methuselah's page) and shown drawn as cubes, with its cell count and rules. A run goes on until the pattern dies, repeats in place, reaches the arena's edge, or reaches 10,000 generations, and can take a few minutes; it scores the generation the pattern settled at, if its final state or cycle closes within the budget, so the top score is 9,999, and reaching the edge or the budget scores nothing. This is stricter than classic Life's methuselahs: anything that flies off ends the run unscored. The score depends only on the seed and rules, so it is the same on any machine; ties go to fewer seed cells, then the earlier submission, and the Hall of Fame shows each entry's rules. The third branch, **Classic Methuselah**, is Methuselah with one rule changed: a ship may leave the arena. When part of the pattern reaches a wall and is a ship heading out, of period up to 32, the longest recognised, it is deleted and listed as a departure, and the run goes on, so a pattern that settles after sending off ships scores; anything else at the edge still ends the run, and a pattern that keeps sending off ships ends as *emits*, unscored. Its page lists its five endings, the results card and the email list the ships that left ("2 ships left, at generations 140 and 412"), and Watch marks where each left on its scrub bar. Use in a contest and Design a seed in Game of Life 3D (unbounded) offer both Methuselah contests. |
 
-The lab opens in Explore, paused on a 10³ cube. The Simulation panel at the top left holds the
+The lab opens in Game of Life 3D (unbounded), paused on a 10³ cube. The Simulation panel at the top left holds the
 HUD, in every mode, as sections. The first, Mode, names the simulation that runs; the gear in its
 title, or the settings button, switches mode. The other sections (the boxes, below) belong to that
-simulation; Explore's own settings are in them, [below](#explores-settings). A click on a
+simulation; the unbounded mode's own settings are in them, [below](#settings-of-game-of-life-3d-unbounded). A click on a
 section's title folds it down to the title, to make room for the others on a short screen; a
 click on the panel's title folds the whole panel.
 
-Seeds: cube, tetrahedron, octahedron, Perlin noise and Worley noise. Game of Life 3D's default is a 50×50×50
+Seeds: cube, tetrahedron, octahedron, Perlin noise and Worley noise. Game of Life 3D (bounded)'s default is a 50×50×50
 grid over 100 generations. The whole run is computed before it plays, so you can scrub and play
 it backwards instantly.
 
-Explore works differently: it computes one generation at a time, in a background thread, for as
+Game of Life 3D (unbounded) works differently: it computes one generation at a time, in a background thread, for as
 long as it runs, and keeps only the current one, so it can't play backwards. The view draws up
 to 300,000 live cells; past that it draws the 16³-cell chunks that hold them, as boxes. Its
 memory limit starts at 1,024 MB: the browser caps each tab's memory, and a page can't learn that
 cap, so the limit stops a run cleanly before the browser or the system does. On a 16 GB machine,
 one Chrome tab could take about 6 GB; 512 MB is the cautious choice for phones and small machines.
 
-### Explore's settings
+### Settings of Game of Life 3D (unbounded)
 
-Explore's settings are changed from its boxes in the HUD's Simulation panel, at the top left,
-rather than in the settings dialog, which in Explore shows only the mode choice. Each box you can
+The unbounded mode's settings are changed from its boxes in the HUD's Simulation panel, at the top left,
+rather than in the settings dialog, which for it shows only the mode choice. Each box you can
 change has a gear in its title that opens a popover beside it (under it on a phone): **Seed**, **Rules** and
 **Limits**, for the arena (on or off, its side, 8 to 1,024 cells, and what happens **At the edge**:
 **The run ends**, the default, **Ships leave**, **It wraps around** or **Walls**) and the memory
@@ -133,14 +133,14 @@ darker, with a green title, to tell it apart: the generation, generations per se
 and their peak, the pattern's extent, its chunks, whether it has settled, the engine's memory, and,
 with Ships leave, how many ships have left and where the last one went. With that
 choice, a ship of period up to 32 heading out through a wall leaves, a note says so, and the run
-goes on, exactly as in Classic Methuselah, which **Design a seed in Explore** switches it on for; a
+goes on, exactly as in Classic Methuselah, which **Design a seed in Game of Life 3D (unbounded)** switches it on for; a
 pattern that keeps sending off ships ends as *emits*. A generation saved after a ship has left
 can't be replayed by its file, which has no contest to say that ships leave, so Save this
 generation refuses it, and Save seed still works. With **It wraps around**, the arena is drawn
 dashed, its opposite walls meet, so a ship comes round and the run settles on its lap, and the
 run never ends at the edge. No contest wraps: Save this generation is refused while the arena
 wraps (Save seed still works), Use in a contest says that the contest's arena doesn't wrap, and
-Design a seed in Explore stops the wrapping. With **Walls**, the arena is closed and drawn
+Design a seed in Game of Life 3D (unbounded) stops the wrapping. With **Walls**, the arena is closed and drawn
 brighter: past its walls is empty, so a cell on a wall counts only its neighbours inside, 7 at a
 corner, 11 on an edge and 17 on a face, and follows that kind of wall's Birth and Survival, set
 right under Walls (they start at the old grid mode's corner B2,3/S2-4, edge B4/S2-6 and face
@@ -157,7 +157,7 @@ The seed is **Custom** or a **Preset**. Custom cells come from a shape (cube, te
 octahedron, Perlin or Worley noise, or a preset's cells under your rules) or from a file, with
 **Load…**: a seed file brings its cells and puts its rules in the Rules box, and a saved
 generation carries on from its generation. A **Preset** brings its own rules: **Cube10**, the
-10³ cube Explore opens on under the default rules, a dense mass that keeps swelling outward; or
+10³ cube the lab opens on under the default rules, a dense mass that keeps swelling outward; or
 **Spreading noise**, 224 cells under B7,13,14/S0,2-6,9,13,19,23,24 that look like chaotic noise
 yet keep spreading. The Speed contest
 runs Cube10. Under **Ships**, nine small seeds each become a ship, a pattern that flies off
@@ -167,7 +167,7 @@ says the generation it becomes a ship and where it flies; the Custom shapes list
 
 A preset's rules are locked, so it is always the same run, and a saved generation's rules and
 arena are locked too. The Rules box says what locks them. **Use your own rules**, in the Rules or
-Explore popover, keeps the same cells, as a Custom seed from generation 0, and makes those rules
+Limits popover, keeps the same cells, as a Custom seed from generation 0, and makes those rules
 (and the arena) yours to change.
 
 ### Designing a seed
@@ -183,7 +183,7 @@ The editor takes over the 3D view, with its tools in a panel beside it (at the f
 The whole box shows at once: live cells as solid cubes, empty places as faint dots. The cursor is
 a white wireframe cube, with guide lines along x (red), y (green) and z (blue). The selection is a
 yellow box, its live cells tinted and its empty places bright, and the panel names it: "Plane
-across z, at z 4: 100 cells, 37 alive." Explore's run, if it is running, keeps going behind it.
+across z, at z 4: 100 cells, 37 alive." The unbounded mode's run, if it is running, keeps going behind it.
 
 | Key | Does |
 |---|---|
@@ -211,7 +211,7 @@ Design….
 **Use in a contest**, at the foot of the Seed popover, takes the seed in use and its rules into
 the Methuselah contest, ready to run, exactly as they are: the seed in the result file is the seed
 designed. A seed with any cell outside the seed box is refused there, saying which cells, since a
-seed is never shifted; so is a saved generation, which isn't a starting seed. If Explore's arena
+seed is never shifted; so is a saved generation, which isn't a starting seed. If the unbounded mode's arena
 isn't 64³, Methuselah's page says the contest runs in its own 64³ arena, so a run may end
 differently there. A design made in the seed editor goes in after its Use.
 
@@ -234,7 +234,7 @@ put the file; in other browsers it downloads, to the downloads folder.
   seed file. Loaded from the Seed box, under Custom, it runs from generation 0. For a run carried on from a saved
   generation, it is the first run's seed.
 
-An Explore seed file is JSON: its format and version, the rules, and the live cells as
+A seed file of Game of Life 3D (unbounded) is JSON: its format and version, the rules, and the live cells as
 `[x, y, z]` whole numbers. You can also write or edit one by hand:
 
 ```json
@@ -247,9 +247,14 @@ An Explore seed file is JSON: its format and version, the rules, and the live ce
 ```
 
 ### Limits
-**GPU or CPU.** Game of Life 3D and Rule 30 (1D and 2D) compute on your GPU with WebGPU when
-your browser has it, and on your CPU when it doesn't; Sine Wave and Abelian Sandpile always run
-on the CPU. Both give exactly the same generations, cell for cell. The chip button in the
+**GPU or CPU.** Game of Life 3D (bounded) and Rule 30 (1D and 2D) compute on your GPU with WebGPU when your
+browser has it, and on your CPU when it doesn't; both give exactly the same generations, cell
+for cell. Sine Wave and Abelian Sandpile always run on the CPU, and so does Game of Life 3D (unbounded), in a
+background thread. A GPU steps a world of fixed size, and the unbounded world grows with its
+pattern, so that mode has no GPU path yet; the routes to one, and what they cost, are talked
+through in [Discussion #122](https://github.com/Morpheus-Tech-LLC/morpheus-tech-lab/discussions/122).
+Season 1's contests run on the CPU only, on the unbounded engine, so every entrant runs the same
+engine. The chip button in the
 control bar says where the next run computes (GPU or CPU) and turns GPU compute off or on; your
 browser remembers the choice. If the GPU can't be used, the button is disabled and says why.
 
@@ -263,8 +268,8 @@ Ryzen 5 5500U and its integrated Radeon GPU:
 
 | Run | CPU | GPU |
 |---|---|---|
-| Game of Life 3D, default seed (a 10³ cube) | 6.4 s | 0.6 s |
-| Game of Life 3D, 30% of all cells alive | 5–6 min | 5–6 s |
+| Game of Life 3D (bounded), default seed (a 10³ cube) | 6.4 s | 0.6 s |
+| Game of Life 3D (bounded), 30% of all cells alive | 5–6 min | 5–6 s |
 | Rule 30 2D | 0.6 s | 0.1 s |
 
 **Where it stops now.** With the GPU, computing the generations is no longer the limit. The
@@ -292,7 +297,7 @@ Requires Node.js 20.19 or newer (for Vite 7).
 
 `npm run build` writes the production site to `dist/`, and `npm run preview` serves it. `npm test`
 runs the automated tests. `node scripts/verify.mjs <result.json>` checks a result file from the
-unbounded engine, or a generation saved from Explore, by replaying it (try it on `test/unbounded/fixtures/example-result.json`).
+unbounded engine, or a generation saved from Game of Life 3D (unbounded), by replaying it (try it on `test/unbounded/fixtures/example-result.json`).
 A contest's result is checked against its contest as well, and its score printed. A run that
 settled (died out, or repeated, as a Methuselah result does) is replayed with the same settle
 detector as the run, to confirm it first settled at the file's generation; its score prints as

@@ -166,7 +166,7 @@ export function openPanel({ designInExplore = null, entry = null } = {}) {
     const refusal = setEntry(brought, entry, entry.source, entry.note);
     panel.refused = refusal ? { contest: brought.id, message: `Not used: ${refusal}` } : null;
     showContest(brought);
-    if (!refusal) status(`Brought from Explore: ${entry.source.replace(/^Explore: /, '')}.`);
+    if (!refusal) status(`Brought from Game of Life 3D (unbounded): ${entry.source.replace(/^Game of Life 3D \(unbounded\): /, '')}.`);
   } else if (resume) showContest(resume);
   else showList();
 }
@@ -230,7 +230,7 @@ function showList() {
   hud('–', 'Choosing', '–');
   const tiles = h('div', { className: 'contests-tiles' }, ...CONTESTS.filter(onPage).map(tile));
   show('list', 'The Contest', [
-    h('p', { text: 'One contest, in three branches. Each branch fixes its own rules, so everyone in it runs the same thing, and any result can be checked by anyone, by replaying it, in the lab or with scripts/verify.mjs.' }),
+    h('p', { text: 'One contest, in three branches. Each branch fixes its own rules, so everyone in it runs the same thing, and any result can be checked by anyone, by replaying it, in the lab or with scripts/verify.mjs. Season 1 runs on the CPU only, on the engine of Game of Life 3D (unbounded), so every entrant runs the same engine.', attrs: { id: 'contests-list-about' } }),
     h('p', { className: 'contests-closes', text: closingText(CONTESTS), attrs: { id: 'contests-closes' } }),
     tiles,
     // Verify a result judges every contest: a bar across the panel under its own heading, apart
@@ -385,13 +385,13 @@ function endingsTable(contest) {
  */
 function entrySection(contest, entry) {
   const load = button(entry ? 'Load another seed…' : 'Load seed…', () => el('contests-seed-file').click(), { main: !entry, id: 'contests-load-seed' });
-  const design = panel.designInExplore ? button('Design a seed in Explore', () => designSeed(contest), { id: 'contests-design-seed' }) : null;
+  const design = panel.designInExplore ? button('Design a seed in Game of Life 3D (unbounded)', () => designSeed(contest), { id: 'contests-design-seed' }) : null;
   const refused = panel.refused?.contest === contest.id ? h('p', {
     className: 'contests-refused', text: panel.refused.message, attrs: { id: 'contests-entry-refused', role: 'alert' },
   }) : null;
   if (!entry) {
     return section('Your entry',
-      h('p', { text: 'A seed and its rules. Design a seed in Explore opens Explore\'s seed editor: place the cells, set the rules in Explore\'s Rules box, and Export the design as a seed file (or Save seed from the Seed box). The Contest banner brings you back here, to Load seed….', attrs: { id: 'contests-entry-none' } }),
+      h('p', { text: 'A seed and its rules. Design a seed in Game of Life 3D (unbounded) opens its seed editor: place the cells, set the rules in its Rules box, and Export the design as a seed file (or Save seed from the Seed box). The Contest banner brings you back here, to Load seed….', attrs: { id: 'contests-entry-none' } }),
       refused,
       h('div', { className: 'contests-actions' }, load, design));
   }
