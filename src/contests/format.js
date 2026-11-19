@@ -2,8 +2,9 @@
 //
 // What the Contests panel says and draws, worked out apart from the page so the tests run it in
 // Node: the countdown, the charts (Speed's generations over time, a Discovery run's live cells by
-// generation), a score in words, how a run ended, a result's file name, the statistics as the
-// panel lists them, and a Discovery entry's seed as a small picture.
+// generation), a score in words, how a run ended, the ships that left (Classic Methuselah's,
+// #100), a result's file name, the statistics as the panel lists them, and a Discovery entry's
+// seed as a small picture.
 
 /** Thousands separators, the same in every browser. */
 export const n = (value) => Math.round(value).toLocaleString('en');
@@ -235,14 +236,34 @@ export function methuselahEndingText(reason, contest, { stats, cycle }) {
       return cycle?.period > 1
         ? `Settled at ${at}: period ${n(cycle.period)}. From there its cells repeat every ${n(cycle.period)} generations, in place, so it scores where the cycle began.`
         : `Settled at ${at}: a still life. From there its cells stay the same, in place.`;
+    case 'emits':
+      return `Emits from ${at}: its cells repeat every ${n(cycle?.period ?? 1)} generation${cycle?.period === 1 ? '' : 's'}, but ships leave the arena during each cycle, so it never settles and has no score. A pattern scores once its last ship has left and the rest has settled.`;
     case 'arena-edge':
-      return `Reached the edge at ${at}: the next generation would bring a cell to life outside the ${arenaText(contest.fixes.arena)} arena, so it has no score. Only a pattern that settles in place inside the arena scores, and one that keeps growing, or sends something flying off, ends here.`;
+      return contest.departures
+        ? `Reached the edge at ${at}: the next generation would bring a cell to life outside the ${arenaText(contest.fixes.arena)} arena from something that isn't a ship of period ${n(contest.departures.period)} or less heading out, so it has no score. Only ships leave: a pattern that keeps growing, or a ship sliding along a wall, ends here.`
+        : `Reached the edge at ${at}: the next generation would bring a cell to life outside the ${arenaText(contest.fixes.arena)} arena, so it has no score. Only a pattern that settles in place inside the arena scores, and one that keeps growing, or sends something flying off, ends here.`;
     case 'generation-limit':
       return stats.live === 0
         ? `It died at generation ${budget}, the budget's last, so it has no score: a death is a cycle of period 1, which closes a generation later, past the budget.`
-        : `Still unsettled at generation ${budget}, the budget, so it has no score. A pattern that never settles and never escapes may suit Contained chaos (#42).`;
+        : `Still unsettled at generation ${budget}, the budget, so it has no score.`;
     default: return machineEndingText(reason);
   }
+}
+
+/**
+ * The ships that left a Classic Methuselah run (#100), in words: "No ship left the arena", "1 ship
+ * left, at generation 140", "2 ships left, at generations 140 and 412". Ships that left together
+ * share their generation; past five generations, only the first and last are named.
+ * @param {{generation: number}[]} departures - in the order they left
+ */
+export function departuresText(departures) {
+  if (!departures.length) return 'No ship left the arena';
+  const ships = `${n(departures.length)} ship${departures.length === 1 ? '' : 's'} left`;
+  const generations = [...new Set(departures.map((d) => d.generation))];
+  if (generations.length === 1) return `${ships}, at generation ${n(generations[0])}`;
+  if (generations.length > 5) return `${ships}, from generation ${n(generations[0])} to generation ${n(generations.at(-1))}`;
+  const list = generations.map(n);
+  return `${ships}, at generations ${list.slice(0, -1).join(', ')} and ${list.at(-1)}`;
 }
 
 /**
@@ -302,6 +323,8 @@ export function statsRows(stats) {
     ['Chunks', n(stats.chunks)],
     ['Memory', bytesText(stats.memoryBytes)],
     ['Extent', extentText(stats.extent)],
+    // A world where ships leave at the edge (#100) counts them
+    ...(stats.departed === undefined ? [] : [['Ships left', n(stats.departed)]]),
   ];
 }
 
@@ -321,6 +344,30 @@ export function verdictTitle(verdict) {
 /** Where Watch is, out of the result's generation: "212 / 412". */
 export function watchGenerationText(generation, last) {
   return `${n(generation)} / ${n(last)}`;
+}
+
+/** A ship's shift as the way it heads: [2, 0, -1] is "+x −z". */
+export function headingText(shift) {
+  return shift.map((d, a) => (d > 0 ? `+${'xyz'[a]}` : d < 0 ? `−${'xyz'[a]}` : null)).filter(Boolean).join(' ');
+}
+
+/**
+ * Where Watch is among a run's departures (#102), at a generation: how many ships have left so
+ * far, and the last one's generation and heading. A departure at t is the step from t to t + 1,
+ * so at generation t the ship is still there, and from t + 1 it has gone.
+ * @param {{generation: number, shift: number[]}[]} departures - the result's, in order
+ * @param {number} generation - where Watch is
+ */
+export function watchDeparturesText(departures, generation) {
+  const total = departures.length;
+  if (!total) return 'No ship leaves in this run.';
+  const ships = `${n(total)} ship${total === 1 ? '' : 's'}`;
+  const gone = departures.filter((d) => d.generation < generation);
+  if (!gone.length) return `${ships} leave${total === 1 ? 's' : ''} in this run, the first at generation ${n(departures[0].generation)}.`;
+  const last = gone.at(-1);
+  const at = `generation ${n(last.generation)}, heading ${headingText(last.shift)}`;
+  if (gone.length === total) return total === 1 ? `The ship has left, at ${at}.` : `All ${ships} have left, the last at ${at}.`;
+  return `${n(gone.length)} of ${ships} ${gone.length === 1 ? 'has' : 'have'} left, the last at ${at}.`;
 }
 
 /** How a replay that fell short of its generation ended, in words. */

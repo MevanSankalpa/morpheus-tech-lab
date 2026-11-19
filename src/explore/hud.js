@@ -9,8 +9,9 @@
 //
 // The Seed popover also opens the seed editor (editor.js, #70): Design… under Custom, on the seed
 // in use, and Edit a copy… under Preset. The editor's Use changes the settings and restarts the run
-// as Apply does. Its Use in a contest (#95) takes the seed in use and its rules into Methuselah,
-// through controls.js, or says why they can't be an entry.
+// as Apply does. Its Use in a contest (#95) takes the seed in use and its rules into the contest
+// chosen beside it, Methuselah or Classic Methuselah (#102), through controls.js, or says why they
+// can't be an entry.
 
 import { state } from '../state.js';
 import { startExplore } from './explore.js';
@@ -18,7 +19,7 @@ import { openPopover, closePopover, isPopoverOpen, placeOpenPopover } from './po
 import { readSeedOrSave } from './save.js';
 import { openEditor, closeEditor } from './editor.js';
 import { MAX_RESULT_BYTES } from '../unbounded/canonical.js';
-import { contestById } from '../unbounded/contests.js';
+import { CONTESTS } from '../unbounded/contests.js';
 import { PRESETS, PRESET_GROUPS, presetById } from './presets.js';
 import { MAX_SHAPE_SIZE, parseCounts } from './seed.js';
 import {
@@ -27,8 +28,14 @@ import {
   designOf, presetCopy, useDesign, contestEntry,
 } from './setup.js';
 
-/** The contest Use in a contest opens. Contained chaos (#42) adds a choice. */
-const ENTRY_CONTEST = 'methuselah-1';
+/** The contests Use in a contest offers: those an entry brings its seed and rules to. */
+const ENTRY_CONTESTS = CONTESTS.filter((contest) => contest.kind === 'methuselah');
+
+/** The contest chosen beside Use in a contest: Methuselah, until the visitor picks another. */
+function entryContest() {
+  const chosen = document.getElementById('explore-contest-choice')?.value;
+  return ENTRY_CONTESTS.find((contest) => contest.id === chosen) ?? ENTRY_CONTESTS[0];
+}
 
 /** A loaded file larger than a result file may be is refused before it is read. */
 const MAX_SEED_FILE_BYTES = MAX_RESULT_BYTES;
@@ -205,6 +212,18 @@ function wireSeed() {
   byId('explore-design').onclick = openDesign;
   byId('explore-edit-copy').onclick = openCopy;
   byId('explore-use-in-contest').onclick = useInContest;
+  const contestChoice = byId('explore-contest-choice');
+  contestChoice.replaceChildren(...ENTRY_CONTESTS.map((contest) => {
+    const option = document.createElement('option');
+    option.value = contest.id;
+    option.textContent = contest.title;
+    return option;
+  }));
+  contestChoice.onchange = () => {
+    showContestStatus();
+    showError(byId('explore-contest-error'), null);
+    placeOpenPopover();
+  };
   shapeSelect.onchange = () => { fillShapeFields(shapeSelect.value); showSeedDraft(); };
 
   const fileInput = byId('explore-seed-file');
@@ -325,16 +344,22 @@ function showSeedDraft() {
   const from = !preset && source === 'file' && file?.kind === 'saved' ? file.from : 0;
   setText('explore-seed-note', restartNote(from));
   showError(byId('explore-seed-error'), null);
-  const contest = contestById(ENTRY_CONTEST);
-  const inUse = state.explore.seed;
-  setText('explore-contest-status', `Use in a contest takes the seed in use (${seedLabel(inUse)}, ${n(inUse.cells.length / 3)} cells) and its rules, ${ruleText(rulesOf(state.explore))}, into ${contest.title}, ready to run, exactly as they are.`);
+  showContestStatus();
   showError(byId('explore-contest-error'), null);
   placeOpenPopover();
 }
 
+/** What Use in a contest will do, for the contest chosen beside it. */
+function showContestStatus() {
+  const n = (x) => x.toLocaleString('en');
+  const contest = entryContest();
+  const inUse = state.explore.seed;
+  setText('explore-contest-status', `Use in a contest takes the seed in use (${seedLabel(inUse)}, ${n(inUse.cells.length / 3)} cells) and its rules, ${ruleText(rulesOf(state.explore))}, into ${contest.title}, ready to run, exactly as they are.`);
+}
+
 // Use in a contest: the seed in use and its rules into the contest, or why they can't be an entry
 function useInContest() {
-  const contest = contestById(ENTRY_CONTEST);
+  const contest = entryContest();
   const found = contestEntry(state.explore, contest);
   if (found.reason || !enterContest) {
     showError(document.getElementById('explore-contest-error'), found.reason ?? 'The contests aren\'t available here.');

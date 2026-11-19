@@ -47,8 +47,8 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          against convolve3D() (dense.test.js);
                          browser.test.js checks telling the browser; contests/ checks a Speed run and Verify a
                          result… on worker_threads (verifyNodeWorker.js stands in for verify.worker.js) and
-                         a Methuselah run on worker_threads (discovery.test.js),
-                         the panel's text (format.test.js), Watch's and Methuselah's included, the email's text (submit.test.js)
+                         Methuselah and Classic Methuselah runs on worker_threads (discovery.test.js),
+                         the panel's text (format.test.js), Watch's, Methuselah's and the ships' included, the email's text (submit.test.js)
                          and the Hall of Fame, hall-of-fame.json against its result files (hallOfFame.test.js);
                          explore/ checks
                          Explore's seeds, presets, seed files, saves, settings (setup.test.js), camera framing
@@ -116,16 +116,19 @@ src/
   contests/contests.js   isContests(), startContests() and stopContests(): an empty scene, the panel, nothing drawn
   contests/panel.js      The panel in the middle of the screen: the list (the kinds in ON_PAGE), a contest's page
                          with its Hall of Fame; Methuselah's with its entry (#94), Load seed… and its refusals,
+                         shared with Classic Methuselah's, which adds its ships and its fifth ending (#102),
                          the run (Speed: countdown, statistics, a chart of generations over time; a Discovery run:
                          the generation out of the budget, statistics, a chart of live cells), the results card
                          with Export result and Submit by email, Verify a result, and the
                          HUD's Contest section. Sets only textContent
   contests/speed.js      SpeedRun: one Speed run in a Worker, its score and its result file made in the Worker;
                          verifyInWorker() (no DOM; tested in Node with worker_threads)
-  contests/discovery.js  DiscoveryRun (#94): one Discovery run (Methuselah's) in a Worker, in its contest's arena:
+  contests/discovery.js  DiscoveryRun (#94): one Discovery run (Methuselah's, or Classic Methuselah's with ships
+                         leaving at the edge and its departures, #102) in a Worker, in its contest's arena:
                          a settling run with every generation's live cells kept, its score from how it ended,
                          and its result file made in the Worker (no DOM; tested in Node with worker_threads)
   contests/watch.js      Watch (#78): a result played back in 3D in place of the panel, replayed in a Worker
+                         (with the contest's departure rule, and ticks where ships left, #102)
                          (run.js's replay kind), with ExploreView, the control bar, a scrub bar, Close, and
                          whether the replay's hash at the result's generation matched
   contests/looks.js      Each kind of contest's colour and logo (a stopwatch, an hourglass, a scribble in a box),
@@ -136,12 +139,13 @@ src/
                          rules and seedCells), rankEntries() (as the contest ranks, then date, then arrival), checkEntry()
                          (an entry against its result file) (no DOM; tested in Node)
   contests/format.js     What the panel says and draws: countdown, the chart's layout (chartLayout()), scores,
-                         endings (Speed's and Methuselah's), statistics, a Discovery seed's picture
+                         endings (Speed's and Methuselah's, `emits` included), the ships that left (departuresText(),
+                         watchDeparturesText()), statistics, a Discovery seed's picture
                          (seedPicture()), and what Watch found (selfVerifiedText()) (tested in Node)
   contests/contests-check.html Not bundled: a dev page (/src/contests/contests-check.html under `npm run dev`) that
                          clicks through the Contests mode in a frame holding the lab, two real Speed runs,
                          Submit by email and a staged Hall of Fame included, and Methuselah's page, Load seed…
-                         and its runs, marking each check ✔ or ✖, and
+                         and its runs, and a Classic Methuselah run whose ship leaves, marking each check ✔ or ✖, and
                          lists what to check by hand
   explore/               The Explore mode: the unbounded engine on the page (#37)
   explore/explore.js     Starts and drives the run, the control bar's commands in Explore, the HUD box and notices,
@@ -160,13 +164,14 @@ src/
                          (tested in Node)
   explore/hud.js         The gears in the Seed, Rules and Limits boxes' titles and their popovers, whose Apply changes
                          `state.explore` and restarts the run; startFromSetup(); openSeedEditor() (Design… from
-                         a contest's page); the Seed popover's Use in a contest (#95), through controls.js;
+                         a contest's page); the Seed popover's Use in a contest (#95), into either Methuselah
+                         contest (#102), through controls.js;
                          and folding every HUD box to its title, in every mode
   explore/popover.js     One HUD popover open at a time, beside its box: Esc, a click or focus outside closes it,
                          and focus goes back to its button. The save popover opens through it too
   explore/hud-check.html Not bundled: a dev page (/src/explore/hud-check.html under `npm run dev`) that clicks
                          through Explore's settings in the HUD in a frame holding the lab, Use in a contest
-                         included, marking each check ✔ or ✖
+                         (both Methuselah contests) included, marking each check ✔ or ✖
   explore/editorModel.js The seed editor's model (#70): the 10³ seed box as bytes, the cursor, the selection, switching,
                          random fill, undo and redo, seeds in and out, and which axis each movement key takes from
                          the camera's directions (no DOM, no Three.js; tested in Node)

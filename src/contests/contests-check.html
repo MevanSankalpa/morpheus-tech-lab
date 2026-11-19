@@ -7,7 +7,8 @@
   Submit by email (#79), Verify a result on the exported file, an edited copy and a file that
   isn't a result, a staged Hall of Fame (#79), Methuselah (#94: its page, Design a seed in Explore and back, Load seed… and its
   refusals, runs that die, reach the edge and are stopped, Export, Verify, Watch, Submit and its
-  Hall of Fame), and leaving the mode. It changes only the lab in its frame; reload to run it again. The list under
+  Hall of Fame), Classic Methuselah (#102: its page, a run whose ship leaves before it settles, its
+  departures on the results card, in Export, Submit, Watch and Verify), and leaving the mode. It changes only the lab in its frame; reload to run it again. The list under
   the results is what to check by eye.
 -->
 <html lang="en">
@@ -62,6 +63,8 @@
     <li>Methuselah's page: the seed's picture reads as cubes in a box, in Methuselah's violet, for one cell, a small design and a full 10³ box; the entry, the four endings and the facts read well at full width and at phone width.</li>
     <li>A long Methuselah run (Explore's Spreading noise preset, saved with Save seed and loaded here): the ring fills towards 10,000, the live-cells chart grows and rescales, and Stop answers at once. A run that settles late shows the whole history on its results card.</li>
     <li>Export a Methuselah result, then <code>node scripts/verify.mjs methuselah-1-N.json</code>: verified, "settled at generation N (period P)" or "died at generation N".</li>
+    <li>Classic Methuselah, in Watch: a ship visibly leaves through the arena's wall at the generation the scrub bar's tick marks, and the departures line changes as it does, scrubbing back and forth too.</li>
+    <li>Classic Methuselah's page reads well at full width and at phone width, its five endings and five facts included; its card on the list sits beside Methuselah's.</li>
   </ul>
   <script type="module">
     const frame = document.getElementById('lab');
@@ -225,9 +228,10 @@
       ok(text('contests-panel-title') === 'The Contest', 'The panel opens on the list of branches, titled The Contest');
       ok(visible('contests-open-speed-1'), 'Speed has a card to open');
       const tiles = [...el('contests-panel').querySelectorAll('.contests-tile')];
-      ok(tiles.length === 3 && tiles.every((t) => { const r = t.getBoundingClientRect(); return Math.abs(r.width - r.height) <= 2; }), `Speed, Methuselah and Contained chaos each have a square card (${tiles.map((t) => Math.round(t.getBoundingClientRect().width)).join(', ')} px)`);
+      ok(tiles.length === 3 && tiles.every((t) => { const r = t.getBoundingClientRect(); return Math.abs(r.width - r.height) <= 2; }), `Speed, Methuselah and Classic Methuselah each have a square card (${tiles.map((t) => Math.round(t.getBoundingClientRect().width)).join(', ')} px)`);
       ok(tiles.every((t) => t.querySelector('svg.contests-tile-logo path, svg.contests-tile-logo circle')), 'Each card has its logo');
-      ok(new Set(tiles.map((t) => t.style.getPropertyValue('--contest-color'))).size === 3, 'Each card has its own colour');
+      const colours = tiles.map((t) => t.style.getPropertyValue('--contest-color'));
+      ok(colours[0] !== colours[1] && colours[1] === colours[2], `Speed has its own colour; the two Methuselahs share Methuselah's (${colours.join(', ')})`);
       ok(text('contests-closes') === 'Closing date to be announced', 'The list gives the closing date');
       ok(panelText().includes('One contest, in three branches') && !/\b3 contests\b|three contests/i.test(panelText()), 'It speaks of one contest in three branches');
       ok(el('contests-verify').classList.contains('contests-verify-button') && el('contests-verify').querySelector('svg.contests-verify-glyph path'), 'Verify a result has its own button, with the scales');
@@ -235,10 +239,9 @@
       const tilesBox = el('contests-panel').querySelector('.contests-tiles').getBoundingClientRect();
       ok(verifyBox.top > tilesBox.bottom && Math.abs(verifyBox.width - tilesBox.width) <= 2 && verifyBox.height < 80, `It is a bar across the panel, under the cards (${Math.round(verifyBox.width)} × ${Math.round(verifyBox.height)} px)`);
       ok(el('contests-verify').closest('.contests-judge')?.textContent.includes('For every branch'), 'under its own heading, For every branch');
-      const coming = el('contests-panel').querySelectorAll('.contests-tile--coming');
-      ok(coming.length === 1 && coming[0].textContent.includes('Contained chaos'), 'Contained chaos is listed as coming');
-      ok([...el('contests-panel').querySelectorAll('a')].map((a) => a.textContent).join(' ') === '#42', 'It links #42');
-      ok(visible('contests-open-methuselah-1') && el('contests-open-methuselah-1').textContent.includes('Open'), 'Methuselah has a card to open, no longer coming');
+      ok(!panelText().includes('Contained chaos') && !panelText().includes('Coming'), 'Contained chaos, a later season\'s, is no longer listed as coming');
+      ok(visible('contests-open-methuselah-1') && el('contests-open-methuselah-1').textContent.includes('Open'), 'Methuselah has a card to open');
+      ok(visible('contests-open-classic-methuselah-1') && el('contests-open-classic-methuselah-1').textContent.includes('ships have left'), 'Classic Methuselah has a card to open, saying what it measures');
 
       section("Speed's page");
       press('contests-open-speed-1');
@@ -630,12 +633,14 @@
       await sleep(300);
       ok(visible('contests-watch') && Number(el('contests-watch-scrub').max) === 10 && text('contests-watch-title') === 'Methuselah: died at generation 10', `Watch plays it to generation 10 (${text('contests-watch-title')})`);
       ok(await until(() => text('contests-watch-verified').startsWith('Self-verified'), 30000), 'and self-verifies it');
+      ok(!visible('contests-watch-departures') && !el('contests-watch-ticks').children.length, 'No ships: Watch has no departures line, and the scrub bar no ticks');
       press('contests-watch-close');
       await sleep(300);
       chooseFile('methuselah-1-10.json', mFile);
       ok(await until(() => visible('contests-verdict'), 30000) && text('contests-verdict') === 'Verified', `Verify a result verifies it ("${text('contests-verdict-message')}")`);
       const verdictRows = [...el('contests-panel').querySelectorAll('.contests-facts dt')].map((dt) => `${dt.textContent}: ${dt.nextSibling.textContent}`);
       ok(verdictRows.includes('Score: Died at generation 10') && verdictRows.includes('Rules: B5,7-8/S1,4') && verdictRows.includes('Seed: 11 cells'), `with its score, rules and seed (${verdictRows.join('; ')})`);
+      ok(!verdictRows.some((row) => row.startsWith('Ships left')), 'and no ships: Methuselah lists none');
       ok(panelText().includes('Back to Methuselah'), 'and leads back to Methuselah');
       // The score's generations and the file's generation, never the budget's (limits.generations, 10000)
       const mEdited = mFile.replace('"generations": 10,', '"generations": 11,').replace('"generation": 10,', '"generation": 11,');
@@ -687,8 +692,65 @@
       await sleep(300);
       board.entries.length = 0;
       win.fetch = realFetch;
-      setSpeed(2.6);
+
+      section("Classic Methuselah's page");
       press('contests-back');
+      press('contests-open-classic-methuselah-1');
+      ok(text('contests-panel-title') === 'Classic Methuselah', 'Open shows Classic Methuselah');
+      ok(el('contests-panel').querySelector('.contests-page-head').style.getPropertyValue('--contest-color') === '#b39cff', "It wears Methuselah's colour");
+      const cFacts = [...el('contests-panel').querySelectorAll('.contests-fact')].map((f) => f.textContent);
+      ok(cFacts.length === 5 && ['64³', '10³', '10,000 generations', '9,999', 'Period ≤ 32'].every((v, i) => cFacts[i].includes(v)), `It gives Methuselah's facts, and the ships' period (${cFacts.map((f) => f.slice(0, 24)).join(' | ')})`);
+      ok(text('contests-differs').startsWith('Unlike Methuselah, a ship may leave the arena here') && text('contests-differs').includes('period up to 32, the longest recognised') && !visible('contests-strict'),
+        `It says in one sentence how it differs, and the longest period (“${text('contests-differs').slice(0, 70)}…”)`);
+      const cEndings = [...(el('contests-endings')?.querySelectorAll('tbody tr') ?? [])].map((r) => r.firstChild.textContent);
+      ok(cEndings.join(' ') === 'Death Repeat Emits Edge Budget', `It lists five endings, Emits among them (${cEndings.join(', ')})`);
+      ok(visible('contests-hof-empty'), 'Its Hall of Fame is empty, apart from Methuselah\'s');
+      ok(visible('contests-design-seed'), 'Its entry offers Design a seed in Explore');
+
+      section('A Classic Methuselah run whose ship leaves');
+      // SHIP, which leaves at generation 35, and a period-2 oscillator in a corner of the seed box
+      const SHIP_REST = [[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [2, 2, 0], [0, 0, 1], [2, 0, 1],
+        [0, 1, 1], [1, 1, 1], [2, 1, 1], [1, 2, 1], [0, 0, 2], [0, 1, 2], [0, 2, 2], [2, 2, 2]].map(([x, y, z]) => [x - 5, y - 5, z - 5]);
+      await loadSeed('ship-and-rest.json', seedFile(SHIP.rules, [...SHIP.cells, ...SHIP_REST]));
+      ok(text('contests-entry-0') === '34 cells', `The entry loads (${text('contests-entry-0')})`);
+      press('contests-run');
+      ok(panelText().includes('Ships of period up to 32 leave at the edge'), 'The run says ships leave at the edge');
+      ok(await until(() => visible('contests-score'), 15000), 'The results card shows');
+      ok(text('contests-score') === '36' && text('contests-score-unit') === 'generations, until it settled into a cycle of period 2', `It scores where it settled, once the ship had gone ("${text('contests-score')}", "${text('contests-score-unit')}")`);
+      ok(text('contests-departures') === '1 ship left, at generation 35.', `It lists the departures ("${text('contests-departures')}")`);
+      const cStats = [...el('contests-panel').querySelectorAll('.contests-stat')].map((s) => s.textContent);
+      ok(cStats.includes('Ships left1'), `Its statistics count the ships (${cStats.at(-1)})`);
+      ok(await until(() => /^sha256:[0-9a-f]{64}$/.test(text('contests-hash')), 15000) && !el('contests-export').disabled, 'The hash comes, and Export is ready');
+      exported = null;
+      press('contests-export');
+      await until(() => exported, 3000);
+      ok(text('contests-panel-status').includes('classic-methuselah-1-36.json'), `Export names it for the contest and the score ("${text('contests-panel-status')}")`);
+      const cFile = exported ? await exported.text() : '{}';
+      const cData = JSON.parse(cFile);
+      ok(cData.run?.contest === 'classic-methuselah-1' && cData.departures?.length === 1 && cData.departures[0].generation === 35 && JSON.stringify(cData.departures[0].shift) === '[1,0,0]',
+        'The file is a classic-methuselah-1 result, with its departure');
+      const cLink = new URL(el('contests-submit-email').href);
+      ok(cLink.searchParams.get('subject') === '[Classic Methuselah] settled at generation 36: period 2' && (cLink.searchParams.get('body') ?? '').includes('Ships: 1 ship left, at generation 35'),
+        `Submit by email gives the score and the ships ("${cLink.searchParams.get('subject')}")`);
+      setSpeed(10);
+      press('contests-watch-run');
+      await sleep(300);
+      ok(visible('contests-watch') && Number(el('contests-watch-scrub').max) === 36, 'Watch plays it to generation 36');
+      ok(visible('contests-watch-departures') && el('contests-watch-ticks').children.length === 1 && el('contests-watch-ticks').children[0].value === '35',
+        `It marks where the ship left on the scrub bar, and says so ("${text('contests-watch-departures')}")`);
+      ok(await until(() => text('contests-watch-verified').startsWith('Self-verified'), 30000), 'The replay lets the ship leave too, and self-verifies');
+      ok(text('contests-watch-departures') === 'The ship has left, at generation 35, heading +x.', `Once past it, Watch says the ship has left ("${text('contests-watch-departures')}")`);
+      press('contests-watch-close');
+      await sleep(300);
+      chooseFile('classic-methuselah-1-36.json', cFile);
+      ok(await until(() => visible('contests-verdict'), 30000) && text('contests-verdict') === 'Verified', `Verify a result verifies it ("${text('contests-verdict-message')}")`);
+      const cRows = [...el('contests-panel').querySelectorAll('.contests-facts dt')].map((dt) => `${dt.textContent}: ${dt.nextSibling.textContent}`);
+      ok(cRows.includes('Ships left: 1 ship left, at generation 35, as the replay found'), `with its departures (${cRows.join('; ')})`);
+      const cDropped = JSON.stringify({ ...cData, departures: [] });
+      chooseFile('no-departures.json', cDropped);
+      ok(await until(() => visible('contests-verdict') && text('contests-verdict') === "Doesn't match", 30000), `A copy with its departure removed doesn't match ("${text('contests-verdict-message').slice(0, 90)}…")`);
+      setSpeed(2.6);
+      press('contests-list'); // from the verdict, back to the list
       press('contests-open-speed-1');
 
       section('Stopping a run');

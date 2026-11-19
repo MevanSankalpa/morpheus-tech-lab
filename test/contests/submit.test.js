@@ -111,3 +111,19 @@ test("a Methuselah entry's email states its score as it settled, its rules and i
   const body = emailBody(lasting());
   assert.ok(mailtoLink(emailSubject(METHUSELAH, lasting().score, 'repeat'), body).length <= 2000);
 });
+
+// ---- Classic Methuselah (#102) ----
+
+test("a Classic Methuselah entry's email also says which ships left", () => {
+  const CLASSIC = contestById('classic-methuselah-1');
+  const classic = (departures) => emailBody(lasting({ contest: CLASSIC, fileName: 'classic-methuselah-1-1234.json', departures }));
+  const lines = classic([{ generation: 140, period: 1, shift: [1, 0, 0] }, { generation: 412, period: 4, shift: [0, -2, 0] }]).split('\n');
+  assert.ok(lines.includes('My entry for Classic Methuselah (classic-methuselah-1).'));
+  assert.ok(lines.includes('Score: settled at generation 1,234: period 2'));
+  assert.ok(lines.includes('Ships: 2 ships left, at generations 140 and 412'));
+  assert.ok(lines.some((line) => /^Classic Methuselah's Hall of Fame also shows the entry's rules and its seed's cell count/.test(line)));
+  assert.ok(classic([]).split('\n').includes('Ships: No ship left the arena'));
+  assert.equal(emailSubject(CLASSIC, { generations: 1234, period: 2 }, 'repeat'), '[Classic Methuselah] settled at generation 1,234: period 2');
+  // Methuselah's email has no Ships line, even if handed departures
+  assert.doesNotMatch(emailBody(lasting({ departures: [] })), /^Ships:/m);
+});

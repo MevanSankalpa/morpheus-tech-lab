@@ -17,9 +17,11 @@ export class EngineDriver {
    * @param {object} [options]
    * @param {(stats: import('./run.js').Stats) => void} [options.onStats] - at most four times a
    *   second while running
-   * @param {(state: string, stats: import('./run.js').Stats, reason?: string, cycle?: {from: number, period: number}) => void} [options.onState]
+   * @param {(state: string, stats: import('./run.js').Stats, reason?: string, cycle?: {from: number, period: number},
+   *   departures?: {generation: number, period: number, shift: number[]}[]) => void} [options.onState]
    *   - 'running', 'paused', 'seeking' (a replay) or 'ended' (with the reason, one of run.js's
-   *   END_REASONS, and for 'repeat' the cycle it found)
+   *   END_REASONS, for 'repeat' and 'emits' the cycle it found, and in a world where ships leave
+   *   at the edge, every departure, without its cells)
    * @param {(replayed: {generation: number, hash: string | null, matches: boolean | null, reason: string}) => void} [options.onReplayed]
    *   - once, when a replay first ends: at its generation, the hash of its cells and whether
    *   it is the check's; before it, why (run.js)
@@ -182,7 +184,7 @@ export class EngineDriver {
       case 'stats':
         return this.onStats(message.stats);
       case 'state':
-        return this.onState(message.state, message.stats, message.reason, message.cycle);
+        return this.onState(message.state, message.stats, message.reason, message.cycle, message.departures);
       case 'result':
         return this.settle(message.id, (p) => p.resolve(message.result));
       case 'seeked':

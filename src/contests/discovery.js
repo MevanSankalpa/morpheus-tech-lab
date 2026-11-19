@@ -2,8 +2,8 @@
 //
 // One Discovery run (#94): an entry's seed and rules, run in its contest's arena in a Web Worker
 // until the pattern settles, reaches the arena's edge or runs out the budget, then its score and
-// its result file. Methuselah (#41) is the first kind; Contained chaos (#42) adds its own beside
-// it. It holds no DOM, so the tests drive it with a Node worker_threads Worker; contests/panel.js
+// its result file: Methuselah's (#41) and Classic Methuselah's (#100), whose world lets ships
+// leave at the arena's edge (departures.js), so its run ends with its departures. It holds no DOM, so the tests drive it with a Node worker_threads Worker; contests/panel.js
 // shows it.
 //
 // Nothing here depends on time: the run settles through settle.js, as a replay of its result file
@@ -11,7 +11,7 @@
 // generation for the chart, and makes the result file, so the page never holds the cells.
 
 import { EngineDriver } from '../unbounded/driver.js';
-import { runFor, methuselahScore } from '../unbounded/contests.js';
+import { runFor, methuselahScore, departuresFor } from '../unbounded/contests.js';
 import { resultText, worldOptions } from '../unbounded/canonical.js';
 
 /**
@@ -36,7 +36,9 @@ export class DiscoveryRun {
    * @param {object} [options]
    * @param {(stats: object) => void} [options.onStats] - while it runs, at most four times a second
    * @param {(stats: object) => void} [options.onStart] - once the Worker has started it
-   * @param {(end: {stats: object, reason: string, cycle: object | null, score: object | null}) => void} [options.onEnd]
+   * @param {(end: {stats: object, reason: string, cycle: object | null, score: object | null,
+   *   departures: {generation: number, period: number, shift: number[]}[] | null}) => void} [options.onEnd] -
+   *   departures: every ship that left, for a contest where ships leave at the edge, or null
    * @param {(message: string) => void} [options.onError]
    * @param {() => Worker} [options.createWorker] - the tests pass a Node one
    */
@@ -57,13 +59,13 @@ export class DiscoveryRun {
         this.addPoint(stats);
         callbacks.onStats?.(stats);
       },
-      onState: (state, stats, reason, cycle) => {
+      onState: (state, stats, reason, cycle, departures) => {
         if (state === 'running' && this.status === 'idle') {
           this.status = 'running';
           callbacks.onStart?.(stats);
         } else if (state === 'ended' && this.status !== 'ended') {
           this.status = 'ended';
-          const end = { stats, reason, cycle: cycle ?? null };
+          const end = { stats, reason, cycle: cycle ?? null, departures: departures ?? null };
           end.score = SCORES[this.contest.kind](this.contest, end);
           this.end = end;
           callbacks.onEnd?.(end);
@@ -87,7 +89,10 @@ export class DiscoveryRun {
     if (this.status !== 'idle') throw new Error('This run has already started.');
     const { run, contest } = this;
     this.driver.start({
-      world: worldOptions(run, { chunkSize: contest.chunkSize, memory: DISCOVERY_MEMORY_MB * 1024 * 1024 }),
+      world: {
+        ...worldOptions(run, { chunkSize: contest.chunkSize, memory: DISCOVERY_MEMORY_MB * 1024 * 1024 }),
+        departures: departuresFor(run),
+      },
       seed: Int32Array.from(run.seed.flat()),
       run: { kind: 'open', settle: true, history: true },
       generations: run.limits.generations,
@@ -121,7 +126,8 @@ export class DiscoveryRun {
    */
   async makeResult(browser = null) {
     if (!this.end?.score) throw new Error('Only a run that scored has a result to enter.');
-    const { stats, score } = this.end;
+    // The count of ships that left is the page's: the file lists the departures themselves
+    const { score, stats: { departed, ...stats } } = this.end;
     const result = await this.driver.result({
       run: this.run,
       score,

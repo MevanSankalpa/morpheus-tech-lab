@@ -58,7 +58,9 @@
 //     (canonical.js's resultOf()), made here so the page never holds a large generation's cells;
 //     the ending is the run's own end reason
 // Messages from the run:
-//   {type: 'state', state: 'running' | 'paused' | 'seeking' | 'ended', reason?, cycle?, stats}
+//   {type: 'state', state: 'running' | 'paused' | 'seeking' | 'ended', reason?, cycle?, departures?, stats}
+//     departures: once ended, in a world where ships leave at the edge, every departure so far,
+//     {generation, period, shift}, without its cells (the result file has those)
 //   {type: 'cycle', id, from, period, frames: Int32Array[] | null}   null past `budget` cells
 //   {type: 'history', id, live: Uint32Array}           the live cells of generations 0 to the run's
 //     generation now (a settled run's goes back to where its cycle began); the buffer is transferred
@@ -117,6 +119,8 @@ export { END_REASONS };
  *   without the browser's own overhead. It grows a slab at a time, and the memory limit counts it.
  * @property {number} usedBytes - the bytes of those slabs the chunks use now, two copies of
  *   each chunk's cells: it follows the pattern
+ * @property {number} [departed] - only in a world where ships leave at the edge (#100): how many
+ *   have left so far
  */
 
 export class Run {
@@ -482,6 +486,9 @@ export class Run {
     const message = { type: 'state', state: this.state, stats: this.stats() };
     if (reason) message.reason = reason;
     if (reason === 'repeat' || reason === 'emits') message.cycle = this.cycleFound;
+    if (this.state === 'ended' && this.world.departures) {
+      message.departures = this.world.departed.map(({ generation, period, shift }) => ({ generation, period, shift: [...shift] }));
+    }
     this.post(message);
   }
 
@@ -517,6 +524,8 @@ export class Run {
       extent: world.extent(),
       memoryBytes: world.memoryBytes,
       usedBytes: world.usedBytes,
+      // Only in a world where ships leave at the edge: how many have left so far
+      ...(world.departures ? { departed: world.departed.length } : {}),
     };
   }
 
