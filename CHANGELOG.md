@@ -118,6 +118,10 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   designed. A seed with any cell outside the 10³ seed box is refused there, saying which cells,
   as are an empty seed and a saved generation; and if Explore's arena isn't 64³, Methuselah's
   page says the contest runs in its own (#95).
+- Explore's presets include nine **Ships**: small seeds that each become a ship and fly off,
+  returning to their own shape. Seven fly straight, at periods from 1 to 12, and two diagonally,
+  and each is named by its period and its speed in c, one cell a generation. Their cells are also
+  among the Custom shapes, in the same group (#105).
 - The Classic Methuselah contest is defined as data, `classic-methuselah-1`, ahead of its page:
   Methuselah with one rule changed, that a ship may leave the arena. When a pattern would grow
   past the edge, each part of it there is run alone for up to 32 generations; if every one is a

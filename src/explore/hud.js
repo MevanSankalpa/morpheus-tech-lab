@@ -19,7 +19,7 @@ import { readSeedOrSave } from './save.js';
 import { openEditor, closeEditor } from './editor.js';
 import { MAX_RESULT_BYTES } from '../unbounded/canonical.js';
 import { contestById } from '../unbounded/contests.js';
-import { PRESETS, presetById } from './presets.js';
+import { PRESETS, PRESET_GROUPS, presetById } from './presets.js';
 import { MAX_SHAPE_SIZE, parseCounts } from './seed.js';
 import {
   SHAPES, shapeByKey, makeShape, presetSeed, fileSeed, changeSeed, changeRules, changeArena, changeMemory,
@@ -172,13 +172,28 @@ function showError(el, message) {
 // Custom's cells come from, and a file loaded with Load… (its seed, or why it can't be used)
 const seedDraft = { preset: false, presetId: PRESETS[0].id, source: 'shape', file: null, fileError: null };
 
+/**
+ * A list's options: the items with no group on their own, then each group (#105's Ships) under its
+ * label, in an optgroup.
+ */
+function groupedOptions(items, value, name) {
+  const option = (item) => new Option(item[name], item[value]);
+  const groups = PRESET_GROUPS.map(({ id, label }) => {
+    const group = document.createElement('optgroup');
+    group.label = label;
+    group.append(...items.filter((item) => item.group === id).map(option));
+    return group;
+  });
+  return [...items.filter((item) => !item.group).map(option), ...groups.filter((group) => group.children.length)];
+}
+
 function wireSeed() {
   const popover = document.getElementById('explore-seed-popover');
   const presetSelect = document.getElementById('explore-preset');
   const shapeSelect = document.getElementById('explore-shape');
   if (!popover || !presetSelect || !shapeSelect) return;
-  presetSelect.replaceChildren(...PRESETS.map((preset) => new Option(preset.name, preset.id)));
-  shapeSelect.replaceChildren(...SHAPES.map((shape) => new Option(shape.name, shape.key)));
+  presetSelect.replaceChildren(...groupedOptions(PRESETS, 'id', 'name'));
+  shapeSelect.replaceChildren(...groupedOptions(SHAPES, 'key', 'name'));
 
   const byId = (id) => document.getElementById(id);
   byId('explore-seed-custom').onclick = () => { seedDraft.preset = false; showSeedDraft(); };

@@ -178,7 +178,9 @@ src/
                          through the seed editor in a frame holding the lab, marking each check ✔ or ✖, and lists
                          what to check by hand
   explore/presets.js     Preset seeds with their own rules: Cube10 and Spreading noise (#39's candidate
-                         12345, its cells written out; a test checks them against scripts/bench/candidates.mjs)
+                         12345, its cells written out; a test checks them against scripts/bench/candidates.mjs),
+                         and nine Ships (#105, group 'ships'), each with the generation, period and shift it
+                         becomes a ship at, which a test checks on the engine
   unbounded/workbench.html Not bundled: a dev page (/src/unbounded/workbench.html under `npm run dev`) that checks
                          the Worker in the browser and drives a run by hand
   unbounded/memory.html  Not bundled: a dev page (/src/unbounded/memory.html under `npm run dev`) that measures how
