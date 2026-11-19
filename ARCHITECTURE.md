@@ -71,7 +71,11 @@ coordinate to slot. A chunk is allocated when live cells reach it and released o
 Each slot lives in a large slab (64 MB by default) and holds two copies of its chunk, the
 current generation and the next. `step()` advances every chunk by one generation together, then
 checks the limits; it keeps no history. Rules are any birth and survival counts except B0.
-`ReferenceWorld` is a deliberately simple engine for the tests to check it against.
+An optional arena ends the run when a cell would be born outside it, or, with `wrap` (#114), is
+a torus: its opposite faces are neighbours, so a chunk its faces run through reads its border
+from across the wrap and computes only its cells inside, and nothing is born outside it.
+`ReferenceWorld` is a deliberately simple engine for the tests to check it against, wrapping or
+not; a wrapping arena of side N also gives exactly `convolve3D()`'s N³ grid with wrapping on.
 A run (`run.js`) steps a world in a Web Worker (`run.worker.js`), either until a deadline (a
 timed run: only generations completed before it count) or until stopped (an open-ended run,
 which can also pause, step one generation and cap its rate). On the page, `EngineDriver`

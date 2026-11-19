@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// The unbounded Game of Life 3D world: its chunk store and its limits. step.js advances it one
-// generation at a time.
+// The unbounded Game of Life 3D world: its chunk store, its limits and its arena, which may wrap.
+// step.js advances it one generation at a time.
 //
 // Space is divided into chunks of chunkSize³ cells. A chunk exists only while it holds live
 // cells, or for the length of one step while a live neighbour might bring cells to life in it.
@@ -77,7 +77,11 @@ export class World {
    * @param {{cells?: number, extent?: number, memory?: number}} [options.limits] - all
    *   unlimited by default; memory is in bytes of slabs
    * @param {{min: number[], max: number[]}} [options.arena] - an optional box, inclusive: a
-   *   step that would bring a cell to life outside it ends the run
+   *   step that would bring a cell to life outside it ends the run, unless it wraps
+   * @param {boolean} [options.wrap] - the arena wraps (#114): it is a torus, whose opposite faces
+   *   are neighbours, so a cell next to one face counts the cells at the other, and no cell is
+   *   ever born outside it. Needs an arena at least 3 cells a side on every axis, and excludes
+   *   departures, as a ship can't leave a torus. Off by default
    * @param {(bytes: number) => ArrayBuffer} [options.allocate] - how a slab is obtained. A
    *   RangeError from it means the browser refused the memory. Tests replace it.
    * @param {boolean} [options.fingerprint] - keep a fingerprint of the cells (fingerprint()),
@@ -87,7 +91,7 @@ export class World {
    *   only keeps the rule and the departures so far (`departed`); departures.js's step applies it
    */
   constructor({
-    rules, chunkSize = 16, slabBytes = DEFAULT_SLAB_BYTES, limits = {}, arena = null,
+    rules, chunkSize = 16, slabBytes = DEFAULT_SLAB_BYTES, limits = {}, arena = null, wrap = false,
     allocate = (bytes) => new ArrayBuffer(bytes), fingerprint = false, departures = null,
   } = {}) {
     if (!CHUNK_SIZES.includes(chunkSize)) {
@@ -115,6 +119,7 @@ export class World {
     };
     this.arena = arena && checkArena(arena);
     this.departures = departures && checkDepartures(departures, this.arena);
+    this.wrap = checkWrap(wrap, this.arena, this.departures);
     /** The departures so far, oldest first: {generation, period, shift, cells}, as departures.js records them. */
     this.departed = [];
     this.allocate = allocate;
@@ -548,6 +553,17 @@ function checkDepartures(departures, arena) {
   }
   if (!arena) throw new WorldError('Ships leave at the edge of an arena, so departures need one.');
   return { period: departures.period };
+}
+
+function checkWrap(wrap, arena, departures) {
+  if (wrap === false) return false;
+  if (wrap !== true) throw new WorldError('wrap is true or false.');
+  if (!arena) throw new WorldError("Wrapping joins the arena's opposite faces, so it needs an arena.");
+  if (departures) throw new WorldError("Ships can't leave an arena that wraps, so wrapping and departures don't go together.");
+  if (!arena.min.every((lo, a) => arena.max[a] - lo + 1 >= 3)) {
+    throw new WorldError('An arena that wraps must be at least 3 cells a side, so no cell is its own neighbour.');
+  }
+  return true;
 }
 
 function checkArena(arena) {

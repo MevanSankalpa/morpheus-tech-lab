@@ -44,7 +44,8 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          keyframes on small hand-made patterns (settle.test.js; the patterns are in helpers.js),
                          the contests and their scores, Methuselah's included (contests.test.js), ships leaving
                          at the edge and Classic Methuselah (departures.test.js), and the engine
-                         against convolve3D() (dense.test.js);
+                         against convolve3D() (dense.test.js); an arena that wraps, against the reference
+                         and convolve3D() with wrapping on, and the worlds refused (wrap.test.js);
                          browser.test.js checks telling the browser; contests/ checks a Speed run and Verify a
                          result… on worker_threads (verifyNodeWorker.js stands in for verify.worker.js) and
                          Methuselah and Classic Methuselah runs on worker_threads (discovery.test.js),
@@ -77,10 +78,13 @@ src/
   shaders/*.wgsl         The WGSL compute shaders: gameOfLife3D.wgsl, rule30.wgsl (1D and 2D)
   unbounded/             Game of Life 3D without edges, shown by Explore. Imports no `state`, so it runs
                          in Node, a Web Worker or the browser
-  unbounded/world.js     World: the chunk store (chunks as slots in large slabs), seeding, and the limits
-  unbounded/step.js      step(): one generation, a lockstep over every chunk, or the limit that ends the run
+  unbounded/world.js     World: the chunk store (chunks as slots in large slabs), seeding, the limits, and the
+                         arena, which may wrap (`wrap`, #114): a torus, with no departures
+  unbounded/step.js      step(): one generation, a lockstep over every chunk, or the limit that ends the run;
+                         in a wrapping arena, the chunks at its faces read their border from across the wrap
   unbounded/rules.js     validateRules() (refuses B0) and the rule lookup table
-  unbounded/reference.js ReferenceWorld: a deliberately simple Set-of-strings engine the tests check world.js against
+  unbounded/reference.js ReferenceWorld: a deliberately simple Set-of-strings engine the tests check world.js against,
+                         wrapping in a box too
   unbounded/run.js       Run: the run loop (timed and open-ended runs, and replays with keyframes and seek;
                          pause, step, stop, settling through settle.js), statistics, snapshots, every
                          generation's live cells for a run with `history` (a Discovery run's chart), an ended run's
@@ -196,8 +200,9 @@ src/
                          much one tab can take in slabs (memory.worker.js), and times Speed candidates in the
                          Worker, alone or two side by side, drawn as they grow. Never ship or link it: reaching
                          the browser's cap can close the tab
-  unbounded/compareDense.js Not bundled: checks the engine against convolve3D(), cell for cell; `npm test`, the
-                         bench and the dev console run it
+  unbounded/compareDense.js Not bundled: checks the engine against convolve3D(), cell for cell, with wrapping off,
+                         or a wrapping arena against wrapping on (`wrap: true`); `npm test`, the bench and the
+                         dev console run it
   color.css, style.css   Theme colours and layout
   assets/images/         Logos, README images
 ```
@@ -274,15 +279,21 @@ src/
   cells are stored, not the order they are computed in.
 - **B0 is refused** (`validateRules()`): a dead cell with no live neighbour is never born. That
   is what makes skipping empty space exact.
-- **A limit never wraps, clips or drops a cell.** It ends the run with its reason
+- **A limit never wraps, clips or drops a cell.** Wrapping is the shape of an arena, chosen
+  before the run (`wrap`, #114), never a limit: in a wrapping arena nothing is born outside it,
+  so `arena-edge` can't end the run. A limit ends the run with its reason
   (`cell-limit`, `extent-limit`, `coordinate-limit`, `memory-limit`, `out-of-memory`,
   `arena-edge`), discards the step that would have crossed it, and keeps the last complete
   generation whole. Limits that can end a scored run are stated in cells, extent and
   generations, so a replay stops in the same place on any machine.
 - **The unbounded engine gives exactly the reference's cells** (`src/unbounded/reference.js`),
-  and, while a pattern stays 2 cells clear of the walls, `convolve3D()`'s with wrapping off.
+  and, while a pattern stays 2 cells clear of the walls, `convolve3D()`'s with wrapping off. A
+  wrapping arena of side N gives exactly `convolve3D()`'s N³ grid with wrapping on, everywhere.
+  A world that doesn't wrap takes the step's path unchanged: wrapping only touches the chunks
+  its faces run through.
   Change either engine and run `npm test`, which checks both; after a change to the step, also
-  run `src/unbounded/compareDense.js` from the dev console at 100³, which takes longer. A change
+  run `src/unbounded/compareDense.js` from the dev console at 100³, wrapping off and on
+  (`wrap: true`), which takes longer. A change
   to the step or the cells' layout also reruns `node scripts/bench.mjs`, whose numbers pinned the
   contests' values (#39).
 - **The page never steps the unbounded engine.** A run lives in its own Worker (`driver.js`),
