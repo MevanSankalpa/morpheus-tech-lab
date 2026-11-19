@@ -17,7 +17,13 @@
 // Nothing here imports `state` or touches the page, so it runs in Node, in a Web Worker and in
 // the browser.
 
-import { validateRules, ruleTable } from './rules.js';
+import { validateRules, ruleTable, RuleError } from './rules.js';
+
+/**
+ * The neighbours a wall cell has inside an arena with walls (#119): a cell on one of the arena's
+ * faces has 17, on two (an edge) 11, on three (a corner) 7. Past a wall is empty.
+ */
+export const WALL_NEIGHBOURS = { face: 17, edge: 11, corner: 7 };
 
 /** Live cells lie in [-COORDINATE_LIMIT, COORDINATE_LIMIT - 1] on every axis. */
 export const COORDINATE_LIMIT = 2 ** 19;
@@ -82,6 +88,11 @@ export class World {
    *   are neighbours, so a cell next to one face counts the cells at the other, and no cell is
    *   ever born outside it. Needs an arena at least 3 cells a side on every axis, and excludes
    *   departures, as a ship can't leave a torus. Off by default
+   * @param {{corner: object, edge: object, face: object}} [options.walls] - the arena has walls
+   *   (#119): past them is empty, nothing is born outside the arena, and a cell on one of its
+   *   faces follows `face`, on two `edge`, on three `corner`, each {birth, survival} and counted
+   *   in real neighbours (WALL_NEIGHBOURS). Needs an arena at least 3 cells a side, and excludes
+   *   wrapping and departures
    * @param {(bytes: number) => ArrayBuffer} [options.allocate] - how a slab is obtained. A
    *   RangeError from it means the browser refused the memory. Tests replace it.
    * @param {boolean} [options.fingerprint] - keep a fingerprint of the cells (fingerprint()),
@@ -91,7 +102,7 @@ export class World {
    *   only keeps the rule and the departures so far (`departed`); departures.js's step applies it
    */
   constructor({
-    rules, chunkSize = 16, slabBytes = DEFAULT_SLAB_BYTES, limits = {}, arena = null, wrap = false,
+    rules, chunkSize = 16, slabBytes = DEFAULT_SLAB_BYTES, limits = {}, arena = null, wrap = false, walls = null,
     allocate = (bytes) => new ArrayBuffer(bytes), fingerprint = false, departures = null,
   } = {}) {
     if (!CHUNK_SIZES.includes(chunkSize)) {
@@ -120,6 +131,11 @@ export class World {
     this.arena = arena && checkArena(arena);
     this.departures = departures && checkDepartures(departures, this.arena);
     this.wrap = checkWrap(wrap, this.arena, this.departures);
+    this.walls = checkWalls(walls, this.arena, this.wrap, this.departures);
+    // The rule tables by how many of the arena's faces a cell lies on: 0 (inside), 1, 2 or 3
+    this.tables = this.walls
+      ? [this.table, ruleTable(this.walls.face), ruleTable(this.walls.edge), ruleTable(this.walls.corner)]
+      : null;
     /** The departures so far, oldest first: {generation, period, shift, cells}, as departures.js records them. */
     this.departed = [];
     this.allocate = allocate;
@@ -564,6 +580,33 @@ function checkWrap(wrap, arena, departures) {
     throw new WorldError('An arena that wraps must be at least 3 cells a side, so no cell is its own neighbour.');
   }
   return true;
+}
+
+function checkWalls(walls, arena, wrap, departures) {
+  if (walls === null || walls === undefined) return null;
+  if (typeof walls !== 'object') throw new WorldError('walls are {corner, edge, face}, each {birth, survival}.');
+  if (!arena) throw new WorldError('Walls are the arena\'s, so they need an arena.');
+  if (wrap) throw new WorldError("An arena that wraps has no walls, so wrapping and walls don't go together.");
+  if (departures) throw new WorldError("Ships can't leave through walls, so walls and departures don't go together.");
+  if (!arena.min.every((lo, a) => arena.max[a] - lo + 1 >= 3)) {
+    throw new WorldError('An arena with walls must be at least 3 cells a side, so its corners, edges and faces are apart.');
+  }
+  const checked = {};
+  for (const [kind, most] of Object.entries(WALL_NEIGHBOURS)) {
+    let rule;
+    try {
+      rule = validateRules(walls[kind]);
+    } catch (err) {
+      if (err instanceof RuleError) throw new RuleError(`The ${kind} rule: ${err.message}`);
+      throw err;
+    }
+    const past = [...rule.birth, ...rule.survival].find((count) => count > most);
+    if (past !== undefined) {
+      throw new RuleError(`${kind === 'edge' ? 'An' : 'A'} ${kind} cell has ${most} neighbours, so its counts go from 0 to ${most}; ${past} is past them.`);
+    }
+    checked[kind] = rule;
+  }
+  return checked;
 }
 
 function checkArena(arena) {

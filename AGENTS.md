@@ -45,7 +45,8 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          the contests and their scores, Methuselah's included (contests.test.js), ships leaving
                          at the edge and Classic Methuselah (departures.test.js), and the engine
                          against convolve3D() (dense.test.js); an arena that wraps, against the reference
-                         and convolve3D() with wrapping on, and the worlds refused (wrap.test.js);
+                         and convolve3D() with wrapping on, and the worlds refused (wrap.test.js); an arena
+                         with walls, against the reference and by hand (walls.test.js);
                          browser.test.js checks telling the browser; contests/ checks a Speed run and Verify a
                          result… on worker_threads (verifyNodeWorker.js stands in for verify.worker.js) and
                          Methuselah and Classic Methuselah runs on worker_threads (discovery.test.js),
@@ -53,7 +54,8 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          and the Hall of Fame, hall-of-fame.json against its result files (hallOfFame.test.js);
                          explore/ checks
                          Explore's seeds, presets, seed files, saves, settings (setup.test.js), Ships leave at
-                         the edge (ships.test.js), an arena that wraps (wrap.test.js), camera framing
+                         the edge (ships.test.js), an arena that wraps (wrap.test.js) or has walls
+                         (walls.test.js), camera framing
                          and the seed editor's model (editorModel.test.js)
 src/
   main.js                Boot: Explore (startExplore()) by default, or initSimulation(); then animate()
@@ -79,12 +81,14 @@ src/
   unbounded/             Game of Life 3D without edges, shown by Explore. Imports no `state`, so it runs
                          in Node, a Web Worker or the browser
   unbounded/world.js     World: the chunk store (chunks as slots in large slabs), seeding, the limits, and the
-                         arena, which may wrap (`wrap`, #114): a torus, with no departures
+                         arena, which may wrap (`wrap`, #114): a torus, with no departures; or have walls
+                         (`walls`, #119), whose corner, edge and face cells follow their own rules
   unbounded/step.js      step(): one generation, a lockstep over every chunk, or the limit that ends the run;
-                         in a wrapping arena, the chunks at its faces read their border from across the wrap
+                         in a wrapping arena, the chunks at its faces read their border from across the wrap;
+                         with walls, they compute their wall cells by region, each by its own rule
   unbounded/rules.js     validateRules() (refuses B0) and the rule lookup table
   unbounded/reference.js ReferenceWorld: a deliberately simple Set-of-strings engine the tests check world.js against,
-                         wrapping in a box too
+                         wrapping in a box, or closed by walls with their own rules, too
   unbounded/run.js       Run: the run loop (timed and open-ended runs, and replays with keyframes and seek;
                          pause, step, stop, settling through settle.js), statistics, snapshots, every
                          generation's live cells for a run with `history` (a Discovery run's chart), an ended run's
@@ -159,14 +163,14 @@ src/
                          refused once a ship has left, #103) and Save seed, and reading either back for Load…
                          (tested in Node)
   explore/view.js        ExploreView: the growing point cloud, chunk boxes past RENDER_BUDGET, the arena (dashed when
-                         it wraps) and chunk grid
+                         it wraps, brighter with walls) and chunk grid
   explore/framing.js     The camera distance that fits the pattern, and easing (no Three.js; tested in Node)
   explore/seed.js        Shapes lifted into the unbounded world, rule text, the seed file format, and SEED_BOX
                          (re-exported from contests.js), the 10³ seed box the editor and the Discovery contests
                          use (tested in Node)
   explore/setup.js       Explore's settings as one value, `state.explore` (#69): the seed's source, the rules, the
-                         arena, what happens at its edge (the run ends, ships leave, #103, or it wraps, #115)
-                         and the memory limit; what each HUD box shows,
+                         arena, what happens at its edge (the run ends, ships leave, #103, it wraps, #115, or
+                         walls with their own rules, #119) and the memory limit; what each HUD box shows,
                          what is locked, each popover's change or the reason it is refused, the config
                          startExplore() takes and the Worker's world (worldOf()), and a contest's entry from
                          the seed in use (contestEntry(), #95) or its arena and ships (contestArena(), #94)
@@ -291,8 +295,11 @@ src/
 - **The unbounded engine gives exactly the reference's cells** (`src/unbounded/reference.js`),
   and, while a pattern stays 2 cells clear of the walls, `convolve3D()`'s with wrapping off. A
   wrapping arena of side N gives exactly `convolve3D()`'s N³ grid with wrapping on, everywhere.
-  A world that doesn't wrap takes the step's path unchanged: wrapping only touches the chunks
-  its faces run through.
+  An arena with walls (#119) gives exactly the reference's cells with the same walls; no dense
+  step checks it, since `convolve3D()` counts past a wall differently. A world that neither wraps
+  nor has walls takes the step's path unchanged: both only touch the chunks the arena's faces run
+  through, and the main loop stays one inline loop, as the bench needs (#119 measured 7-10%
+  slower with it moved into a function).
   Change either engine and run `npm test`, which checks both; after a change to the step, also
   run `src/unbounded/compareDense.js` from the dev console at 100³, wrapping off and on
   (`wrap: true`), which takes longer. A change

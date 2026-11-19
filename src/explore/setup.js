@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // Explore's settings (#69), apart from the page: the seed's source, the rules, the arena (with
-// what happens at its edge: the run ends, ships leave as in Classic Methuselah, #103, or it wraps
-// around, #115) and the memory limit, held as one value,
+// what happens at its edge: the run ends, ships leave as in Classic Methuselah, #103, it wraps
+// around, #115, or it has walls with their own corner, edge and face rules, #119) and the memory
+// limit, held as one value,
 // `state.explore`. The HUD's boxes show it and their popovers
 // change it (hud.js); this module says what each box shows, what is locked and why, checks a
 // change and gives the config startExplore() takes. Nothing here touches the page, so the tests
@@ -24,9 +25,10 @@
 //   rules in the Rules box.
 
 import { PRESETS, presetById } from './presets.js';
-import { shapeSeed, parseRules, arenaBox, MAX_SHAPE_SIZE, SeedError } from './seed.js';
+import { shapeSeed, parseRules, parseCounts, arenaBox, MAX_SHAPE_SIZE, SeedError } from './seed.js';
 import { designCells } from './editorModel.js';
-import { MAX_NEIGHBOURS } from '../unbounded/rules.js';
+import { MAX_NEIGHBOURS, validateRules, RuleError } from '../unbounded/rules.js';
+import { WALL_NEIGHBOURS } from '../unbounded/world.js';
 import { contestById } from '../unbounded/contests.js';
 import { perlinShape, worleyShape, cubeOfSide, tetrahedronShape, octahedronShape } from '../shapeGenerators.js';
 
@@ -45,10 +47,23 @@ export const ARENA_SIDE = { min: 8, max: 1024 };
 export const SHIP_PERIOD = contestById('classic-methuselah-1').departures.period;
 /**
  * What happens at the arena's edge (#115): the run ends, as in Methuselah; ships leave, as in
- * Classic Methuselah (#103); or the arena wraps around, a torus whose opposite walls meet, which
- * no contest has, so no run that wraps can be saved as a result.
+ * Classic Methuselah (#103); the arena wraps around, a torus whose opposite walls meet; or it has
+ * walls (#119), past which is empty, whose corner, edge and face cells follow their own rules. No
+ * contest wraps or has walls, so no such run can be saved as a result.
  */
-export const EDGES = ['end', 'ships', 'wrap'];
+export const EDGES = ['end', 'ships', 'wrap', 'walls'];
+/** The kinds of wall cell, in the Limits popover's order, and the neighbours each has. */
+export const WALL_KINDS = [
+  { key: 'corner', name: 'Corner', neighbours: WALL_NEIGHBOURS.corner },
+  { key: 'edge', name: 'Edge', neighbours: WALL_NEIGHBOURS.edge },
+  { key: 'face', name: 'Face', neighbours: WALL_NEIGHBOURS.face },
+];
+/** The walls' rules until the visitor sets others: the old Game of Life 3D mode's defaults. */
+export const DEFAULT_WALLS = Object.freeze({
+  corner: Object.freeze({ birth: [2, 3], survival: [2, 3, 4] }),
+  edge: Object.freeze({ birth: [4], survival: [2, 3, 4, 5, 6] }),
+  face: Object.freeze({ birth: [6], survival: [3, 4, 5, 6, 7, 8, 9] }),
+});
 /** Explore's rules until the visitor sets others: the lab's default, B9,10/S5-15. */
 export const DEFAULT_RULES = Object.freeze({
   birth: [9, 10],
@@ -85,7 +100,8 @@ export function shapeByKey(key) {
 
 /**
  * The setup Explore opens with: the cube in the dialog's shape settings, under the default rules,
- * with no arena, and the run ending at its edge when there is one.
+ * with no arena, the run ending at its edge when there is one, and the walls' default rules for
+ * when it has walls.
  * @param {{size: number, density: number}} cube - the cube's size and density
  */
 export function initialSetup(cube) {
@@ -95,6 +111,7 @@ export function initialSetup(cube) {
     arena: null,
     arenaSize: DEFAULT_ARENA,
     edge: 'end',
+    walls: DEFAULT_WALLS,
     memoryMB: DEFAULT_MEMORY_MB,
   };
 }
@@ -259,6 +276,11 @@ export function wrapOf(setup) {
   return edgeOf(setup) === 'wrap';
 }
 
+/** The walls' rules, when the arena has walls (#119), or null. */
+export function wallsOf(setup) {
+  return edgeOf(setup) === 'walls' ? setup.walls : null;
+}
+
 /**
  * What locks the rules (and, for a saved generation, the arena), or null when nothing does.
  * @returns {{by: 'preset' | 'saved', name: string, text: string} | null}
@@ -310,7 +332,8 @@ export function seedLabel(seed) {
 /**
  * What each HUD box shows.
  * @returns {{seed: string, cells: number, rules: {birth: number[], survival: number[]},
- *   lock: string | null, arena: number | null, arenaLocked: boolean, edge: string, memoryMB: number}}
+ *   lock: string | null, arena: number | null, arenaLocked: boolean, edge: string, walls: object | null,
+ *   memoryMB: number}}
  */
 export function boxesOf(setup) {
   const lock = lockOf(setup);
@@ -322,6 +345,7 @@ export function boxesOf(setup) {
     arena: arenaOf(setup),
     arenaLocked: lock?.by === 'saved',
     edge: edgeOf(setup),
+    walls: wallsOf(setup),
     memoryMB: setup.memoryMB,
   };
 }
@@ -358,6 +382,7 @@ export function configOf(setup) {
   const arena = arenaOf(setup);
   const ships = shipsOf(setup);
   const wrap = wrapOf(setup);
+  const walls = wallsOf(setup);
   const { cells } = seed;
   if (!cells.length) {
     const why = {
@@ -377,16 +402,17 @@ export function configOf(setup) {
   }
   const label = seedLabel(seed);
   // A saved generation: `cells` is generation `from`, and `seed` the run's first seed
-  if (seed.kind === 'saved') return { rules, cells, memoryMB, arena, ships, wrap, label, seed: seed.seed, from: seed.from };
-  return { rules, cells, memoryMB, arena, ships, wrap, label };
+  if (seed.kind === 'saved') return { rules, cells, memoryMB, arena, ships, wrap, walls, label, seed: seed.seed, from: seed.from };
+  return { rules, cells, memoryMB, arena, ships, wrap, walls, label };
 }
 
 /**
  * The world a run of a config steps in, as the Worker takes it: the rules, the memory limit, the
  * arena, and with Ships leave (#103) the departure rule, as Classic Methuselah's world has it, so
- * a run settles, emits or ends at the edge where the contest's would; or, with It wraps around
- * (#115), the arena as a torus.
- * @param {{rules: object, memoryMB: number, arena: number | null, ships?: boolean, wrap?: boolean}} config - from configOf()
+ * a run settles, emits or ends at the edge where the contest's would; with It wraps around
+ * (#115), the arena as a torus; or with Walls (#119), the walls' rules.
+ * @param {{rules: object, memoryMB: number, arena: number | null, ships?: boolean, wrap?: boolean,
+ *   walls?: object | null}} config - from configOf()
  */
 export function worldOf(config) {
   const world = { rules: config.rules, limits: { memory: config.memoryMB * 2 ** 20 } };
@@ -394,6 +420,7 @@ export function worldOf(config) {
   if (arena) world.arena = arena;
   if (arena && config.ships) world.departures = { period: SHIP_PERIOD };
   else if (arena && config.wrap) world.wrap = true;
+  else if (arena && config.walls) world.walls = config.walls;
   return world;
 }
 
@@ -457,13 +484,43 @@ export function changeRules(setup, birthText, survivalText, { own = false } = {}
 }
 
 /**
+ * The walls' rules from the Limits popover's text, each kind checked against the neighbours its
+ * cells have. A wall may have no birth count: its cells are then only ever kept, never born.
+ * @param {{corner: {birth: string, survival: string}, edge: object, face: object}} texts
+ * @returns {{corner: object, edge: object, face: object}}
+ * @throws {SeedError | RuleError} naming the kind of wall cell
+ */
+export function parseWalls(texts) {
+  const walls = {};
+  for (const { key, name, neighbours } of WALL_KINDS) {
+    const what = `${name.toLowerCase()} cells'`;
+    const birth = parseCounts(texts[key]?.birth, `${what} birth`);
+    const survival = parseCounts(texts[key]?.survival, `${what} survival`);
+    try {
+      walls[key] = validateRules({ birth, survival });
+    } catch (err) {
+      if (err instanceof RuleError) throw new RuleError(`On the walls' ${name.toLowerCase()} cells: ${err.message}`);
+      throw err;
+    }
+    const past = [...birth, ...survival].find((count) => count > neighbours);
+    if (past !== undefined) {
+      const a = key === 'edge' ? 'An' : 'A';
+      throw new SeedError(`${a} ${name.toLowerCase()} cell has ${neighbours} neighbours inside the walls, so its counts go from 0 to ${neighbours}; ${past} is past them.`);
+    }
+  }
+  return walls;
+}
+
+/**
  * The Limits popover's arena: on or off, its side, and what happens at its edge.
  * @param {boolean} on
  * @param {string | number} sideText - the side, also remembered while the arena is off
- * @param {{own?: boolean, edge?: string}} [options] - own: the visitor pressed Use your own
- *   rules; edge: one of EDGES, remembered while the arena is off, and kept as it was if not given
+ * @param {{own?: boolean, edge?: string, walls?: object}} [options] - own: the visitor pressed Use
+ *   your own rules; edge: one of EDGES, remembered while the arena is off; walls: the walls'
+ *   rules, as parseWalls() takes them, remembered while another edge is chosen. Each is kept as it
+ *   was if not given.
  */
-export function changeArena(setup, on, sideText, { own = false, edge } = {}) {
+export function changeArena(setup, on, sideText, { own = false, edge, walls } = {}) {
   const lock = lockOf(setup);
   if (lock?.by === 'saved' && !own) throw new SeedError(lockedMessage(lock, 'arena'));
   const base = own ? ownRules(setup) : setup;
@@ -473,7 +530,8 @@ export function changeArena(setup, on, sideText, { own = false, edge } = {}) {
     throw new SeedError(`The arena size must be a whole number of cells, from ${ARENA_SIDE.min} to ${ARENA_SIDE.max}.`);
   }
   if (edge !== undefined && !EDGES.includes(edge)) throw new SeedError(`What happens at the edge must be one of ${EDGES.join(', ')}.`);
-  return checked({ ...base, arena: on ? side : null, arenaSize: ok ? side : base.arenaSize, edge: edge ?? base.edge });
+  const wallRules = walls === undefined ? base.walls : parseWalls(walls);
+  return checked({ ...base, arena: on ? side : null, arenaSize: ok ? side : base.arenaSize, edge: edge ?? base.edge, walls: wallRules });
 }
 
 /**
@@ -521,6 +579,8 @@ export function contestEntry(setup, contest) {
     note = `${contest.title} runs in its own ${side}³ arena, and Explore's ${arena ? `was ${n(arena)}³` : 'was off'}, so a run here may end differently from one in Explore.`;
   } else if (wrapOf(setup)) {
     note = `${contest.title}'s arena doesn't wrap around, and Explore's did, so a run here may end differently from one in Explore.`;
+  } else if (wallsOf(setup)) {
+    note = `${contest.title}'s arena has no walls, and Explore's had, so a run here may end differently from one in Explore.`;
   } else if (shipsOf(setup) !== ships) {
     note = ships
       ? `${contest.title} lets ships leave at the edge of its arena, and Explore's didn't, so a run here may end differently from one in Explore.`
@@ -532,9 +592,9 @@ export function contestEntry(setup, contest) {
 /**
  * Explore's arena set to a contest's (#94), for designing an entry: with the same arena, and ships
  * leaving at its edge as they do in Classic Methuselah (#103) or not as in Methuselah, a run in
- * Explore settles, or reaches the edge, where the contest's run would. No contest wraps, so an
- * arena that wrapped (#115) no longer does. A saved generation keeps its own arena, so it is
- * left as it is, and the note says so.
+ * Explore settles, or reaches the edge, where the contest's run would. No contest wraps or has
+ * walls, so an arena that wrapped (#115) or had walls (#119) no longer does. A saved generation
+ * keeps its own arena, so it is left as it is, and the note says so.
  * @param {number} side - the contest's arena, a cube of this many cells a side
  * @param {string} title - the contest's, for the note
  * @param {boolean} [ships] - whether ships leave at the contest's edge
@@ -550,8 +610,9 @@ export function contestArena(setup, side, title, ships = false) {
     let note;
     if (arenaOf(setup) !== side) {
       note = `Explore's arena is now on, at ${side}³${leaving}, as ${title}'s: ${same} The Limits box turns it off.`;
-    } else if (wrapOf(setup)) {
-      note = `Explore's ${side}³ arena no longer wraps around${ships ? ', and ships leave at its edge' : ''}, as in ${title}: ${same} The Limits box changes it.`;
+    } else if (wrapOf(setup) || wallsOf(setup)) {
+      const was = wrapOf(setup) ? 'no longer wraps around' : 'no longer has walls';
+      note = `Explore's ${side}³ arena ${was}${ships ? ', and ships leave at its edge' : ''}, as in ${title}: ${same} The Limits box changes it.`;
     } else {
       note = `Ships ${ships ? 'now leave' : 'no longer leave'} at the edge of Explore's ${side}³ arena, as in ${title}: ${same} The Limits box changes it.`;
     }

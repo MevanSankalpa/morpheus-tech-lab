@@ -42,7 +42,7 @@ export class EngineDriver {
   /**
    * Starts a run in a new Worker, ending any run before it.
    * @param {object} config
-   * @param {object} config.world - World options: {rules, chunkSize?, slabBytes?, limits?, arena?, wrap?}
+   * @param {object} config.world - World options: {rules, chunkSize?, slabBytes?, limits?, arena?, wrap?, walls?}
    * @param {Int32Array} config.seed - live cells as x, y, z triples. It is transferred: the
    *   page's copy is emptied.
    * @param {{kind: 'timed', seconds: number} | {kind: 'open', paused?: boolean, rate?: number,

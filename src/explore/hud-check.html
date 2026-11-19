@@ -267,6 +267,47 @@
       await sleep(600);
       ok(text('explore-arena') === '20³' && !visible('explore-departed-line'), 'Back to The run ends, the box and the run are as before');
 
+      section('Limits: walls with their own corner, edge and face rules (#119)');
+      press('explore-change-limits');
+      ok(!visible('explore-walls-rules'), "The walls' rules are hidden while the run ends at the edge");
+      check('explore-edge-walls', true);
+      ok(visible('explore-walls-rules'), 'Choosing Walls shows them');
+      ok(fits('explore-limits-popover'), 'The popover still fits in the window');
+      ok(el('explore-wall-corner-birth').value === '2-3' && el('explore-wall-corner-survival').value === '2-4'
+        && el('explore-wall-edge-birth').value === '4' && el('explore-wall-edge-survival').value === '2-6'
+        && el('explore-wall-face-birth').value === '6' && el('explore-wall-face-survival').value === '3-9',
+        "They start from the old Game of Life 3D mode's defaults");
+      setValue('explore-wall-corner-survival', '2-8');
+      submit('explore-limits-popover');
+      ok(isOpen('explore-limits-popover') && text('explore-limits-error') === 'A corner cell has 7 neighbours inside the walls, so its counts go from 0 to 7; 8 is past them.',
+        `A count past a corner cell's neighbours is refused ("${text('explore-limits-error')}")`);
+      setValue('explore-wall-corner-survival', '2-4');
+      setValue('explore-wall-face-birth', '0,6');
+      submit('explore-limits-popover');
+      ok(text('explore-limits-error').startsWith("On the walls' face cells: Birth with 0"), 'B0 on a wall is refused, saying which');
+      setValue('explore-wall-face-birth', '5-6');
+      submit('explore-limits-popover');
+      await sleep(600);
+      ok(!isOpen('explore-limits-popover') && text('explore-arena') === '20³, walls', `With Walls, the Limits box says so ("${text('explore-arena')}")`);
+      ok(!visible('explore-departed-line'), 'and the Run box counts no ships: none can leave');
+      press('explore-save-generation');
+      await sleep(400);
+      ok(isOpen('explore-save-popover') && text('explore-save-what').startsWith("This run's arena has walls"), `Save this generation says why it can't save with walls ("${text('explore-save-what').slice(0, 60)}…")`);
+      escape();
+      press('explore-change-limits');
+      ok(el('explore-edge-walls').checked && visible('explore-walls-rules') && el('explore-wall-face-birth').value === '5-6', 'Reopened, the popover holds Walls and the rules as applied');
+      check('explore-edge-end', true);
+      ok(!visible('explore-walls-rules'), 'Choosing another edge hides the rules again');
+      submit('explore-limits-popover');
+      await sleep(600);
+      press('explore-change-limits');
+      check('explore-edge-walls', true);
+      ok(el('explore-wall-face-birth').value === '5-6', 'and they are remembered for when Walls comes back');
+      check('explore-edge-end', true);
+      submit('explore-limits-popover');
+      await sleep(600);
+      ok(text('explore-arena') === '20³', 'Back to The run ends');
+
       section('One popover at a time, and the saves');
       press('explore-change-rules');
       press('explore-save-seed');

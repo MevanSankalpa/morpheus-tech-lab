@@ -21,6 +21,12 @@
 // wholly outside the arena, and adds the chunks across the wrap from each live chunk at a face;
 // a chunk at a face reads its one-cell border from across the wrap, and computes only its cells
 // inside the arena. Cells outside the arena are never written, so they stay dead.
+//
+// An arena with walls (#119) is closed: past a wall is empty, so a wall cell counts only its real
+// neighbours. The work set leaves out chunks wholly outside the arena, so their cells stay dead
+// and a border read from them is empty; a chunk at a face computes only its cells inside the
+// arena, each by the rule for how many faces it lies on: the Rules' inside, then face, edge and
+// corner rules.
 
 import { COORDINATE_LIMIT, StopSignal, boxOf, inBox, longestSide, setFacts, borderClass, cellHashA, cellHashB } from './world.js';
 
@@ -51,7 +57,7 @@ export function step(world, { order, veto } = {}) {
         const cx = world.meta.cx[slot] + (d % 3) - 1;
         const cy = world.meta.cy[slot] + (Math.floor(d / 3) % 3) - 1;
         const cz = world.meta.cz[slot] + Math.floor(d / 9) - 1;
-        if (world.wrap && !chunkMeetsArena(world, cx, cy, cz)) continue;
+        if ((world.wrap || world.walls) && !chunkMeetsArena(world, cx, cy, cz)) continue;
         const before = world.chunks.size;
         const neighbour = world.slotFor(cx, cy, cz);
         if (world.chunks.size > before) {
@@ -151,11 +157,14 @@ export function computeChunk(world, slot) {
     }
   }
 
-  // In an arena that wraps, a chunk its faces run through computes only its cells inside the
-  // arena, and reads its border from across the wrap
-  const clip = world.wrap ? wrapClip(world, p, ox, oy, oz) : null;
-  const x0 = clip ? clip[0] : 0, y0 = clip ? clip[1] : 0, z0 = clip ? clip[2] : 0;
-  const x1 = clip ? clip[3] : n, y1 = clip ? clip[4] : n, z1 = clip ? clip[5] : n;
+  // In an arena that wraps or has walls, a chunk its faces run through computes only its cells
+  // inside the arena: with walls, those on its faces by their own rules, after the rest; across a
+  // wrap, it reads its border from the opposite face first
+  const regions = (world.wrap || world.walls) && atArenaFace(world, ox, oy, oz) ? arenaRegions(world, ox, oy, oz) : null;
+  if (regions && world.wrap) wrapBorder(world, p, [ox * n, oy * n, oz * n]);
+  const inside = regions ? (regions.find((region) => region[6] === 0) ?? NO_CELLS) : null;
+  const x0 = inside ? inside[0] : 0, y0 = inside ? inside[1] : 0, z0 = inside ? inside[2] : 0;
+  const x1 = inside ? inside[3] : n, y1 = inside ? inside[4] : n, z1 = inside ? inside[5] : n;
 
   // Each cell's 3×3×3 block total, as three passes of three: along x, then y, then z
   for (let z = 0; z < m; z++) {
@@ -209,6 +218,45 @@ export function computeChunk(world, slot) {
       }
     }
   }
+
+  // With walls, the cells on the arena's faces, each region by the rule for how many faces its
+  // cells lie on. The same steps as above, kept apart so a world without walls runs that loop
+  // unchanged.
+  if (regions && world.walls) {
+    for (const [wx0, wy0, wz0, wx1, wy1, wz1, faces] of regions) {
+      if (!faces) continue;
+      const wallTable = world.tables[faces];
+      for (let z = wz0; z < wz1; z++) {
+        const zClass = 9 * borderClass(z, n);
+        for (let y = wy0; y < wy1; y++) {
+          const rowClass = zClass + 3 * borderClass(y, n);
+          const row = y * n + z * nn;
+          const self = (y + 1) * m + (z + 1) * mm + 1;
+          for (let x = wx0; x < wx1; x++) {
+            const i = row + x;
+            const alive = p[self + x];
+            const count = sumXY[i] + sumXY[i + nn] + sumXY[i + 2 * nn] - alive;
+            const next = wallTable[alive * 27 + count];
+            slab[base + i] = next;
+            if (next) {
+              live++;
+              classes |= 1 << (rowClass + borderClass(x, n));
+              if (fingerprinting) {
+                hashA = (hashA + cellHashA(gx + x, gy + y, gz + z)) | 0;
+                hashB = (hashB + cellHashB(gx + x, gy + y, gz + z)) | 0;
+              }
+              if (x < box[0]) box[0] = x;
+              if (x > box[3]) box[3] = x;
+              if (y < box[1]) box[1] = y;
+              if (y > box[4]) box[4] = y;
+              if (z < box[2]) box[2] = z;
+              if (z > box[5]) box[5] = z;
+            }
+          }
+        }
+      }
+    }
+  }
   world.next.cx[slot] = ox;
   world.next.cy[slot] = oy;
   world.next.cz[slot] = oz;
@@ -217,18 +265,44 @@ export function computeChunk(world, slot) {
   world.next.hashB[slot] = hashB;
 }
 
+/** No cells: a chunk at an arena's faces whose cells inside all lie on a face. */
+const NO_CELLS = [0, 0, 0, 0, 0, 0, 0];
+
+/** Whether the arena's faces run through a chunk or its one-cell border. */
+function atArenaFace(world, ox, oy, oz) {
+  const { n } = world;
+  const { min, max } = world.arena;
+  return [ox * n, oy * n, oz * n].some((c, a) => c - 1 < min[a] || c + n > max[a]);
+}
+
 /**
- * For a chunk of a wrapping arena: if the arena's faces run through it or its border, fills its
- * border from across the wrap (wrapBorder()) and returns the local range of its cells inside the
- * arena, [x0, y0, z0, x1, y1, z1], ends exclusive; otherwise null, and the chunk is computed whole.
+ * A chunk's cells inside the arena, as boxes in local cells, [x0, y0, z0, x1, y1, z1, faces], ends
+ * exclusive, where `faces` is how many of the arena's faces each cell of the box lies on (0 to 3).
+ * Without walls, one box: the faces don't matter.
  */
-function wrapClip(world, p, ox, oy, oz) {
+function arenaRegions(world, ox, oy, oz) {
   const { n } = world;
   const { min, max } = world.arena;
   const o = [ox * n, oy * n, oz * n];
-  if (!o.some((c, a) => c - 1 < min[a] || c + n > max[a])) return null;
-  wrapBorder(world, p, o);
-  return [...o.map((c, a) => Math.max(0, min[a] - c)), ...o.map((c, a) => Math.min(n, max[a] - c + 1))];
+  // Each axis: the local range inside the arena, split into [from, to, onAFace] runs
+  const runs = o.map((c, a) => {
+    const lo = Math.max(0, min[a] - c), hi = Math.min(n, max[a] - c + 1);
+    if (lo >= hi) return [];
+    if (!world.walls) return [[lo, hi, 0]];
+    const out = [];
+    const first = c + lo === min[a], last = c + hi - 1 === max[a];
+    if (first) out.push([lo, lo + 1, 1]);
+    if (hi - lo - first - last > 0) out.push([lo + first, hi - last, 0]);
+    if (last) out.push([hi - 1, hi, 1]);
+    return out;
+  });
+  const regions = [];
+  for (const [z0, z1, fz] of runs[2]) {
+    for (const [y0, y1, fy] of runs[1]) {
+      for (const [x0, x1, fx] of runs[0]) regions.push([x0, y0, z0, x1, y1, z1, fx + fy + fz]);
+    }
+  }
+  return regions;
 }
 
 /** Whether any of the chunk's cells lie in the arena. */

@@ -156,6 +156,14 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   box says "wraps", and the arena is drawn dashed. No contest wraps: Save this generation says why
   it can't save while the arena wraps (Save seed still works), Use in a contest notes that the
   contest's arena doesn't wrap, and Design a seed in Explore stops the wrapping (#115).
+- Explore's arena can have walls: a fourth choice **At the edge**, **Walls**, with Birth and
+  Survival for **Corner (7 neighbours)**, **Edge (11)** and **Face (17)** right under it, starting
+  from the old Game of Life 3D mode's defaults. Past the walls is empty, so a wall cell counts only
+  its neighbours inside (the old mode counted some past a wall several times), and nothing is born
+  outside the arena. A B0 wall rule, or a count past its cells' neighbours, is refused, saying
+  which. The Limits box says "walls", and the arena is drawn brighter. No contest has walls, so
+  Save this generation says why it can't save with them, Use in a contest notes it, and Design a
+  seed in Explore takes them off. The unbounded engine gets a `walls` option for it (#119).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).
