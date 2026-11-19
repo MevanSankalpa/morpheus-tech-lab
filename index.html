@@ -4558,7 +4558,8 @@
     
     // Use event delegation to handle tooltips on dynamically added elements
     document.addEventListener('mouseenter', function(e) {
-      const element = e.target.closest('[data-tooltip]');
+      // The document itself is a target too, when the pointer leaves the page
+      const element = e.target instanceof Element ? e.target.closest('[data-tooltip]') : null;
       if (element) {
         const tooltipText = element.getAttribute('data-tooltip');
         if (tooltipText) {
@@ -4568,7 +4569,8 @@
     }, true);
     
     document.addEventListener('mouseleave', function(e) {
-      const element = e.target.closest('[data-tooltip]');
+      // The document itself is a target too, when the pointer leaves the page
+      const element = e.target instanceof Element ? e.target.closest('[data-tooltip]') : null;
       if (element) {
         // Only clear if no other tooltip element is being hovered
         setTimeout(() => {

@@ -167,6 +167,11 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
 - The `good first issue` label: the `ready` label alone says what work can be picked up (#71).
 
 ### Fixed
+- The check pages (`hud-check.html`, `editor-check.html`, `contests-check.html`, dev pages) keep
+  the lab's frame in view beside their results, scaled to fit the window. Scrolled out of view, the
+  frame stopped drawing, and the checks of the countdown and of Watch's view failed. The Contests
+  check also says whether the frame is drawing.
+- Moving the pointer off the page no longer throws an error from the tooltips.
 - In Explore, after settings were applied, Restart restarted the run more than once a click (#66).
 - The Contests check page (`src/contests/contests-check.html`, a dev page) runs again: it
   declared one name twice, so its script never ran (#85).

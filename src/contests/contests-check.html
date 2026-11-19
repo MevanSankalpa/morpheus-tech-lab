@@ -21,8 +21,10 @@
     h1 { font-size: 18px; margin: 0 0 4px; }
     h2 { font-size: 15px; margin: 16px 0 4px; }
     p { margin: 0 0 12px; color: #9fb0c4; }
-    .layout { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-    iframe { border: 1px solid #33404f; border-radius: 6px; background: #000; }
+    .layout { display: flex; gap: 16px; align-items: flex-start; }
+    /* The frame stays whole and in view beside the results, scaled to fit (fitFrame) */
+    .frame-box { flex: none; position: sticky; top: 16px; }
+    iframe { display: block; border: 1px solid #33404f; border-radius: 6px; background: #000; transform-origin: 0 0; }
     ol { margin: 0; padding: 0; min-width: 320px; max-width: 560px; list-style: none; }
     li { margin: 2px 0; }
     li.pass { color: #b9e8c6; }
@@ -35,10 +37,10 @@
 </head>
 <body>
   <h1>The Contests mode (#77)</h1>
-  <p>Runs on its own when the page opens, in the frame below; takes about a minute, two of them Speed runs. Keep this tab in front. <button id="again" type="button">Run again</button></p>
+  <p>Runs on its own when the page opens, in the frame beside the results, which stays in view as they scroll; takes about a minute, two of them Speed runs. Keep this tab in front. <button id="again" type="button">Run again</button></p>
   <div id="summary">Running…</div>
   <div class="layout">
-    <iframe id="lab" title="The lab" width="1280" height="800"></iframe>
+    <div class="frame-box"><iframe id="lab" title="The lab" width="1280" height="800"></iframe></div>
     <ol id="results"></ol>
   </div>
   <h2>By hand, in the lab itself</h2>
@@ -63,6 +65,17 @@
   </ul>
   <script type="module">
     const frame = document.getElementById('lab');
+    // A browser stops drawing a frame scrolled out of view, and the checks of what the lab draws
+    // then fail: the frame stays beside the results, held in view as they scroll, and is scaled
+    // down to fit the window. Its page keeps its own size, so what it lays out is unchanged.
+    function fitFrame() {
+      const [w, h] = [Number(frame.width) + 2, Number(frame.height) + 2]; // with its border
+      const scale = Math.min(1, (innerWidth - 32 - 16 - 320) / w, (innerHeight - 32) / h);
+      frame.style.transform = scale < 1 ? `scale(${scale})` : '';
+      frame.parentElement.style.width = `${w * scale}px`;
+      frame.parentElement.style.height = `${h * scale}px`;
+    }
+    addEventListener('resize', fitFrame);
     const list = document.getElementById('results');
     const summary = document.getElementById('summary');
     document.getElementById('again').onclick = () => location.reload();
@@ -106,6 +119,7 @@
     async function load(width, height) {
       frame.width = width;
       frame.height = height;
+      fitFrame();
       frame.src = `/?check=${Date.now()}`;
       await new Promise((r) => frame.addEventListener('load', r, { once: true }));
       win = frame.contentWindow;
@@ -113,6 +127,16 @@
       await sleep(2500);
       frame.focus();
       win.focus();
+    }
+    /** How many frames the lab draws in half a second: none when its frame is out of view. */
+    async function framesDrawn() {
+      let frames = 0;
+      let counting = true;
+      const tick = () => { frames++; if (counting) win.requestAnimationFrame(tick); };
+      win.requestAnimationFrame(tick);
+      await sleep(500);
+      counting = false;
+      return frames;
     }
     async function chooseMode(mode) {
       press('hud-change-mode');
@@ -234,6 +258,8 @@
       ok(runBox.height >= 48 && runBox.width > 2 * pageVerifyBox.width && runBox.top < pageVerifyBox.top, `Run is the page's largest button, above the rest (${Math.round(runBox.width)} × ${Math.round(runBox.height)} px)`);
 
       section('A run');
+      const drawing = await framesDrawn();
+      ok(drawing >= 5, `The lab's frame is drawing, as the countdown and Watch need (${drawing} frames in 0.5 s; keep it in view and this tab in front)`);
       press('contests-run');
       ok(visible('contests-countdown') && text('contests-countdown') === '6.0', 'The countdown starts at 6.0');
       const arcOffset = () => Number(win.getComputedStyle(el('contests-clock-arc')).strokeDashoffset.replace('px', '')) || 0;
