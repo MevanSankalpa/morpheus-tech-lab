@@ -538,6 +538,7 @@
       ok(doc.body.classList.contains('mode-explore') && !doc.body.classList.contains('mode-contests'), 'It leaves Contests for Explore');
       ok(visible('seed-editor') && doc.body.classList.contains('seed-editor-open'), 'with the seed editor open');
       ok(text('seed-editor-note').startsWith('For Methuselah: the seed must lie in this 10³ box.') && text('seed-editor-note').includes('Contest banner'), `Its note says how to come back ("${text('seed-editor-note').slice(0, 60)}…")`);
+      ok(state.explore.arena === 64 && /Explore's arena is (now on, at )?64³, as Methuselah's/.test(text('seed-editor-note')), `Explore's arena is the contest's, 64³, and the note says so (arena ${state.explore.arena})`);
       el('seed-editor').querySelector('[data-action="cancel"]').click();
       await sleep(300);
       ok(!visible('seed-editor') && el('contests-banner').getAttribute('aria-pressed') === 'false', 'Cancel closes the editor, in Explore');

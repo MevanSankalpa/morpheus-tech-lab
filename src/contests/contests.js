@@ -24,8 +24,9 @@ export function isContests() {
  * Starts the mode in a fresh, empty scene, with the panel on the list of contests, or on the
  * contest the visitor left to design an entry.
  * @param {object} [options]
- * @param {(note: string) => void} [options.designInExplore] - leaves for Explore with the seed
- *   editor open (controls.js), for a Discovery contest's page
+ * @param {(contest: {note: string, arena: number, title: string}) => void} [options.designInExplore]
+ *   - leaves for Explore with the contest's arena and the seed editor open (controls.js), for a
+ *   Discovery contest's page
  */
 export function startContests({ designInExplore } = {}) {
   stopContests();

@@ -101,7 +101,8 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   says what the contest fixes (the 64³ arena, the 10³ seed box, 10,000 generations), how a run
   ends and what scores, that the top score is 9,999, and that this is a stricter methuselah than
   classic Life's: the whole pattern must settle inside the arena. **Design a seed in Explore**
-  opens Explore's seed editor, and the Contest banner then comes back to Methuselah's page.
+  opens Explore's seed editor, with Explore's arena set to the contest's 64³ so a run there ends
+  as the contest's would, and the Contest banner then comes back to Methuselah's page.
   **Load seed…** reads a seed file
   from Explore's Save seed or the seed editor's Export as the entry, drawn as cubes in the seed box
   with its cell count and rules; a seed outside the box, an empty one or a B0 rule is refused with

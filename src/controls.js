@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { initComputeControl, updateComputeControl } from "./gpu/computeControl.js";
 import { isExplore, stopExplore, togglePlay, stepOnce, restart, exploreViewChanged, toggleSave, confirmSave, closeSave } from "./explore/explore.js";
 import { initHud, startFromSetup, settingsNote, openSeedEditor } from "./explore/hud.js";
+import { contestArena } from "./explore/setup.js";
 import { isContests, startContests, stopContests, isWatching, closeWatch, watchTogglePlay, watchStep, watchViewChanged } from "./contests/contests.js";
 import { CONTESTS } from "./unbounded/contests.js";
 import { closingText } from "./contests/format.js";
@@ -1797,15 +1798,19 @@ function enterContests() {
 }
 
 /**
- * From a Discovery contest's page (#94): Explore, with the seed editor open on its seed, to
- * design an entry. The banner then brings the visitor back to Contests, and the panel to the
- * contest's page.
+ * From a Discovery contest's page (#94): Explore, with the contest's arena and the seed editor
+ * open on its seed, to design an entry. The banner then brings the visitor back to Contests, and
+ * the panel to the contest's page.
+ * @param {{note: string, arena: number, title: string}} contest - the editor's note, and the
+ *   contest's arena side and title
  */
-function designInExplore(note) {
+function designInExplore({ note, arena, title }) {
   beforeContests = null;
+  const fitted = contestArena(state.explore, arena, title);
+  state.explore = fitted.setup;
   state.simulationMode = 'explore';
   restartExplore();
-  openSeedEditor({ note });
+  openSeedEditor({ note: `${note} ${fitted.note}` });
 }
 
 /**

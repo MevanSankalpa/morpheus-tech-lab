@@ -137,8 +137,8 @@ function hud(name, state, generation) {
  * Shows the panel, on the list of contests, or back on the contest the visitor left for Explore
  * to design an entry.
  * @param {object} [options]
- * @param {(note: string) => void} [options.designInExplore] - leaves for Explore with the seed
- *   editor open
+ * @param {(contest: {note: string, arena: number, title: string}) => void} [options.designInExplore]
+ *   - leaves for Explore with the contest's arena and the seed editor open
  */
 export function openPanel({ designInExplore = null } = {}) {
   panel.open = true;
@@ -405,14 +405,19 @@ function entrySection(contest, entry) {
 }
 
 /**
- * Design a seed in Explore: leaves Contests for Explore with the seed editor open on Explore's
- * seed, and comes back to this contest's page with the banner.
+ * Design a seed in Explore: leaves Contests for Explore, with the contest's arena and the seed
+ * editor open on Explore's seed, and comes back to this contest's page with the banner.
  */
 function designSeed(contest) {
   const design = panel.designInExplore;
   if (!design) return;
   panel.resume = contest;
-  design(`For ${contest.title}: the seed must lie in this 10³ box. Export saves it, with the Rules box's rules, as a seed file; then the Contest banner takes you back to ${contest.title}, to Load seed….`);
+  const { arena } = contest.fixes;
+  design({
+    note: `For ${contest.title}: the seed must lie in this 10³ box. Export saves it, with the Rules box's rules, as a seed file; then the Contest banner takes you back to ${contest.title}, to Load seed….`,
+    arena: arena.max[0] - arena.min[0] + 1,
+    title: contest.title,
+  });
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

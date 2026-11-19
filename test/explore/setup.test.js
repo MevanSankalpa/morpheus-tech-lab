@@ -10,8 +10,10 @@ import {
   initialSetup, makeShape, presetSeed, fileSeed, changeSeed, changeRules, changeArena, changeMemory,
   ownRules, configOf, boxesOf, lockOf, rulesOf, arenaOf, startOf, restartNote, seedLabel, SHAPES,
   DEFAULT_RULES, DEFAULT_MEMORY_MB, DEFAULT_ARENA, deathCounts, designOf, presetCopy, designFile, useDesign,
+  contestArena,
 } from '../../src/explore/setup.js';
-import { shapeSeed, toSeedFile, SeedError } from '../../src/explore/seed.js';
+import { shapeSeed, toSeedFile, SeedError, arenaBox } from '../../src/explore/seed.js';
+import { contestById } from '../../src/unbounded/contests.js';
 import { readSeedOrSave, generationSave } from '../../src/explore/save.js';
 import { PRESETS, presetById } from '../../src/explore/presets.js';
 import { cubeOfSide, octahedronShape } from '../../src/shapeGenerators.js';
@@ -365,4 +367,26 @@ test("The editor's Load… takes seed files that fit, and refuses saved generati
   });
   const saved = await readSeedOrSave(text);
   assert.throws(() => designFile('run.json', saved), { message: /^run\.json is a saved generation\./ });
+});
+
+test("a contest's arena for designing an entry: on at its side, already so, or left alone for a saved generation", async () => {
+  const setup = changeArena(start(), false, 64);
+  assert.equal(arenaOf(setup), null);
+  const on = contestArena(setup, 64, 'Methuselah');
+  assert.equal(arenaOf(on.setup), 64);
+  assert.match(on.note, /^Explore's arena is now on, at 64³, as Methuselah's: a run here settles, or reaches the edge, where Methuselah's would/);
+  assert.match(on.note, /The Limits box turns it off\.$/);
+  // Explore's 64 arena is the contest's box
+  assert.deepEqual(arenaBox(64), contestById('methuselah-1').fixes.arena);
+  // Already 64: unchanged
+  const again = contestArena(on.setup, 64, 'Methuselah');
+  assert.equal(again.setup, on.setup);
+  assert.match(again.note, /^Explore's arena is 64³, as Methuselah's/);
+  // Another side is replaced
+  assert.equal(arenaOf(contestArena(changeArena(setup, true, 100), 64, 'Methuselah').setup), 64);
+  // A saved generation keeps its own arena, and the note says so
+  const saved = changeSeed(setup, await savedGeneration(32));
+  const kept = contestArena(saved, 64, 'Methuselah');
+  assert.equal(kept.setup, saved);
+  assert.match(kept.note, /stays the saved generation's, so a run of it here may not end as Methuselah's would/);
 });

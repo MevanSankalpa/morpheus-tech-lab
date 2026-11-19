@@ -206,8 +206,9 @@ kept per contest while the panel is open. **Load seed…** reads a seed file (`s
 `parseSeedFile()`, as untrusted data) and passes it through `runFor()`, which refuses a B0 rule,
 an empty seed or a cell outside the seed box with the reason, shown before Run; a B1 rule gets
 `methuselahWarnings()`'s warning. **Design a seed in Explore** calls back into `controls.js`
-(`designInExplore()`, handed to `startContests()`), which starts Explore and opens the seed editor
-(`hud.js`'s `openSeedEditor()`) with a note on the contest; the panel remembers the contest, so the
+(`designInExplore()`, handed to `startContests()`), which sets Explore's arena to the contest's
+(`setup.js`'s `contestArena()`; a saved generation keeps its own), starts Explore and opens the
+seed editor (`hud.js`'s `openSeedEditor()`) with a note on the contest; the panel remembers the contest, so the
 banner comes back to its page. The seed is drawn as cubes in the seed box, seen from above a
 corner, with hidden cubes left out (`format.js`'s `seedPicture()`, tested in Node). A run is
 `discovery.js`'s `DiscoveryRun`: an open-ended settling run in a Worker, in the contest's arena,

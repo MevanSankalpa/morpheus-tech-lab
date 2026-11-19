@@ -418,6 +418,25 @@ export function changeArena(setup, on, sideText, { own = false } = {}) {
   return checked({ ...base, arena: on ? side : null, arenaSize: ok ? side : base.arenaSize });
 }
 
+/**
+ * Explore's arena set to a contest's (#94), for designing an entry: with the same arena, a run in
+ * Explore settles, or reaches the edge, where the contest's run would. A saved generation keeps
+ * its own arena, so it is left as it is, and the note says so.
+ * @param {number} side - the contest's arena, a cube of this many cells a side
+ * @param {string} title - the contest's, for the note
+ * @returns {{setup: object, note: string}} the setup to use, and what changed, for the editor
+ */
+export function contestArena(setup, side, title) {
+  const same = `a run here settles, or reaches the edge, where ${title}'s would, though Explore doesn't stop at its budget.`;
+  if (arenaOf(setup) === side) return { setup, note: `Explore's arena is ${side}³, as ${title}'s: ${same}` };
+  try {
+    return { setup: changeArena(setup, true, side), note: `Explore's arena is now on, at ${side}³, as ${title}'s: ${same} The Limits box turns it off.` };
+  } catch (err) {
+    if (!(err instanceof SeedError)) throw err;
+    return { setup, note: `Explore's arena stays the saved generation's, so a run of it here may not end as ${title}'s would.` };
+  }
+}
+
 /** The Limits popover's memory limit. @param {string | number} text - the limit in MB */
 export function changeMemory(setup, text) {
   const memoryMB = Number(text);
