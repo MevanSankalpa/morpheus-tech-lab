@@ -50,9 +50,13 @@
         <div class="sim-col" style="grid-column: 1 / -1; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(140, 140, 150, 0.25);">
           <div class="rules-title">Simulation Mode</div>
           <div class="mode-selector">
+            <button class="mode-card" data-mode="explore" id="mode-explore">
+              <span class="mode-name">Game of Life 3D</span>
+              <span class="mode-subtitle">Unbounded</span>
+            </button>
             <button class="mode-card" data-mode="gameOfLife" id="mode-gameOfLife">
-              <span class="mode-name">Game of Life</span>
-              <span class="mode-subtitle">3D</span>
+              <span class="mode-name">Game of Life 3D</span>
+              <span class="mode-subtitle">Bounded</span>
             </button>
             <button class="mode-card" data-mode="rule30" id="mode-rule30">
               <span class="mode-name">Rule 30</span>
@@ -66,13 +70,9 @@
               <span class="mode-name">Sandpile</span>
               <span class="mode-subtitle">Abelian</span>
             </button>
-            <button class="mode-card" data-mode="explore" id="mode-explore">
-              <span class="mode-name">Explore</span>
-              <span class="mode-subtitle">Unbounded</span>
-            </button>
         </div>
           <div id="mode-description" class="mode-description">
-            <p>A classic cellular automaton extended to three dimensions. Cells evolve based on the number of living neighbors, creating complex patterns of growth, stability, and decay in 3D space.</p>
+            <p>Conway's Game of Life in three dimensions, where each cell has 26 neighbours, in a world without walls: the pattern grows as far as it likes, for as long as you let it run. It computes on the CPU, in a background thread, keeping only the current generation, so its memory follows the live cells. A GPU needs a world of fixed size, which this one isn't, so it has no GPU path yet; Game of Life 3D (bounded) is the one on the GPU.</p>
           </div>
           <!-- Explore's settings are in the HUD's boxes (src/explore/hud.js); the Contests mode has
                none, its contests fix everything (src/contests/) -->
@@ -339,8 +339,8 @@
         <!-- The mode: which simulation runs; its gear opens the settings dialog -->
         <div id="glass-info-modename" class="glass-display glass-display--compact">
           <div class="box-title"><span class="box-title-text">Mode</span><span class="box-title-tools"><button type="button" id="hud-change-mode" class="hud-gear" aria-label="Change the mode" title="Change the mode" aria-haspopup="dialog"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14,12.94a7.43,7.43,0,0,0,.05-.94,7.43,7.43,0,0,0-.05-.94l2.11-1.65a.5.5,0,0,0,.12-.64l-2-3.46a.5.5,0,0,0-.6-.22l-2.49,1a7.28,7.28,0,0,0-1.63-.94l-.38-2.65A.5.5,0,0,0,13.64,2H10.36a.5.5,0,0,0-.5.42L9.48,5.07a7.28,7.28,0,0,0-1.63.94l-2.49-1a.5.5,0,0,0-.6.22l-2,3.46a.5.5,0,0,0,.12.64L4.91,11.06a7.43,7.43,0,0,0-.05.94,7.43,7.43,0,0,0,.05.94L2.8,14.59a.5.5,0,0,0-.12.64l2,3.46a.5.5,0,0,0,.6.22l2.49-1a7.28,7.28,0,0,0,1.63.94l.38,2.65a.5.5,0,0,0,.5.42h3.28a.5.5,0,0,0,.5-.42l.38-2.65a7.28,7.28,0,0,0,1.63-.94l2.49,1a.5.5,0,0,0,.6-.22l2-3.46a.5.5,0,0,0-.12-.64ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg></button><button type="button" class="hud-collapse" aria-expanded="true" aria-label="Collapse the Mode box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button></span></div>
-          <div id="hud-mode-name" class="hud-mode-name">Explore</div>
-          <div id="hud-mode-about" class="hud-mode-about">Game of Life 3D, without walls</div>
+          <div id="hud-mode-name" class="hud-mode-name">Game of Life 3D (unbounded)</div>
+          <div id="hud-mode-about" class="hud-mode-about">Without walls, or in an arena; on the CPU</div>
         </div>
         <div id="glass-info-sim" class="glass-display glass-display--compact">
           <div class="box-title"><span class="box-title-text">Grid</span><button type="button" class="hud-collapse" aria-expanded="true" aria-label="Collapse the Grid box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button></div>

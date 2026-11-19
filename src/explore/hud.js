@@ -97,9 +97,9 @@ export function showBoxes() {
   setText('explore-memory-limit', `${n(boxes.memoryMB)} MB`);
 }
 
-/** The settings dialog's line in Explore, saying where Explore's settings went. */
+/** The settings dialog's line in the unbounded mode, saying where its settings went. */
 export function settingsNote() {
-  const where = "Explore's seed, rules, arena and memory limit are changed from its boxes at the top left, under Explore.";
+  const where = "The seed, rules, arena and memory limit of Game of Life 3D (unbounded) are changed from its boxes at the top left.";
   return state.showHUD === false ? `${where} Show them with the HUD button.` : where;
 }
 

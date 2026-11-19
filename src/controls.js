@@ -30,11 +30,11 @@ function updateStateDisplay() {
 
 // The Mode section, first in the HUD's Simulation panel: which simulation runs, and a line about it
 const MODE_NAMES = {
-  gameOfLife: ['Game of Life', 'Game of Life in 3D, in a grid'],
+  gameOfLife: ['Game of Life 3D (bounded)', 'A grid that wraps or has walls; on the GPU where it can'],
   rule30: ['Rule 30', "Wolfram's elementary automaton"],
   sineWave: ['Sine Wave', 'A continuous wave field'],
   sandpile: ['Sandpile', 'The Abelian sandpile'],
-  explore: ['Explore', 'Game of Life 3D, without walls'],
+  explore: ['Game of Life 3D (unbounded)', 'Without walls, or in an arena; on the CPU'],
   contests: ['Contest', 'One contest, three branches'],
 };
 
@@ -1117,12 +1117,12 @@ function openShapeModal() {
   
   // Mode descriptions
   const modeDescriptions = {
-    gameOfLife: 'A classic cellular automaton extended to three dimensions. Cells evolve based on the number of living neighbors, creating complex patterns of growth, stability, and decay in 3D space.',
+    gameOfLife: "Conway's Game of Life in three dimensions, where each cell has 26 neighbours, in a fixed grid that wraps around, or has walls with their own corner, edge and face rules. The whole run is computed before it plays, so you can scrub it and play it backwards. It computes on your GPU with WebGPU where your browser has it, and on the CPU otherwise, with the same cells either way. It holds every generation in memory, so the grid's size and the run's length are what limit it.",
     rule30: 'A one-dimensional cellular automaton that generates complex, seemingly random patterns from simple rules. Each cell\'s state depends on its left, center, and right neighbors, producing fractal-like structures.',
     sineWave: 'A continuous mathematical function visualized in discrete 3D space. Represents periodic oscillations and wave patterns, demonstrating how continuous phenomena can be sampled and displayed on a grid.',
     sandpile: 'The Abelian Sandpile Model, a self-organized criticality system. Sand grains accumulate and topple when reaching a threshold, creating cascading avalanches that exhibit power-law distributions and fractal patterns.',
-    contests: 'One contest on the unbounded Game of Life 3D engine, in three branches. Speed times how many generations your browser computes in 6 seconds, from the same seed under the same rules for everyone. Methuselah asks for the longest-lived pattern that settles inside an arena, from your own seed and rules; Classic Methuselah is the same, but lets ships leave the arena. Results can be exported and checked by anyone, by replaying them.',
-    explore: 'Game of Life 3D in a world without walls. The pattern grows as far as it likes, for as long as you let it run, with no score and no clock. Pause, step and restart it, try other rules, a preset or a seed file, and set a memory limit or an arena.'
+    contests: 'One contest on the unbounded Game of Life 3D engine, in three branches. Speed times how many generations your browser computes in 6 seconds, from the same seed under the same rules for everyone. Methuselah asks for the longest-lived pattern that settles inside an arena, from your own seed and rules; Classic Methuselah is the same, but lets ships leave the arena. Results can be exported and checked by anyone, by replaying them. Season 1 runs on the CPU only, so every entrant runs the same engine.',
+    explore: "Conway's Game of Life in three dimensions, where each cell has 26 neighbours, in a world without walls: the pattern grows as far as it likes, for as long as you let it run. It computes on the CPU, in a background thread, keeping only the current generation, so its memory follows the live cells. A GPU needs a world of fixed size, which this one isn't, so it has no GPU path yet; Game of Life 3D (bounded) is the one on the GPU. Pause, step and restart it, try other rules, a preset, a seed file or a seed of your own design, and set a memory limit, or an arena that ends the run, lets ships leave, wraps around or has walls."
   };
   
   // Function to update mode description

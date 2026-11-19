@@ -131,17 +131,17 @@ test("Use in a contest notes that the contest's arena has no walls, and Explore'
   const setup = walled(changeSeed(start(), makeShape('cube', { size: 4, density: 1 })));
   for (const contest of [METHUSELAH, CLASSIC]) {
     assert.equal(contestEntry(setup, contest).entry.note,
-      `${contest.title}'s arena has no walls, and Explore's had, so a run here may end differently from one in Explore.`);
+      `${contest.title}'s arena has no walls, and the one in Game of Life 3D (unbounded) had, so a run here may end differently from one there.`);
   }
 });
 
 test('Design a seed in Explore takes the walls off, as no contest has them', () => {
   const strict = contestArena(walled(), 64, 'Methuselah');
   assert.equal(edgeOf(strict.setup), 'end');
-  assert.match(strict.note, /^Explore's 64³ arena no longer has walls, as in Methuselah: /);
+  assert.match(strict.note, /^The 64³ arena in Game of Life 3D \(unbounded\) no longer has walls, as in Methuselah: /);
   const classic = contestArena(walled(), 64, 'Classic Methuselah', true);
   assert.equal(edgeOf(classic.setup), 'ships');
-  assert.match(classic.note, /^Explore's 64³ arena no longer has walls, and ships leave at its edge, as in Classic Methuselah: /);
+  assert.match(classic.note, /^The 64³ arena in Game of Life 3D \(unbounded\) no longer has walls, and ships leave at its edge, as in Classic Methuselah: /);
   // The walls' rules are kept for when Walls is chosen again
   assert.deepEqual(classic.setup.walls, DEFAULT_WALLS);
 });

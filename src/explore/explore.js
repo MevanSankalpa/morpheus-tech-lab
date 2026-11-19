@@ -274,7 +274,7 @@ export async function confirmSave() {
   const save = session.save;
   if (!save?.text || save.saved) return;
   try {
-    const status = await writeJsonFile(save.name, save.text, save.kind === 'seed' ? 'Explore seed file' : 'Explore saved generation');
+    const status = await writeJsonFile(save.name, save.text, save.kind === 'seed' ? 'Game of Life 3D seed file' : 'Game of Life 3D saved generation');
     if (session.save !== save) return;
     save.saved = true;
     fillSave({ status, ready: false });

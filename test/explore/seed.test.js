@@ -120,7 +120,7 @@ test('an exported seed loads back, and runs the same', () => {
 test('a seed file that is wrong is refused, saying why', () => {
   const file = (fields) => JSON.stringify({ format: SEED_FILE_FORMAT, version: 1, rules: RULES, cells: [[0, 0, 0]], ...fields });
   assert.throws(() => parseSeedFile('not json'), /isn't JSON/);
-  assert.throws(() => parseSeedFile(file({ format: 'something else' })), /isn't an Explore seed file/);
+  assert.throws(() => parseSeedFile(file({ format: 'something else' })), /isn't a seed file for Game of Life 3D \(unbounded\)/);
   assert.throws(() => parseSeedFile(file({ version: 2 })), /version 2/);
   assert.throws(() => parseSeedFile(file({ rules: { birth: [0], survival: [] } })), RuleError);
   assert.throws(() => parseSeedFile(file({ cells: [[0, 0]] })), /Cell 1/);

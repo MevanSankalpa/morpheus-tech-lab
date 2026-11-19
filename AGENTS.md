@@ -53,12 +53,12 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          the panel's text (format.test.js), Watch's, Methuselah's and the ships' included, the email's text (submit.test.js)
                          and the Hall of Fame, hall-of-fame.json against its result files (hallOfFame.test.js);
                          explore/ checks
-                         Explore's seeds, presets, seed files, saves, settings (setup.test.js), Ships leave at
+                         The unbounded mode's seeds, presets, seed files, saves, settings (setup.test.js), Ships leave at
                          the edge (ships.test.js), an arena that wraps (wrap.test.js) or has walls
                          (walls.test.js), camera framing
                          and the seed editor's model (editorModel.test.js)
 src/
-  main.js                Boot: Explore (startExplore()) by default, or initSimulation(); then animate()
+  main.js                Boot: Game of Life 3D (unbounded) (startExplore()) by default, or initSimulation(); then animate()
   browser.js             detectBrowser(): the browser's name and version, from navigator.userAgentData or the
                          user-agent string, for a result's details (no DOM; tested in Node)
   brand/tokens.css       Brand pin: the Morpheus Tech brand tokens. Not imported yet. Never hand-edit
@@ -66,7 +66,7 @@ src/
   simulationModel.js     Builds the Three.js Points geometry from the history; updatePoints() per frame
   matrixFunctions.js     The automata: generateSimulation() and each mode's evolve step (the CPU reference);
                          convolve3D() here passes `state`'s settings to denseStep.js
-  denseStep.js           convolve3D(grid, {wrapping, rules, boundaryRules}): the dense Game of Life 3D step, without
+  denseStep.js           convolve3D(grid, {wrapping, rules, boundaryRules}): the dense Game of Life 3D (bounded) step, without
                          `state`, so Node can run it
   grid3D.js              Grid3D: a dense size³ Uint8Array plus an `active` list of live cells
   shapeGenerators.js     Seed shapes: perlin, cube, tetrahedron, octahedron, worley, rule30
@@ -74,11 +74,11 @@ src/
   time.js                The animation loop, playback speed, auto-rotate; a vestigial clock history
   controls.js            All UI wiring: buttons, sliders, modal, mode switching (~1,800 lines)
   gpu/device.js          WebGPU status ('ready', 'no-webgpu', 'no-adapter', 'device-failed') and the one GPUDevice
-  gpu/engine.js          Game of Life 3D and Rule 30 (1D, 2D) on the GPU: evolveOnGpu() yields each generation
+  gpu/engine.js          Game of Life 3D (bounded) and Rule 30 (1D, 2D) on the GPU: evolveOnGpu() yields each generation
   gpu/computeControl.js  The GPU compute toggle: its GPU/CPU badge, the remembered choice, the "why not" popover
   gpu/compare.js         Not bundled: run from the dev console to check the GPU's generations against the CPU's
   shaders/*.wgsl         The WGSL compute shaders: gameOfLife3D.wgsl, rule30.wgsl (1D and 2D)
-  unbounded/             Game of Life 3D without edges, shown by Explore. Imports no `state`, so it runs
+  unbounded/             Game of Life 3D without edges, shown by Game of Life 3D (unbounded). Imports no `state`, so it runs
                          in Node, a Web Worker or the browser
   unbounded/world.js     World: the chunk store (chunks as slots in large slabs), seeding, the limits, and the
                          arena, which may wrap (`wrap`, #114): a torus, with no departures; or have walls
@@ -156,8 +156,8 @@ src/
                          Submit by email and a staged Hall of Fame included, and Methuselah's page, Load seed…
                          and its runs, and a Classic Methuselah run whose ship leaves, marking each check ✔ or ✖, and
                          lists what to check by hand
-  explore/               The Explore mode: the unbounded engine on the page (#37)
-  explore/explore.js     Starts and drives the run, the control bar's commands in Explore, the HUD box and notices
+  explore/               The Game of Life 3D (unbounded) mode, called Explore until #116 (the code keeps `explore`): the unbounded engine on the page (#37)
+  explore/explore.js     Starts and drives the run, the control bar's commands in Game of Life 3D (unbounded), the HUD box and notices
                          (ships leaving, #103), and the save popover
   explore/save.js        Save this generation (a result file with the generation's cells, as a contest entry is,
                          refused once a ship has left, #103) and Save seed, and reading either back for Load…
@@ -168,7 +168,7 @@ src/
   explore/seed.js        Shapes lifted into the unbounded world, rule text, the seed file format, and SEED_BOX
                          (re-exported from contests.js), the 10³ seed box the editor and the Discovery contests
                          use (tested in Node)
-  explore/setup.js       Explore's settings as one value, `state.explore` (#69): the seed's source, the rules, the
+  explore/setup.js       The unbounded mode's settings as one value, `state.explore` (#69): the seed's source, the rules, the
                          arena, what happens at its edge (the run ends, ships leave, #103, it wraps, #115, or
                          walls with their own rules, #119) and the memory limit; what each HUD box shows,
                          what is locked, each popover's change or the reason it is refused, the config
@@ -183,7 +183,7 @@ src/
   explore/popover.js     One HUD popover open at a time, beside its box: Esc, a click or focus outside closes it,
                          and focus goes back to its button. The save popover opens through it too
   explore/hud-check.html Not bundled: a dev page (/src/explore/hud-check.html under `npm run dev`) that clicks
-                         through Explore's settings in the HUD in a frame holding the lab, Use in a contest
+                         through the unbounded mode's settings in the HUD in a frame holding the lab, Use in a contest
                          (both Methuselah contests) and each choice at the arena's edge included, marking each check
                          ✔ or ✖
   explore/editorModel.js The seed editor's model (#70): the 10³ seed box as bytes, the cursor, the selection, switching,
@@ -191,7 +191,7 @@ src/
                          the camera's directions (no DOM, no Three.js; tested in Node)
   explore/editorView.js  The seed editor's 3D view: its own scene, camera and orbit controls, drawn into the lab's
                          renderer (never a second WebGL context), and only when something changes; picks a cell
-  explore/editor.js      The seed editor: opening over Explore's view and closing, the panel, the keys, the touch
+  explore/editor.js      The seed editor: opening over the unbounded mode's view and closing, the panel, the keys, the touch
                          buttons, Load… and Export; Use goes through setup.js's useDesign()
   explore/editor-check.html Not bundled: a dev page (/src/explore/editor-check.html under `npm run dev`) that clicks
                          through the seed editor in a frame holding the lab, marking each check ✔ or ✖, and lists
@@ -224,22 +224,22 @@ src/
 - **Stream, keep no history (the unbounded engine).** `src/unbounded/` computes one generation
   at a time, for as long as a run lasts, and keeps only the current one. Space is chunked
   (16³ cells by default), and a chunk exists only where there are live cells or cells that can
-  be born. The Explore mode (`src/explore/`) shows it.
+  be born. The Game of Life 3D (unbounded) mode (`src/explore/`) shows it.
 - **Changing a setting rebuilds.** Mode, size, seed or rules all go through `initSimulation()`
   again (from `controls.js`).
 - **Mode flags.** `state.simulationMode` names the mode, and the booleans `useRule30`,
   `useRule30_2D`, `useSineWave` and `useSandpile` steer `generateSimulation()`. Size and
   generations are remembered per mode in `state.modeValues`.
-- **Explore streams instead.** `simulationMode === 'explore'` never reaches `initSimulation()`
+- **Game of Life 3D (unbounded) streams instead.** `simulationMode === 'explore'` never reaches `initSimulation()`
   or `generateSimulation()`: on the dialog's Apply, or a HUD popover's, `controls.js` calls
-  `startFromSetup()` (`hud.js`), which calls `startExplore()` with Explore's settings, and
+  `startFromSetup()` (`hud.js`), which calls `startExplore()` with the unbounded mode's settings, and
   leaving the mode calls `stopExplore()`. `animate()` calls `exploreFrame()` instead of
   advancing `currentGen`, and the play, step and reverse handlers check `isExplore()` first.
-  Explore clears all four flags, which `gpuModeOf()` would read as Game of Life 3D, so code that
-  looks at the flags must check for Explore first, as `computeControl.js` does. Its settings
+  Game of Life 3D (unbounded) clears all four flags, which `gpuModeOf()` would read as Game of Life 3D (bounded), so code that
+  looks at the flags must check for Game of Life 3D (unbounded) first, as `computeControl.js` does. Its settings
   live in `state.explore`, a value from `setup.js` that is replaced, never edited, and only
   through `setup.js`'s changes, which check that it still makes a run. They are set from the
-  HUD's boxes; the settings dialog shows only the mode choice in Explore.
+  HUD's boxes; the settings dialog shows only the mode choice in Game of Life 3D (unbounded).
 - **Contests is a mode that draws nothing.** `simulationMode === 'contests'` never reaches
   `initSimulation()` either: its banner, left of the company logo, calls `enterContests()`
   (`controls.js`), which calls `startContests()`; it has no card in the settings dialog. In
@@ -251,11 +251,11 @@ src/
   Watch is open (`isWatching()`), whose replay they play, pause and step; `contestsFrame()` then
   calls `watchFrame()`, which draws. Reverse stays off: a replay only runs forward.
 - **The seed editor borrows the view.** While it is open (`isEditorOpen()`), `animate()` calls
-  `editorFrame()` and returns before Explore's frame and the main render; the editor draws its
+  `editorFrame()` and returns before the unbounded mode's frame and the main render; the editor draws its
   own scene into `state.renderer`, only when something changed, and turns `state.controls` off.
   Closing it disposes of its scene and controls and gives the view back. Never create a renderer
   or a canvas for it.
-- **GPU first, CPU after.** For Game of Life 3D and Rule 30, `generateSimulation()` runs
+- **GPU first, CPU after.** For Game of Life 3D (bounded) and Rule 30, `generateSimulation()` runs
   `evolveOnGpu()` when `state.gpuCompute` is on and a device is ready, then its CPU loop computes
   whatever generations remain: all of them if the GPU was off or unavailable, the rest if the
   device was lost part way. Sine Wave and the sandpile run on the CPU only.
@@ -266,10 +266,10 @@ src/
   `set()`, or rebuild `active` after writing `data` directly (as the sandpile does).
 - Rule 30 has depth 1 and the sandpile lives in the `z = 0` plane, with heights capped at 255.
   Rendering reads `matrixDepth` for that.
-- Game of Life 3D boundary rules (corner, edge, face) apply only when grid wrapping is off.
+- Game of Life 3D (bounded) boundary rules (corner, edge, face) apply only when grid wrapping is off.
   Isolation and overcrowding are always derived from survival, never set by hand.
 - **The GPU gives exactly the CPU's generations**, cell for cell, wrapping or not, with the
-  same edge, face and corner rules. The CPU evolve steps in `matrixFunctions.js` (Game of Life 3D's in
+  same edge, face and corner rules. The CPU evolve steps in `matrixFunctions.js` (Game of Life 3D (bounded)'s in
   `denseStep.js`) are the
   reference, quirks included (a dead cell with no live neighbour is never born; with wrapping
   off, neighbours clamp to the grid). Change a CPU step and its shader together, and check

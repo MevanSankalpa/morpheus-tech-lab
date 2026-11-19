@@ -208,6 +208,16 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   equal, cell for cell, not on a matching fingerprint alone, so a false match can't end a run
   early. A saved generation that died or repeated is verified by replaying the run's settling
   from its seed (#93).
+- The two Game of Life 3D modes are named side by side, first in the dialog: the original,
+  precomputed mode is **Game of Life 3D (bounded)**, and Explore is **Game of Life 3D
+  (unbounded)**, everywhere a visitor reads it, Contests' Design a seed in Game of Life 3D
+  (unbounded) included. Each says in the dialog what it computes on and why: the bounded mode on
+  the GPU where WebGPU allows, and on the CPU otherwise; the unbounded mode on the CPU, in a
+  background thread, with no GPU path yet, since a GPU needs a world of fixed size (Discussion
+  #122). The GPU toggle says so in the unbounded mode, and the contests say season 1 is CPU-only.
+  The unbounded mode's files are named `game-of-life-3d-seed.json` and
+  `game-of-life-3d-generation-N.json`; seed files, saved generations and result files are
+  unchanged, and every one made before still loads (#116).
 
 ### Removed
 - The `good first issue` label: the `ready` label alone says what work can be picked up (#71).

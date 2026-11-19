@@ -99,21 +99,21 @@ test("Design a seed in Explore sets the arena, and the ships, to the contest's",
   const classic = contestArena(setup, 64, 'Classic Methuselah', true);
   assert.equal(shipsOf(classic.setup), true);
   assert.equal(configOf(classic.setup).arena, 64);
-  assert.match(classic.note, /^Explore's arena is now on, at 64³, with ships leaving at its edge, as Classic Methuselah's: a run here settles, or reaches the edge, where Classic Methuselah's would/);
+  assert.match(classic.note, /^The arena in Game of Life 3D \(unbounded\) is now on, at 64³, with ships leaving at its edge, as Classic Methuselah's: a run here settles, or reaches the edge, where Classic Methuselah's would/);
   // Already so: unchanged
   const again = contestArena(classic.setup, 64, 'Classic Methuselah', true);
   assert.equal(again.setup, classic.setup);
-  assert.match(again.note, /^Explore's arena is 64³, with ships leaving at its edge, as Classic Methuselah's/);
+  assert.match(again.note, /^The arena in Game of Life 3D \(unbounded\) is 64³, with ships leaving at its edge, as Classic Methuselah's/);
   // From Classic Methuselah's to Methuselah's: the same arena, and ships no longer leave
   const strict = contestArena(classic.setup, 64, 'Methuselah');
   assert.equal(shipsOf(strict.setup), false);
-  assert.match(strict.note, /^Ships no longer leave at the edge of Explore's 64³ arena, as in Methuselah: /);
+  assert.match(strict.note, /^Ships no longer leave at the edge of the 64³ arena in Game of Life 3D \(unbounded\), as in Methuselah: /);
   // And back
   const back = contestArena(strict.setup, 64, 'Classic Methuselah', true);
   assert.equal(shipsOf(back.setup), true);
-  assert.match(back.note, /^Ships now leave at the edge of Explore's 64³ arena, as in Classic Methuselah: /);
+  assert.match(back.note, /^Ships now leave at the edge of the 64³ arena in Game of Life 3D \(unbounded\), as in Classic Methuselah: /);
   // Methuselah's, from no arena: as before (#94)
-  assert.match(contestArena(setup, 64, 'Methuselah').note, /^Explore's arena is now on, at 64³, as Methuselah's: /);
+  assert.match(contestArena(setup, 64, 'Methuselah').note, /^The arena in Game of Life 3D \(unbounded\) is now on, at 64³, as Methuselah's: /);
 });
 
 test('Use in a contest notes when Explore let ships leave and the contest does not, or the other way round', () => {
@@ -123,11 +123,11 @@ test('Use in a contest notes when Explore let ships leave and the contest does n
   assert.equal(contestEntry(withShips, CLASSIC).entry.note, null);
   assert.equal(contestEntry(base, METHUSELAH).entry.note, null);
   assert.equal(contestEntry(base, CLASSIC).entry.note,
-    "Classic Methuselah lets ships leave at the edge of its arena, and Explore's didn't, so a run here may end differently from one in Explore.");
+    "Classic Methuselah lets ships leave at the edge of its arena, and Game of Life 3D (unbounded) didn't, so a run here may end differently from one there.");
   assert.equal(contestEntry(withShips, METHUSELAH).entry.note,
-    "Methuselah doesn't let ships leave its arena, and Explore's did, so a run here may end differently from one in Explore.");
+    "Methuselah doesn't let ships leave its arena, and Game of Life 3D (unbounded) did, so a run here may end differently from one there.");
   // Another arena: the arena's note says it
-  assert.match(contestEntry(changeArena(withShips, true, 100), CLASSIC).entry.note, /^Classic Methuselah runs in its own 64³ arena, and Explore's was 100³/);
+  assert.match(contestEntry(changeArena(withShips, true, 100), CLASSIC).entry.note, /^Classic Methuselah runs in its own 64³ arena, and the arena in Game of Life 3D \(unbounded\) was 100³/);
 });
 
 test('a saved generation carries on without the rule, as it was saved; Use your own rules gives the option back', async () => {
