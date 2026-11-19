@@ -268,7 +268,10 @@
         || (/^\d\.\d{3}$/.test(text('contests-score')) && text('contests-score-unit') === 'seconds to reach the ceiling of 1,000 generations'),
       `It leads with what ranks the score ("${text('contests-score')}", "${text('contests-score-unit')}")`);
       ok(parseFloat(win.getComputedStyle(el('contests-score')).fontSize) >= 56, `in large type (${win.getComputedStyle(el('contests-score')).fontSize})`);
-      ok(chart()?.querySelector('.contests-chart-line') && chart().querySelector('details table'), 'The results card keeps the chart, with its data as a table');
+      // The table is built when it is opened: a Methuselah run's has a row a generation
+      const tableBox = chart()?.querySelector('details');
+      if (tableBox) tableBox.open = true;
+      ok(chart()?.querySelector('.contests-chart-line') && await until(() => chart().querySelector('details table'), 2000), 'The results card keeps the chart, with its data as a table, built when opened');
       const times = [...chart().querySelectorAll('details tbody tr td:first-child')].map((td) => Number(td.textContent));
       ok(times.length > 2 && times.every((t) => t <= 6), `No point in the table is past 6 seconds (the last at ${times.at(-1)} s)`);
       ok(panelText().includes('The 6 seconds ran out.') || panelText().includes('reached the ceiling'), 'It says how the run ended');
@@ -591,9 +594,12 @@
       const verdictRows = [...el('contests-panel').querySelectorAll('.contests-facts dt')].map((dt) => `${dt.textContent}: ${dt.nextSibling.textContent}`);
       ok(verdictRows.includes('Score: Died at generation 10') && verdictRows.includes('Rules: B5,7-8/S1,4') && verdictRows.includes('Seed: 11 cells'), `with its score, rules and seed (${verdictRows.join('; ')})`);
       ok(panelText().includes('Back to Methuselah'), 'and leads back to Methuselah');
-      const mEdited = mFile.replace('"generations": 10', '"generations": 11').replace('"generation": 10', '"generation": 11');
+      // The score's generations and the file's generation, never the budget's (limits.generations, 10000)
+      const mEdited = mFile.replace('"generations": 10,', '"generations": 11,').replace('"generation": 10,', '"generation": 11,');
+      ok(mEdited !== mFile && JSON.parse(mEdited).run.limits.generations === 10000, 'The edit changes the score and generation only');
       chooseFile('edited.json', mEdited);
-      ok(await until(() => visible('contests-verdict') && text('contests-verdict') === "Doesn't match", 30000), `A hand-edited copy doesn't match ("${text('contests-verdict-message')}")`);
+      ok(await until(() => visible('contests-verdict') && text('contests-verdict') === "Doesn't match", 30000) && /dies at generation 10/.test(text('contests-verdict-message')),
+        `A hand-edited copy, claiming a later death, doesn't match, by its replay ("${text('contests-verdict-message')}")`);
 
       section('A Methuselah run that reaches the edge, and one stopped');
       press('contests-back');
@@ -625,7 +631,8 @@
       win.fetch = (url, ...rest) => (String(url).endsWith('/hall-of-fame/results/check-methuselah.json')
         ? Promise.resolve(new win.Response(mFile))
         : realFetch.call(win, url, ...rest));
-      press('contests-back');
+      press('contests-again'); // Run again: back to Methuselah's page
+      ok(text('contests-panel-title') === 'Methuselah', 'Run again goes back to Methuselah\'s page');
       const mRows = [...(el('contests-hof')?.children ?? [])];
       const mShown = mRows.map((r) => cell(r, 'name')?.textContent);
       ok(mShown.join(' | ') === 'Check, longer | Check, leaner | Check, this run', `Ranked by generations, then fewer seed cells, before the date (${mShown.join(' | ')})`);
