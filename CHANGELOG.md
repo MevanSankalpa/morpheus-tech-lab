@@ -149,6 +149,13 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   grid does with wrapping on, and nothing is born outside it. It needs an arena at least 3 cells
   a side, and ships can't leave one. Worlds that don't wrap give the same cells and hashes as
   before (#114).
+- Explore's arena can wrap around. The Limits popover's **At the edge** chooses what happens
+  there: **The run ends** (the default), **Ships leave** (in place of the Ships leave at the edge
+  checkbox) or **It wraps around**, where opposite walls meet, so a pattern that crosses one comes
+  back in through the other, and a ship comes round and the run settles on its lap. The Limits
+  box says "wraps", and the arena is drawn dashed. No contest wraps: Save this generation says why
+  it can't save while the arena wraps (Save seed still works), Use in a contest notes that the
+  contest's arena doesn't wrap, and Design a seed in Explore stops the wrapping (#115).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).

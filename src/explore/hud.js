@@ -24,7 +24,7 @@ import { PRESETS, PRESET_GROUPS, presetById } from './presets.js';
 import { MAX_SHAPE_SIZE, parseCounts } from './seed.js';
 import {
   SHAPES, shapeByKey, makeShape, presetSeed, fileSeed, changeSeed, changeRules, changeArena, changeMemory,
-  configOf, boxesOf, lockOf, rulesOf, arenaOf, startOf, restartNote, seedLabel, deathCounts,
+  configOf, boxesOf, lockOf, rulesOf, arenaOf, edgeOf, startOf, restartNote, seedLabel, deathCounts,
   designOf, presetCopy, useDesign, contestEntry,
 } from './setup.js';
 
@@ -92,7 +92,8 @@ export function showBoxes() {
     lock.hidden = !boxes.lock;
     lock.textContent = boxes.lock ?? '';
   }
-  setText('explore-arena', boxes.arena ? `${n(boxes.arena)}³${boxes.arenaLocked ? ', saved' : ''}${boxes.ships ? ', ships leave' : ''}` : 'off');
+  const edge = { end: '', ships: ', ships leave', wrap: ', wraps' }[boxes.edge];
+  setText('explore-arena', boxes.arena ? `${n(boxes.arena)}³${boxes.arenaLocked ? ', saved' : ''}${edge}` : 'off');
   setText('explore-memory-limit', `${n(boxes.memoryMB)} MB`);
 }
 
@@ -502,22 +503,22 @@ function showRulesLock() {
   placeOpenPopover();
 }
 
-// ---- Limits: the arena, whether ships leave at its edge, and the memory limit ----
+// ---- Limits: the arena, what happens at its edge, and the memory limit ----
 
 // Use your own rules, pressed in the open popover and not yet applied. A saved generation locks
-// its arena, and with it Ships leave at the edge; the memory limit is never locked, as it isn't
+// its arena, and with it what happens at the edge; the memory limit is never locked, as it isn't
 // part of the run.
 let limitsOwn = false;
 
 function wireLimits() {
   const on = document.getElementById('explore-arena-on');
   const side = document.getElementById('explore-arena-side');
-  const ships = document.getElementById('explore-ships-on');
+  const edge = document.getElementById('explore-edge');
   const memory = document.getElementById('explore-memory-input');
-  if (!on || !side || !ships || !memory) return;
+  if (!on || !side || !edge || !memory) return;
   on.onchange = () => {
     side.disabled = !on.checked || isArenaLocked();
-    ships.disabled = side.disabled;
+    edge.disabled = side.disabled;
   };
   document.getElementById('explore-arena-own').onclick = () => {
     limitsOwn = true;
@@ -529,12 +530,15 @@ function wireLimits() {
     const arena = arenaOf(state.explore);
     on.checked = arena !== null;
     side.value = `${arena ?? state.explore.arenaSize}`;
-    ships.checked = Boolean(state.explore.ships);
+    // A saved generation's edge is its own, and ends the run; otherwise the visitor's, remembered
+    // while the arena is off
+    const shown = lockOf(state.explore)?.by === 'saved' ? edgeOf(state.explore) : state.explore.edge;
+    for (const radio of edge.querySelectorAll('input[name="explore-edge"]')) radio.checked = radio.value === shown;
     memory.value = `${state.explore.memoryMB}`;
     showLimitsLock();
   }, () => {
     const setup = isArenaLocked() ? state.explore
-      : changeArena(state.explore, on.checked, side.value, { own: limitsOwn, ships: ships.checked });
+      : changeArena(state.explore, on.checked, side.value, { own: limitsOwn, edge: edge.querySelector('input[name="explore-edge"]:checked')?.value });
     return changeMemory(setup, memory.value);
   });
 }
@@ -549,7 +553,7 @@ function showLimitsLock() {
   const on = document.getElementById('explore-arena-on');
   on.disabled = locked;
   document.getElementById('explore-arena-side').disabled = locked || !on.checked;
-  document.getElementById('explore-ships-on').disabled = locked || !on.checked;
+  document.getElementById('explore-edge').disabled = locked || !on.checked;
   setText('explore-limits-note', restartNote(limitsOwn ? 0 : startOf(state.explore)));
   placeOpenPopover();
 }

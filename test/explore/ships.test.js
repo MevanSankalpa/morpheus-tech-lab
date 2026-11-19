@@ -44,12 +44,12 @@ function exploreRun(cfg) {
 
 test('Ships leave at the edge is off by default, needs an arena, and is remembered while the arena is off', () => {
   const setup = start();
-  assert.equal(setup.ships, false);
+  assert.equal(setup.edge, 'end');
   assert.equal(shipsOf(setup), false);
-  const on = changeArena(setup, true, 64, { ships: true });
+  const on = changeArena(setup, true, 64, { edge: 'ships' });
   assert.equal(shipsOf(on), true);
   assert.equal(configOf(on).ships, true);
-  assert.equal(boxesOf(on).ships, true);
+  assert.equal(boxesOf(on).edge, 'ships');
   // Off with the arena, but remembered for when it comes back
   const off = changeArena(on, false, 64);
   assert.equal(shipsOf(off), false);
@@ -57,7 +57,7 @@ test('Ships leave at the edge is off by default, needs an arena, and is remember
   assert.equal(shipsOf(changeArena(off, true, 64)), true);
   // Not given: kept as it was
   assert.equal(shipsOf(changeArena(on, true, 100)), true);
-  assert.equal(shipsOf(changeArena(on, true, 64, { ships: false })), false);
+  assert.equal(shipsOf(changeArena(on, true, 64, { edge: 'end' })), false);
   // A Classic Methuselah's P
   assert.equal(SHIP_PERIOD, CLASSIC.departures.period);
   assert.equal(SHIP_PERIOD, 32);
@@ -119,7 +119,7 @@ test("Design a seed in Explore sets the arena, and the ships, to the contest's",
 test('Use in a contest notes when Explore let ships leave and the contest does not, or the other way round', () => {
   const seed = makeShape('cube', { size: 4, density: 1 });
   const base = changeSeed(changeArena(start(), true, 64), seed);
-  const withShips = changeArena(base, true, 64, { ships: true });
+  const withShips = changeArena(base, true, 64, { edge: 'ships' });
   assert.equal(contestEntry(withShips, CLASSIC).entry.note, null);
   assert.equal(contestEntry(base, METHUSELAH).entry.note, null);
   assert.equal(contestEntry(base, CLASSIC).entry.note,
@@ -136,7 +136,7 @@ test('a saved generation carries on without the rule, as it was saved; Use your 
   while (world.generation < 20) stepWithDepartures(world);
   const cfg = { rules: SHIP.rules, cells: Int32Array.from(SHIP.seed.flat()), arena: 64, ships: true };
   const { text } = await generationSave({ config: cfg, generation: 20, cells: world.cells(), ending: 'stopped' });
-  const setup = changeSeed(changeArena(start(), true, 64, { ships: true }), fileSeed('saved.json', await readSeedOrSave(text)));
+  const setup = changeSeed(changeArena(start(), true, 64, { edge: 'ships' }), fileSeed('saved.json', await readSeedOrSave(text)));
   assert.equal(setup.seed.kind, 'saved');
   assert.equal(shipsOf(setup), false);
   assert.equal(configOf(setup).ships, false);

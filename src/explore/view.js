@@ -108,8 +108,8 @@ export class ExploreView {
     this.points.visible = false;
   }
 
-  /** Outlines the arena, a box in cells, or removes the outline for null. */
-  showArena(arena) {
+  /** Outlines the arena, a box in cells, or removes the outline for null; dashed when it wraps. */
+  showArena(arena, { wrap = false } = {}) {
     if (this.arena) {
       this.group.remove(this.arena);
       this.arena.geometry.dispose();
@@ -119,8 +119,13 @@ export class ExploreView {
     if (!arena) return;
     const size = [0, 1, 2].map((a) => arena.max[a] - arena.min[a] + 1);
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(...size));
-    const material = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 });
+    // An arena that wraps around (#115) is drawn dashed: its walls are open, onto the opposite side
+    const dash = Math.max(...size) / 32;
+    const material = wrap
+      ? new THREE.LineDashedMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, dashSize: dash, gapSize: dash })
+      : new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 });
     this.arena = new THREE.LineSegments(edges, material);
+    if (wrap) this.arena.computeLineDistances();
     this.arena.position.set(...[0, 1, 2].map((a) => (arena.min[a] + arena.max[a]) / 2));
     this.group.add(this.arena);
   }

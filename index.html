@@ -482,15 +482,22 @@
             </div>
             <div class="explore-popover-section">Arena</div>
             <label class="explore-check" for="explore-arena-on"><input type="checkbox" id="explore-arena-on" /> An arena</label>
-            <p class="explore-popover-text explore-popover-quiet">A box around the centre. A step that would bring a cell to life outside it ends the run, as in the Discovery contests.</p>
+            <p class="explore-popover-text explore-popover-quiet">A box around the centre, as in the Discovery contests.</p>
             <div class="explore-field">
               <label class="explore-field-label" for="explore-arena-side">Side, in cells</label>
               <span class="explore-field-hint">8 - 1024</span>
             </div>
             <input type="number" id="explore-arena-side" class="glass-input" min="8" max="1024" step="1" />
-            <!-- Ships leave at the edge (#103): Classic Methuselah's rule, in Explore's arena -->
-            <label class="explore-check" for="explore-ships-on"><input type="checkbox" id="explore-ships-on" /> Ships leave at the edge</label>
-            <p class="explore-popover-text explore-popover-quiet">As in Classic Methuselah: a ship of period up to 32 heading out through a wall leaves the arena, and the run goes on; anything else at the edge still ends it.</p>
+            <!-- What happens at the edge (#115): the run ends; ships leave, Classic Methuselah's rule (#103); or it wraps around -->
+            <fieldset id="explore-edge" class="explore-edge">
+              <legend class="explore-field-label">At the edge</legend>
+              <label class="explore-check" for="explore-edge-end"><input type="radio" name="explore-edge" id="explore-edge-end" value="end" /> The run ends</label>
+              <p class="explore-popover-text explore-popover-quiet">A step that would bring a cell to life outside the arena ends the run, as in Methuselah.</p>
+              <label class="explore-check" for="explore-edge-ships"><input type="radio" name="explore-edge" id="explore-edge-ships" value="ships" /> Ships leave</label>
+              <p class="explore-popover-text explore-popover-quiet">As in Classic Methuselah: a ship of period up to 32 heading out through a wall leaves the arena, and the run goes on; anything else at the edge still ends it.</p>
+              <label class="explore-check" for="explore-edge-wrap"><input type="radio" name="explore-edge" id="explore-edge-wrap" value="wrap" /> It wraps around</label>
+              <p class="explore-popover-text explore-popover-quiet">Opposite walls meet: a pattern that crosses one comes back in through the other, and the run never reaches the edge. No contest wraps, so Save this generation is off while it does; Save seed still works.</p>
+            </fieldset>
             <div class="explore-popover-section">Memory limit</div>
             <div class="explore-field">
               <label class="explore-field-label" for="explore-memory-input">Limit, in MB</label>
@@ -3226,6 +3233,22 @@
     width: auto;
     margin: 0;
     cursor: pointer;
+  }
+  /* The Limits popover's choice of what happens at the arena's edge (#115) */
+  .explore-edge {
+    border: 0;
+    margin: 8px 0 0;
+    padding: 0;
+    min-width: 0;
+  }
+  .explore-edge legend {
+    padding: 0;
+  }
+  .explore-edge .explore-popover-text {
+    margin-left: 20px;
+  }
+  .explore-edge:disabled {
+    opacity: 0.5;
   }
   /* The Rules popover's derived counts */
   .explore-rules-derived {
