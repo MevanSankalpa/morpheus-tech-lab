@@ -82,10 +82,13 @@ export class World {
    *   RangeError from it means the browser refused the memory. Tests replace it.
    * @param {boolean} [options.fingerprint] - keep a fingerprint of the cells (fingerprint()),
    *   for spotting a pattern that repeats. Off by default: it costs a little per live cell.
+   * @param {{period: number}} [options.departures] - ships leave at the arena's edge
+   *   (departures.js, #100): the longest ship period recognised. Needs an arena. The world
+   *   only keeps the rule and the departures so far (`departed`); departures.js's step applies it
    */
   constructor({
     rules, chunkSize = 16, slabBytes = DEFAULT_SLAB_BYTES, limits = {}, arena = null,
-    allocate = (bytes) => new ArrayBuffer(bytes), fingerprint = false,
+    allocate = (bytes) => new ArrayBuffer(bytes), fingerprint = false, departures = null,
   } = {}) {
     if (!CHUNK_SIZES.includes(chunkSize)) {
       throw new WorldError(`The chunk size must be one of ${CHUNK_SIZES.join(', ')}.`);
@@ -111,6 +114,9 @@ export class World {
       memory: limits.memory ?? Infinity,
     };
     this.arena = arena && checkArena(arena);
+    this.departures = departures && checkDepartures(departures, this.arena);
+    /** The departures so far, oldest first: {generation, period, shift, cells}, as departures.js records them. */
+    this.departed = [];
     this.allocate = allocate;
     this.fingerprinting = fingerprint;
 
@@ -212,6 +218,27 @@ export class World {
     const box = this.extent();
     if (this.liveCells > this.limits.cells) throw new WorldError('The seed has more cells than the cell limit.');
     if (box && longestSide(box) > this.limits.extent) throw new WorldError('The seed is wider than the extent limit.');
+  }
+
+  /**
+   * Sets cells of the current generation alive (1) or dead (0), between steps, and recounts their
+   * chunks. departures.js deletes a ship this way, and puts it back if the step after fails. A
+   * chunk left empty is released by the next step, as any other is.
+   * @param {Int32Array} flat - x, y, z triples, each in the representable space
+   * @param {0 | 1} value
+   */
+  writeCells(flat, value) {
+    const touched = new Set();
+    for (let i = 0; i < flat.length; i += 3) {
+      const [x, y, z] = [flat[i], flat[i + 1], flat[i + 2]];
+      const slot = value ? this.slotFor(x >> this.shift, y >> this.shift, z >> this.shift)
+        : this.findSlot(x >> this.shift, y >> this.shift, z >> this.shift);
+      if (slot === undefined) continue;
+      const [slab, base] = this.current(slot);
+      slab[base + this.localIndex(x, y, z)] = value;
+      touched.add(slot);
+    }
+    for (const slot of touched) this.scan(slot);
   }
 
   /** @returns {boolean} whether the cell is alive in the current generation */
@@ -513,6 +540,14 @@ export function longestSide(box) {
 export function inBox(box, x, y, z) {
   return x >= box.min[0] && x <= box.max[0] && y >= box.min[1] && y <= box.max[1]
     && z >= box.min[2] && z <= box.max[2];
+}
+
+function checkDepartures(departures, arena) {
+  if (!(departures && Number.isSafeInteger(departures.period) && departures.period >= 1)) {
+    throw new WorldError('Departures are {period}, the longest ship period recognised: a whole number of at least 1.');
+  }
+  if (!arena) throw new WorldError('Ships leave at the edge of an arena, so departures need one.');
+  return { period: departures.period };
 }
 
 function checkArena(arena) {

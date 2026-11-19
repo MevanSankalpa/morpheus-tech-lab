@@ -164,7 +164,27 @@ refuses an empty seed or a cell outside the box). A run is a settling run in the
 that cycle closes within the budget (a death is a cycle of period 1), so the top score is 9,999.
 Reaching the arena's edge or the budget scores nothing. Entries rank by generations, then fewer
 seed cells (`compareMethuselah()`), then the earlier submission. Under B1 a pattern always
-reaches the edge, by generation 37, so `methuselahWarnings()` warns of it. `runFor(contest, entry)` makes a run's definition from the contest's fixed parts and the
+reaches the edge, by generation 37, so `methuselahWarnings()` warns of it.
+
+**Classic Methuselah** (`classic-methuselah-1`, #100) is Methuselah with one rule changed: a ship
+may leave the arena. It fixes what Methuselah fixes, plus `departures: {period: 32}`, which isn't
+in the run's definition: `departuresFor(run)` reads it from the contest, through `run.contest`, and
+a World built with it lets ships leave (`departures.js`). When the step from generation t would
+bring a cell to life outside the arena, the cells split into islands (cells within 2 of each
+other on every axis, directly or through others, which can't affect each other's next
+generation). Each island next to such a birth is run alone, with no arena, for up to 32
+generations: it is a ship if its cells come back shifted by some d ≠ 0, at the least such period
+s. If every one is a ship moving out through each face its births cross, each is deleted and
+recorded, `{generation: t, period: s, shift: d, cells}`, and generation t + 1 is computed without
+them; otherwise the run ends at the edge, as Methuselah's does. Generation t itself keeps the ship
+(the deletion belongs to the step), so keyframes, rebuilds and replays meet the same departures.
+A ship in flight is part of the pattern, so a run settles only once its last ship has left, and
+a cycle with a departure in it (a gun) ends as `emits`, with no score. The rule needs no catalogue
+of known ships, so it works under any rules. A result lists its `departures`, outside the hash
+like the score, even when none left; `verifyResult()` replays them with the run and compares the
+list, departure for departure. It ranks as Methuselah does, on a board of its own.
+
+`runFor(contest, entry)` makes a run's definition from the contest's fixed parts and the
 entry's rules and seed, so a contest's result states its whole run like any other. A contest's
 result adds a `score`, outside the hash: Speed's is `{generations, ms}`, where `ms` is the time to
 reach the 1,000-generation ceiling, and null for a run the 6 seconds ended. `verifyResult()`
@@ -176,7 +196,8 @@ The browser's name and version in a result's details come from `src/browser.js`,
 checked.
 
 **The Contests mode** (`src/contests/`, #77). The page presents one contest in three branches
-(Speed, Methuselah, Contained chaos); the code calls each branch a contest (`contests.js`'s
+(Speed, Methuselah, and Classic Methuselah from #100's piece 2, which takes Contained chaos's
+place in season 1); the code calls each branch a contest (`contests.js`'s
 `CONTESTS`, an id such as `speed-1`, and a result file's `run.contest`, which is hashed, so it
 keeps its name). It is a sixth mode, opened from a compact banner left of the
 company logo, which also gives the date entries close (`closes` in `contests.js`, "Closes TBD"
@@ -228,7 +249,8 @@ statistics while it runs and from the whole history once it ends. `DiscoveryRun`
 from its end reason, generation and cycle (`methuselahScore()`), and has the Worker make the
 result file, as `SpeedRun` does. The card's and the email's words come from `format.js`
 (`methuselahScoreText()`, `methuselahHero()`, `methuselahEndingText()`) and `submit.js`, which
-adds the rules and the seed's cells. Contained chaos (#42) adds its kind to `DiscoveryRun`.
+adds the rules and the seed's cells. Classic Methuselah (#100) runs here too, with its world's
+departures, from its piece 2; Contained chaos (#42), a later season's, would add its kind.
 
 **Watch** (`watch.js`, #78) plays a result back in 3D: from the results card, or from a file Verify
 a result has read (`readResult()` again, on the page). It hides the panel and starts a *replay* in a

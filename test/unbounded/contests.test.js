@@ -65,7 +65,7 @@ let fileCache;
 const goodFile = async () => (fileCache ??= await speedFile());
 
 test("Speed's definition is #44's pinned values", () => {
-  assert.deepEqual(CONTESTS.map((c) => c.id), ['speed-1', 'methuselah-1']);
+  assert.deepEqual(CONTESTS.map((c) => c.id), ['speed-1', 'methuselah-1', 'classic-methuselah-1']);
   assert.equal(SPEED.kind, 'speed');
   assert.equal(SPEED.title, 'Speed');
   assert.equal(SPEED.chunkSize, 16);

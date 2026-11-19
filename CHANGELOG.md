@@ -118,6 +118,15 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   designed. A seed with any cell outside the 10³ seed box is refused there, saying which cells,
   as are an empty seed and a saved generation; and if Explore's arena isn't 64³, Methuselah's
   page says the contest runs in its own (#95).
+- The Classic Methuselah contest is defined as data, `classic-methuselah-1`, ahead of its page:
+  Methuselah with one rule changed, that a ship may leave the arena. When a pattern would grow
+  past the edge, each part of it there is run alone for up to 32 generations; if every one is a
+  ship heading out, it leaves and the run goes on, so a pattern that settles after sending off
+  ships scores. Anything else at the edge ends the run as in Methuselah, and a pattern that keeps
+  sending off ships ends as `emits`, without a score. The test needs no list of known ships, so it
+  works under any rules. A result file lists its departures, and `scripts/verify.mjs` replays
+  them, prints them and fails a file whose list differs. Season 1 of the contests is Speed,
+  Methuselah and Classic Methuselah; Contained chaos moves to a later season (#101).
 
 ### Changed
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).
