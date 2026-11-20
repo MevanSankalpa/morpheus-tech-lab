@@ -375,6 +375,15 @@ shaders, using only the browser's WebGPU API, and must give exactly the CPU's ge
 adapter or a device is missing or fails, and the definition of what each mode does. With the
 GPU, memory and rendering, not the step, set the size limit (README §4).
 
+**Caps become advice (#123).** The precomputed modes once capped size at 200 and generations at
+100, chosen for the weakest machines. The caps held back visitors with strong ones, and still
+didn't protect the weakest: the sandpile had no generation cap at all. Now nothing is capped.
+`memoryAdvice.js` estimates what a run will hold (every grid exactly; the live cells by a model
+fitted to measured runs), the dialog's range hints show it with the ranges a laptop and a desktop
+run, and above 2 GB Apply asks first. A refused allocation is a `RangeError`, which
+`initSimulation()` turns into a message and an empty view; a tab the browser kills for memory
+can't be caught, so the confirmation comes before the run, not after.
+
 **An unbounded engine beside the dense one (#35).** The dense grids wrap or clamp at their
 edges and allocate all their memory up front, so a pattern can never outgrow them. The
 unbounded engine's memory follows the live cells instead. It is new code next to the existing

@@ -166,6 +166,13 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   seed in Explore takes them off. The unbounded engine gets a `walls` option for it (#119).
 
 ### Changed
+- The precomputed modes (Game of Life 3D (bounded), Rule 30, Sine Wave, Abelian Sandpile) no
+  longer cap size at 200 or generations at 100. Each range hint in the settings dialog shows what
+  a typical laptop runs at the other settings, and opens a popover with the run's memory
+  estimate, the ranges for a typical laptop and a strong desktop, and what happens past them; the
+  sandpile's Initial Sand hint says why its 0-255 stays. Above an estimate of 2 GB, Apply asks
+  first, and a run whose memory the browser refuses stops with a message instead of breaking the
+  page. Rule 30's grid now follows its generations past 200, as it always meant to (#123).
 - The lab opens in Explore, paused on a 10³ cube, instead of Game of Life 3D (#37).
 - The HUD is one panel at the top left, Simulation, in every mode, with the HUD's boxes as its
   sections. The first, Mode, names the simulation that runs, in place of the title at the top
@@ -220,6 +227,8 @@ versions follow [Semantic Versioning](https://semver.org/); they are the annotat
   unchanged, and every one made before still loads (#116).
 
 ### Removed
+- The Morpheus Tech logo buttons beside the settings dialog's range hints; the logo at the top of
+  the page still opens the company panel (#123).
 - The `good first issue` label: the `ready` label alone says what work can be picked up (#71).
 
 ### Fixed

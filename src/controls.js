@@ -1,5 +1,5 @@
 import { state } from "./state.js";
-import { initSimulation, updatePoints } from "./simulationModel.js";
+import { initSimulation, updatePoints, memoryNote } from "./simulationModel.js";
 import * as THREE from 'three';
 import { initComputeControl, updateComputeControl } from "./gpu/computeControl.js";
 import { isExplore, stopExplore, togglePlay, stepOnce, restart, exploreViewChanged, toggleSave, confirmSave, closeSave } from "./explore/explore.js";
@@ -8,6 +8,8 @@ import { contestArena } from "./explore/setup.js";
 import { isContests, startContests, stopContests, isWatching, closeWatch, watchTogglePlay, watchStep, watchViewChanged } from "./contests/contests.js";
 import { CONTESTS } from "./unbounded/contests.js";
 import { closingText } from "./contests/format.js";
+import { rule30Size, sandpileSize, needsConfirmation, confirmText } from "./memoryAdvice.js";
+import { initAdvice, refreshAdvice, closeAdvice } from "./adviceControl.js";
 
 let pendingShapeKey = null;
 let shapeDropdownPrevValue = null;
@@ -330,6 +332,7 @@ export function initControls() {
       stepOnce();
       return;
     }
+    if (!state.simulationData?.length) return; // a refused run left none (#123)
     if (state.isReversing) {
       state.currentGen = (state.currentGen - 1 + state.simulationData.length) % state.simulationData.length;
     } else {
@@ -520,11 +523,9 @@ export function initControls() {
   const companyModal = document.getElementById('company-modal');
   const companyModalClose = document.getElementById('company-modal-close');
   
-  // Handle all company logo buttons: each opens the company modal, which links to morpheustech.net
+  // The company logo at the top opens the company modal, which links to morpheustech.net (the
+  // logos beside the dialog's range hints went in #123: the hints open their advice instead)
   const companyLogoButtons = [
-    document.getElementById('company-logo-button'),
-    document.getElementById('company-logo-button-size'),
-    document.getElementById('company-logo-button-sand'),
     document.getElementById('company-logo-button-top')
   ];
   
@@ -733,8 +734,7 @@ function openShapeModal() {
   }
   if (simGenerationsInput) {
     const gens = modeGens !== undefined ? modeGens : state.sim_generations;
-    const maxGens = currentMode === 'gameOfLife' ? Math.min(100, gens) : gens;
-    simGenerationsInput.value = `${maxGens}`;
+    simGenerationsInput.value = `${gens}`;
   }
   if (gridWrappingCheckbox) {
     gridWrappingCheckbox.checked = state.gridWrapping ?? true;
@@ -752,25 +752,9 @@ function openShapeModal() {
 
   const key = pendingShapeKey || state.shapeKey;
 
-  // Function to calculate required size for Rule 30 based on generations
+  // Rule 30's size follows its generations (memoryAdvice.js's rule30Size())
   function calculateRule30Size(generations, mode) {
-    if (mode === 'rule30') {
-      // Rule 30 (1D): grows in a triangular pattern
-      // Maximum width = 2 * generations + 1 (with padding for asymmetric growth)
-      // Height = generations + 1 (initial layer + all generations)
-      // Depth = 1 (only one z slice)
-      // Use the maximum of width and height, with some padding
-      const maxWidth = 2 * generations + 1;
-      const padding = Math.ceil(generations * 0.1); // 10% padding for safety
-      return Math.max(maxWidth + padding, generations + 1 + padding);
-    } else if (mode === 'rule30_2D') {
-      // Rule 30 (3D): grows in 2D, spreading in both x and z directions
-      // Similar calculation but needs to account for 2D spread
-      const maxWidth = 2 * generations + 1;
-      const padding = Math.ceil(generations * 0.15); // 15% padding for 2D spread
-      return Math.max(maxWidth + padding, generations + 1 + padding);
-    }
-    return 50; // Default fallback
+    return rule30Size(generations, mode === 'rule30_2D');
   }
 
   // Function to update UI based on selected mode
@@ -865,13 +849,8 @@ function openShapeModal() {
       if (simGenerationsInput) {
         const savedGens = state.modeValues.gameOfLife?.generations;
         const gens = savedGens || 100;
-        // Cap at 100 for Game of Life
-        simGenerationsInput.value = Math.min(100, Math.max(1, gens));
-        simGenerationsInput.max = '100';
+        simGenerationsInput.value = Math.max(1, gens);
       }
-      // Update generations range hint for Game of Life mode
-      const simGenerationsRangeText = document.getElementById('sim-generations-range-text');
-      if (simGenerationsRangeText) simGenerationsRangeText.textContent = '1 - 100';
       // Show size range hint for Game of Life mode
       const simSizeRange = document.getElementById('sim-size-range');
       if (simSizeRange) simSizeRange.style.display = 'flex';
@@ -924,13 +903,8 @@ function openShapeModal() {
       if (simGenerationsInput) {
         const savedGens = state.modeValues.sineWave?.generations;
         const gens = savedGens || 100;
-        // Cap at 100 for Sine Wave
-        simGenerationsInput.value = Math.min(100, Math.max(1, gens));
-        simGenerationsInput.max = '100';
+        simGenerationsInput.value = Math.max(1, gens);
       }
-      // Update generations range hint for Sine Wave mode
-      const simGenerationsRangeText = document.getElementById('sim-generations-range-text');
-      if (simGenerationsRangeText) simGenerationsRangeText.textContent = '1 - 100';
       // Show size range hint for Sine Wave mode
       const simSizeRange = document.getElementById('sim-size-range');
       if (simSizeRange) simSizeRange.style.display = 'flex';
@@ -958,13 +932,8 @@ function openShapeModal() {
       if (simGenerationsInput) {
         const savedGens = state.modeValues.rule30?.generations;
         const gens = savedGens || 100;
-        // Cap at 100 for Rule 30
-        simGenerationsInput.value = Math.min(100, Math.max(1, gens));
-        simGenerationsInput.max = '100';
+        simGenerationsInput.value = Math.max(1, gens);
       }
-      // Update generations range hint for Rule 30 mode
-      const simGenerationsRangeText = document.getElementById('sim-generations-range-text');
-      if (simGenerationsRangeText) simGenerationsRangeText.textContent = '1 - 100';
       // Hide size controls for Rule 30 mode (auto-calculated)
       const simSizeRow = document.getElementById('sim-size-row');
       if (simSizeRow) simSizeRow.style.display = 'none';
@@ -1038,12 +1007,7 @@ function openShapeModal() {
       if (simGenerationsInput) {
         const savedGens = state.modeValues.sandpile?.generations;
         simGenerationsInput.value = savedGens || '1000';
-        // Remove max limit for sandpile (can go above 100)
-        simGenerationsInput.removeAttribute('max');
       }
-      // Update generations range hint for Sandpile mode
-      const simGenerationsRangeText = document.getElementById('sim-generations-range-text');
-      if (simGenerationsRangeText) simGenerationsRangeText.textContent = '1 - 1000';
       // Show size range hint for Sandpile mode
       const simSizeRange = document.getElementById('sim-size-range');
       if (simSizeRange) simSizeRange.style.display = 'flex';
@@ -1074,6 +1038,8 @@ function openShapeModal() {
       // Hide sandpile section for other modes
       if (sandpileSection) sandpileSection.style.display = 'none';
     }
+    hideMemoryConfirm();
+    refreshAdvice();
   }
   
   // Listen for generations input changes
@@ -1082,16 +1048,9 @@ function openShapeModal() {
       const activeCard = document.querySelector('.mode-card.active');
       const selectedMode = activeCard ? activeCard.dataset.mode : 'gameOfLife';
       
-      // Enforce max of 100 for Game of Life, Rule 30, and Sine Wave
-      if (selectedMode === 'gameOfLife' || selectedMode === 'rule30' || selectedMode === 'sineWave') {
-        const currentValue = parseInt(simGenerationsInput.value);
-        if (!isNaN(currentValue) && currentValue > 100) {
-          simGenerationsInput.value = '100';
-        }
-      }
-      
+      // No cap on generations (#123): the hint's advice and Apply's confirmation take its place
       if (selectedMode === 'rule30' && rule302DCheckbox) {
-        const generations = Math.max(1, Math.min(100, parseInt(simGenerationsInput.value) || state.sim_generations));
+        const generations = Math.max(1, parseInt(simGenerationsInput.value) || state.sim_generations);
         const is2D = rule302DCheckbox.checked;
         const calculatedSize = calculateRule30Size(generations, is2D ? 'rule30_2D' : 'rule30');
         if (simSizeInput) {
@@ -1100,7 +1059,7 @@ function openShapeModal() {
       } else if (selectedMode === 'sandpile') {
         const generations = Math.max(1, parseInt(simGenerationsInput.value) || state.sim_generations);
         // Auto-calculate size based on generations (sand spreads roughly as sqrt(generations))
-        const calculatedSize = Math.max(20, Math.min(200, Math.ceil(Math.sqrt(generations) * 2.5)));
+        const calculatedSize = sandpileSize(generations);
         if (simSizeInput) {
           simSizeInput.value = calculatedSize;
         }
@@ -1507,12 +1466,16 @@ function openShapeModal() {
     pendingShapeKey = null;
   };
 
-  const onConfirm = async () => {
+  const onConfirm = () => applySettings(false);
+
+  // Apply. Above a high memory estimate it asks first (#123): `confirmed` is the answer
+  const applySettings = async (confirmed) => {
     // Get selected simulation mode from active card. Contests has no card (its banner beside the
     // HUD opens it), so opened from Contests with no card chosen, Apply stays in Contests
     const activeCard = document.querySelector('.mode-card.active');
     const selectedMode = activeCard ? activeCard.dataset.mode
       : state.simulationMode === 'contests' ? 'contests' : 'gameOfLife';
+    memoryNote(null); // a refused run's note goes with any Apply
 
     // Explore streams from a Worker instead of precomputing (src/explore/), with the settings
     // its HUD boxes hold
@@ -1534,6 +1497,13 @@ function openShapeModal() {
       restartExplore();
       return;
     }
+
+    const run = dialogRun(selectedMode);
+    if (!confirmed && run && needsConfirmation(run)) {
+      askMemoryConfirm(run);
+      return;
+    }
+    hideMemoryConfirm();
 
     state.simulationMode = selectedMode;
     updateSimulationModeTitle();
@@ -1607,13 +1577,9 @@ function openShapeModal() {
       }
     }
     
-    // Compute proposed sim size/gens first so clamping uses new size
-    const newSimSize = simSizeInput ? Math.max(1, Math.min(200, parseInt(simSizeInput.value))) : state.sim_size;
-    // Cap generations at 100 for Game of Life mode
-    let newSimGenerations = simGenerationsInput ? Math.max(1, parseInt(simGenerationsInput.value)) : state.sim_generations;
-    if (selectedMode === 'gameOfLife') {
-      newSimGenerations = Math.min(100, Math.max(1, newSimGenerations));
-    }
+    // Compute proposed sim size/gens first so clamping uses new size. Neither has a cap (#123)
+    const newSimSize = simSizeInput ? positiveInt(simSizeInput.value, state.sim_size) : state.sim_size;
+    const newSimGenerations = simGenerationsInput ? positiveInt(simGenerationsInput.value, state.sim_generations) : state.sim_generations;
     const newGridWrapping = gridWrappingCheckbox ? gridWrappingCheckbox.checked : state.gridWrapping ?? true;
     const size = Math.min(newSimSize, Math.max(1, parseInt(sizeInput.value)));
     const density = Math.min(1, Math.max(0, parseFloat(densityInput.value)));
@@ -1763,9 +1729,73 @@ function openShapeModal() {
     }
   };
 
+  /**
+   * The run the dialog describes, as memoryAdvice.js's estimateRun() takes it, for `selectedMode`
+   * (the active card's by default); null in a mode that streams.
+   */
+  function dialogRun(selectedMode = document.querySelector('.mode-card.active')?.dataset.mode ?? 'gameOfLife') {
+    const generations = simGenerationsInput ? positiveInt(simGenerationsInput.value, state.sim_generations) : state.sim_generations;
+    if (selectedMode === 'rule30') {
+      const is2D = rule302DCheckbox ? rule302DCheckbox.checked : false;
+      return { mode: is2D ? 'rule30_2D' : 'rule30', size: rule30Size(generations, is2D), generations };
+    }
+    const size = simSizeInput ? positiveInt(simSizeInput.value, state.sim_size) : state.sim_size;
+    if (selectedMode === 'sineWave') return { mode: 'sineWave', size, generations };
+    if (selectedMode === 'sandpile') {
+      const initialSand = parseInt(document.getElementById('sandpile-initial-sand')?.value) || 0;
+      return { mode: 'sandpile', size, generations, initialSand };
+    }
+    if (selectedMode !== 'gameOfLife') return null;
+    const shape = pendingShapeKey || state.shapeKey;
+    const noise = shape === 'perlin' || shape === 'worley';
+    return {
+      mode: 'gameOfLife',
+      size,
+      generations,
+      seed: {
+        shape,
+        size: parseInt(sizeInput.value),
+        density: parseFloat(densityInput.value),
+        regionSize: noise && regionSizeInput ? parseInt(regionSizeInput.value) : null,
+      },
+    };
+  }
+
+  // Apply's question above CONFIRM_BYTES, under the dialog's buttons: Run anyway applies,
+  // Change settings goes back to the fields; changing any setting takes the question away
+  function askMemoryConfirm(run) {
+    const memoryConfirm = document.getElementById('memory-confirm');
+    if (!memoryConfirm) return;
+    document.getElementById('memory-confirm-text').textContent = confirmText(run);
+    memoryConfirm.hidden = false;
+    document.getElementById('memory-confirm-run').onclick = () => applySettings(true);
+    document.getElementById('memory-confirm-back').onclick = () => {
+      hideMemoryConfirm();
+      (simSizeInput && simSizeInput.style.display !== 'none' ? simSizeInput : simGenerationsInput)?.focus();
+    };
+    memoryConfirm.scrollIntoView({ block: 'nearest' });
+    document.getElementById('memory-confirm-back').focus();
+  }
+  // (updateModeUI() calls it before this point of openShapeModal() runs, so it looks the box up)
+  function hideMemoryConfirm() {
+    const memoryConfirm = document.getElementById('memory-confirm');
+    if (memoryConfirm) memoryConfirm.hidden = true;
+  }
+
+  // The hints follow the settings, and a changed setting takes Apply's question away
+  initAdvice(() => dialogRun());
+  modal.oninput = () => {
+    hideMemoryConfirm();
+    refreshAdvice();
+  };
+  modal.onchange = modal.oninput;
+  refreshAdvice();
+
   function cleanup() {
     confirmBtn.removeEventListener('click', onConfirm);
     cancelBtn.removeEventListener('click', onCancel);
+    hideMemoryConfirm();
+    closeAdvice();
     // Mode cards don't need cleanup as they're recreated each time
   }
 
@@ -1794,6 +1824,7 @@ function enterContests({ entry } = {}) {
   state.useSineWave = false;
   state.useSandpile = false;
   pendingShapeKey = null;
+  memoryNote(null); // a refused run's note stays with its mode (#123)
   stopExplore(); // its Worker and view go
   resetControlsUI();
   initControls(); // the title and the GPU toggle follow the mode
@@ -1878,6 +1909,12 @@ function calculateDeathRules(survival, maxNeighbors) {
   }
   
   return { isolation, overcrowding };
+}
+
+/** `value` as a whole number of at least 1, or `fallback` if it isn't one (an empty field). */
+function positiveInt(value, fallback) {
+  const n = parseInt(value);
+  return Number.isFinite(n) && n >= 1 ? n : fallback;
 }
 
 function parseRule(str) {
