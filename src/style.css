@@ -82,7 +82,7 @@
   gap: 8px;
 }
 
-.company-modal-links a {
+.company-modal-links .company-modal-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -91,7 +91,7 @@
   text-decoration: none;
 }
 
-.company-modal-links svg {
+.company-modal-links .company-modal-link svg {
   margin-right: 8px;
 }
 
