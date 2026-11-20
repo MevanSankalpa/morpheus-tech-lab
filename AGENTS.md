@@ -47,7 +47,8 @@ test/                    `npm test` (Node's built-in node:test, no dependency): 
                          against convolve3D() (dense.test.js); an arena that wraps, against the reference
                          and convolve3D() with wrapping on, and the worlds refused (wrap.test.js); an arena
                          with walls, against the reference and by hand (walls.test.js);
-                         browser.test.js checks telling the browser; contests/ checks a Speed run and Verify a
+                         browser.test.js checks telling the browser; memoryAdvice.test.js checks the precomputed modes'
+                         memory estimate against real runs, and that the old caps' runs don't ask; contests/ checks a Speed run and Verify a
                          result… on worker_threads (verifyNodeWorker.js stands in for verify.worker.js) and
                          Methuselah and Classic Methuselah runs on worker_threads (discovery.test.js),
                          the panel's text (format.test.js), Watch's, Methuselah's and the ships' included, the email's text (submit.test.js)
@@ -72,7 +73,12 @@ src/
   shapeGenerators.js     Seed shapes: perlin, cube, tetrahedron, octahedron, worley, rule30
   space.js               Scene, camera, renderer, OrbitControls (stored on `state`)
   time.js                The animation loop, playback speed, auto-rotate; a vestigial clock history
-  controls.js            All UI wiring: buttons, sliders, modal, mode switching (~1,800 lines)
+  controls.js            All UI wiring: buttons, sliders, modal, mode switching (~1,900 lines); Apply's
+                         question above a high memory estimate (#123)
+  memoryAdvice.js        A precomputed run's memory estimate (grids, live cells, view, clock), the
+                         suggested ranges for a laptop and a desktop, CONFIRM_BYTES, and the dialog's
+                         texts (#123) (no DOM; tested in Node)
+  adviceControl.js       The settings dialog's range hints and their popovers (#123)
   gpu/device.js          WebGPU status ('ready', 'no-webgpu', 'no-adapter', 'device-failed') and the one GPUDevice
   gpu/engine.js          Game of Life 3D (bounded) and Rule 30 (1D, 2D) on the GPU: evolveOnGpu() yields each generation
   gpu/computeControl.js  The GPU compute toggle: its GPU/CPU badge, the remembered choice, the "why not" popover
@@ -357,11 +363,16 @@ src/
 
 - **`npm run deploy` publishes to the world immediately.** Only a maintainer runs it, from `main`,
   as a step of [RELEASING.md](RELEASING.md). Agents never deploy.
-- **Memory is `size³ × generations` bytes**, all held at once, plus each generation's `active`
-  list, which costs far more per live cell (an array of three numbers each). With the GPU the
-  step is no longer the limit: memory and rendering are (README §4). Raising the size or
-  generation limits can freeze or crash a visitor's tab; test at the new maximums, on the GPU
-  and on the CPU, before raising them.
+- **Memory is `size³ × generations` bytes**, all held at once (Rule 30 and the sandpile too:
+  `Grid3D` always allocates the whole cube), plus each generation's `active` list, which costs
+  far more per live cell (an array of three numbers each). With the GPU the step is no longer the
+  limit: memory and rendering are (README §4). The precomputed modes have no size or generation
+  cap (#123), only advice: `memoryAdvice.js` estimates a run, and above `CONFIRM_BYTES` Apply
+  asks first. That threshold is the line that is tested: a change to it, to the estimate, or to
+  what a run holds is tested with runs at the threshold, on the GPU and on the CPU, in each
+  precomputed mode, before it merges. A refused allocation (`RangeError`) ends the run with a
+  message (`initSimulation()`); a tab the browser kills for memory can't be caught, which is why
+  the confirmation exists.
 - `controls.js` re-inits on almost every input. A change there easily triggers double rebuilds.
   `initControls()` runs again on every Apply, so a handler it sets is an `onclick` property, or
   an `addEventListener` guarded to run once: a listener added twice runs twice (a toggle then
@@ -417,7 +428,8 @@ src/
 ## Known debt
 
 `console.log` runs on every frame in `updatePoints()` and on every generation. `time.js`
-still computes a clock history that nothing displays. `index.html` carries many inline styles.
+still computes a clock history that nothing displays: a 128×128 bitmap per generation, 64 KB
+each, which `memoryAdvice.js` counts now that generations have no cap. `index.html` carries many inline styles.
 Each generation's `active` list is an array of `[x, y, z]` arrays, about 40 bytes of heap per
 live cell; with the GPU computing the steps, building and holding those lists, and
 `updatePoints()` walking them every frame, is what limits grid size now.

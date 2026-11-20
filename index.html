@@ -14,6 +14,8 @@
   <div id="explore-notice" class="explore-notice" role="status" aria-live="polite">
     <div id="explore-view-note" class="explore-note" hidden></div>
     <div id="explore-end-note" class="explore-note explore-note--end" hidden></div>
+    <!-- A precomputed run whose memory the browser refused (src/simulationModel.js, #123) -->
+    <div id="sim-memory-note" class="explore-note explore-note--end" hidden></div>
   </div>
   <!-- Company (top-right) -->
   <div id="company-brand" class="company-brand-top">
@@ -87,28 +89,26 @@
               <label id="sim-size-label" class="modal-label" for="sim-size">
                 <span data-tooltip="The dimensions of the 3D simulation grid (N×N×N). Larger sizes provide more detail but require more computation.">Size</span>
               </label>
-              <span class="input-range-hint" id="sim-size-range" style="opacity: 1; display: flex; align-items: center; gap: 6px;">
-                <span style="color: rgb(0, 180, 200); font-size: 12px; font-weight: bold;">1 - 200</span>
-                <button id="company-logo-button-size" style="background: none; border: none; padding: 0; cursor: pointer; display: flex; align-items: center;">
-                  <img src="src/assets/images/morpheus-tech.png" alt="Morpheus Tech" style="width: 18px; height: 18px; opacity: 1;" />
-                </button>
-              </span>
+              <!-- Each range hint opens its advice (src/adviceControl.js, #123): the sizes that suit a
+                   laptop or a desktop, and the run's memory estimate; there is no hard cap -->
+              <button type="button" class="input-range-hint advice-hint" id="sim-size-range" popovertarget="sim-size-advice">
+                <span class="visually-hidden">Size advice, suggested range </span><span id="sim-size-range-text">1 - 200</span><span class="advice-hint-icon" aria-hidden="true">?</span>
+              </button>
+              <div id="sim-size-advice" class="advice-popover" popover role="note" aria-label="Size advice"></div>
             </div>
-            <input type="number" id="sim-size" class="glass-input" min="1" max="200" step="1" />
+            <input type="number" id="sim-size" class="glass-input" min="1" step="1" />
           </div>
           <div class="modal-field-row">
             <div class="label-row">
               <label class="modal-label" for="sim-generations">
                 <span data-tooltip="The number of simulation steps to compute. Each generation represents one evolution cycle of the cellular automaton.">Generations</span>
               </label>
-              <span class="input-range-hint" id="sim-generations-range" style="opacity: 1; display: flex; align-items: center; gap: 6px;">
-                <span id="sim-generations-range-text" style="color: rgb(0, 180, 200); font-size: 12px; font-weight: bold;">1 - 100</span>
-                <button id="company-logo-button" style="background: none; border: none; padding: 0; cursor: pointer; display: flex; align-items: center;">
-                  <img src="src/assets/images/morpheus-tech.png" alt="Morpheus Tech" style="width: 18px; height: 18px; opacity: 1;" />
-                </button>
-              </span>
+              <button type="button" class="input-range-hint advice-hint" id="sim-generations-range" popovertarget="sim-generations-advice">
+                <span class="visually-hidden">Generations advice, suggested range </span><span id="sim-generations-range-text">1 - 100</span><span class="advice-hint-icon" aria-hidden="true">?</span>
+              </button>
+              <div id="sim-generations-advice" class="advice-popover" popover role="note" aria-label="Generations advice"></div>
             </div>
-            <input type="number" id="sim-generations" class="glass-input" min="1" max="100" step="1" />
+            <input type="number" id="sim-generations" class="glass-input" min="1" step="1" />
           </div>
           <div id="rule30-2d-toggle-row" class="modal-field-row" style="display: none;">
             <label class="modal-label" for="rule30-2d-checkbox" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -255,12 +255,10 @@
               <label class="modal-label" for="sandpile-initial-sand">
                 <span data-tooltip="Optional initial amount of sand to place at the center before starting the simulation. Leave at 0 to start empty and add 1 grain per generation.">Initial Sand</span>
               </label>
-              <span class="input-range-hint" id="sandpile-initial-sand-range" style="opacity: 1; display: flex; align-items: center; gap: 6px;">
-                <span style="color: rgb(0, 180, 200); font-size: 12px; font-weight: bold;">0 - 255</span>
-                <button id="company-logo-button-sand" style="background: none; border: none; padding: 0; cursor: pointer; display: flex; align-items: center;">
-                  <img src="src/assets/images/morpheus-tech.png" alt="Morpheus Tech" style="width: 18px; height: 18px; opacity: 1;" />
-                </button>
-              </span>
+              <button type="button" class="input-range-hint advice-hint" id="sandpile-initial-sand-range" popovertarget="sandpile-sand-advice">
+                <span class="visually-hidden">Initial Sand, allowed range </span><span>0 - 255</span><span class="advice-hint-icon" aria-hidden="true">?</span>
+              </button>
+              <div id="sandpile-sand-advice" class="advice-popover" popover role="note" aria-label="Initial Sand advice"></div>
             </div>
             <input type="number" id="sandpile-initial-sand" class="glass-input" min="0" max="255" step="1" value="0" />
           </div>
@@ -271,6 +269,14 @@
         <div class="modal-actions-buttons">
         <button id="shapeCancel" class="glass-button">Cancel</button>
         <button id="shapeConfirm" class="glass-button">Apply</button>
+        </div>
+      </div>
+      <!-- Above a high memory estimate, Apply asks first (#123) -->
+      <div id="memory-confirm" class="memory-confirm" role="alertdialog" aria-labelledby="memory-confirm-text" hidden>
+        <p id="memory-confirm-text"></p>
+        <div class="modal-actions-buttons">
+          <button type="button" id="memory-confirm-back" class="glass-button">Change settings</button>
+          <button type="button" id="memory-confirm-run" class="glass-button">Run anyway</button>
         </div>
       </div>
     </div>
@@ -2550,6 +2556,104 @@
     font-weight: 400;
     line-height: 1.2;
     letter-spacing: 0.2px;
+  }
+  /* A range hint is a button that opens its advice (#123) */
+  .advice-hint {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 4px;
+    margin-right: -4px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    font-family: inherit;
+    color: rgb(0, 180, 200);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .advice-hint:hover,
+  .advice-hint:focus-visible {
+    background: rgba(0, 180, 200, 0.12);
+  }
+  .advice-hint:focus-visible {
+    outline: 2px solid rgba(0, 180, 200, 0.8);
+    outline-offset: 1px;
+  }
+  .advice-hint-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    font-size: 10px;
+    line-height: 1;
+  }
+  /* Its popover, in the top layer under the hint; adviceControl.js places it */
+  .advice-popover {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    width: 300px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    background: rgba(35, 45, 60, 0.97);
+    border: 1px solid rgba(120, 180, 255, 0.4);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    color: rgba(200, 220, 255, 0.95);
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: left;
+  }
+  .advice-popover p {
+    margin: 0 0 8px;
+  }
+  .advice-popover p:last-child {
+    margin-bottom: 0;
+  }
+  .advice-popover .advice-estimate {
+    font-weight: 600;
+    color: rgba(230, 240, 255, 1);
+  }
+  .advice-popover .advice-detail {
+    color: rgba(180, 195, 220, 0.9);
+    font-size: 12px;
+  }
+  .advice-popover dl {
+    margin: 0 0 8px;
+  }
+  .advice-popover dt {
+    font-weight: 600;
+  }
+  .advice-popover dd {
+    margin: 0 0 4px;
+  }
+  /* Apply's question above a high estimate, under the dialog's buttons */
+  .memory-confirm {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 170, 90, 0.7);
+    border-radius: 8px;
+    background: rgba(60, 45, 35, 0.6);
+    color: rgba(240, 225, 210, 0.95);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .memory-confirm[hidden] {
+    display: none;
+  }
+  .memory-confirm p {
+    margin: 0 0 10px;
+  }
+  .memory-confirm .modal-actions-buttons {
+    justify-content: flex-end;
   }
   /* Tooltip styles for elements with data-tooltip attribute */
   [data-tooltip] {

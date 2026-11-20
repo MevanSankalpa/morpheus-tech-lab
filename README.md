@@ -272,6 +272,17 @@ Ryzen 5 5500U and its integrated Radeon GPU:
 | Game of Life 3D (bounded), 30% of all cells alive | 5–6 min | 5–6 s |
 | Rule 30 2D | 0.6 s | 0.1 s |
 
+**Size and generations are advice, not caps.** Game of Life 3D (bounded), Rule 30, Sine Wave and
+Abelian Sandpile take any size and any number of generations. The range beside each field in the
+settings dialog is what a typical laptop runs comfortably at the other settings; click it for the
+run's memory estimate, the ranges for a typical laptop (1.5 GB) and a strong desktop (4 GB), and
+what happens past them: a slower precompute, a stuttering view, and at last the browser refusing
+the memory, which stops the run with a message, or closing the tab, which no page can catch. Above
+an estimate of 2 GB, Apply asks before it starts. The estimate counts every grid exactly; the live
+cells it can only guess before the run (Game of Life 3D (bounded)'s guess follows the default
+rules). Abelian Sandpile's Initial Sand stays 0 to 255, since each cell holds its grains in one
+byte.
+
 **Where it stops now.** With the GPU, computing the generations is no longer the limit. The
 whole run is kept in memory so you can scrub and reverse it: one byte per cell per generation,
 plus about 40 bytes of JavaScript memory per live cell per generation for drawing. A browser tab

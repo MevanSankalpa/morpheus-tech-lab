@@ -173,7 +173,7 @@ export function animate(currentTime) {
     } else if (elapsedSim >= baseInterval / simSpeed) {
       lastUpdateTime = currentTime;
 
-      if (state.isPlaying) {
+      if (state.isPlaying && state.simulationData?.length) { // none after a refused run (#123)
         const totalGens = state.simulationData.length;
         state.currentGen = state.isReversing
           ? (state.currentGen - 1 + totalGens) % totalGens

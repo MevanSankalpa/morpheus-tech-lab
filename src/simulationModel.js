@@ -3,6 +3,7 @@ import { generateSimulation } from './matrixFunctions';
 import { state } from "./state.js";
 import { initControls } from './controls.js';
 import { initSpace } from './space.js';
+import { isOutOfMemory, outOfMemoryText } from './memoryAdvice.js';
 
 // Each rebuild gets a number. A GPU run awaits the GPU, so another rebuild can start while one
 // is computing; only the latest one may write its result.
@@ -13,6 +14,15 @@ export async function initSimulation() {
   // Show loading overlay
   const overlay = document.getElementById('loading-overlay');
   if (overlay) overlay.classList.remove('hidden');
+  memoryNote(null);
+  // What this run asks for, to say so if the browser refuses its memory (#123)
+  const asked = {
+    mode: state.useSandpile ? 'sandpile' : state.useSineWave ? 'sineWave'
+      : state.useRule30_2D ? 'rule30_2D' : state.useRule30 ? 'rule30' : 'gameOfLife',
+    size: state.sim_size,
+    generations: state.sim_generations,
+    initialSand: state.sandpileParams?.initialSand,
+  };
 
   try {
     // Yield to the browser so the overlay can paint before heavy work
@@ -110,11 +120,27 @@ export async function initSimulation() {
     }
   } catch (err) {
     console.error('Failed to initialize simulation:', err);
+    // The browser refused the memory (#123): what was built goes, the view stays empty, and the
+    // page says why; the settings dialog and the other modes keep working
+    if (isOutOfMemory(err) && run === latestRun) {
+      state.simulationData = null;
+      state.simulationModel = null;
+      state.isPlaying = false;
+      memoryNote(outOfMemoryText(asked));
+    }
   } finally {
     if (overlay && run === latestRun) overlay.classList.add('hidden');
   }
 }
 
+
+/** Shows `text` at the top of the page, or hides the note when it is null. */
+export function memoryNote(text) {
+  const el = document.getElementById('sim-memory-note');
+  if (!el) return;
+  el.hidden = !text;
+  el.textContent = text ?? '';
+}
 
 // Point Cloud
 async function buildSimulationModel(simSize, depth) {
